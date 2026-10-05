@@ -1,0 +1,61 @@
+# VHS drives a real terminal: Jobs, Runs, Flows, Leases and expanded steps.
+Output board.gif
+
+Set Shell bash
+Set FontFamily "JetBrainsMono Nerd Font"
+Set FontSize 15
+Set Width 1400
+Set Height 520
+Set Padding 20
+Set Theme "Catppuccin Mocha"
+
+Hide
+Type "herdr-kata board" Enter
+Sleep 3s
+Show
+
+# Jobs — what is scheduled, on which model, and what it last did.
+Type "1"
+Sleep 2s
+Screenshot board-jobs.png
+
+# Runs — what happened, including the one that failed and parked there.
+Type "2"
+Sleep 2s
+Screenshot board-runs.png
+
+# A two-step run opened up: a flow is one row, its steps sit underneath it.
+Type "jjj"
+Sleep 1s
+Type " "
+Sleep 2s
+Screenshot board-steps.png
+Type " "
+Sleep 1s
+
+# Flows — what is callable, what each takes, and when it last ran. This is the
+# launcher: enter runs one and asks for its input first.
+#
+# The sleep before the keystroke is not padding. Late in a tape VHS will take
+# the screenshot before the terminal has caught up with the key, and the result
+# is a still of the shell rather than the board — silently, with no error and a
+# file that still gets written.
+Sleep 1s
+Type "3"
+Sleep 1s
+# Onto the flow that actually has a sequence worth inspecting: the panel is
+# where a flow's steps live, and parking the cursor on a one-step flow shows
+# the panel without showing what it is for.
+Type "jjjj"
+Sleep 2s
+Screenshot board-flows.png
+Sleep 1s
+
+# Leases — explicit coordinator scope, holder, run, expiry and reason.
+Type "4"
+Sleep 2s
+Screenshot board-leases.png
+Sleep 1s
+
+Type "q"
+Sleep 2s

@@ -1,0 +1,66 @@
+id = "salmonumbrella.herdr-kata"
+name = "Herdr Kata"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Agent harness: schedules work and runs each job as an interactive Herdr agent"
+platforms = ["linux", "macos", "windows"]
+
+# Herdr fetches only the requested commit into FETCH_HEAD, without local tags.
+# Fetch tag refs too so Go can embed an exact release tag in the binary. Keep
+# the checkout shallow: a commit between releases reports its source revision.
+[[build]]
+command = ["git", "fetch", "--depth", "1", "origin", "refs/tags/*:refs/tags/*"]
+
+# Go embeds the identity itself; neither make nor a committed VERSION is needed.
+[[build]]
+command = ["go", "build", "-o", "./bin/herdr-kata", "./cmd/herdr-kata"]
+
+# One-shot reconciliation. A server restart or live handoff can leave run tabs
+# whose runs the store still believes are active; this adopts or parks them.
+# It must exit, not supervise: the scheduler is started detached by the hook
+# below and kept alive by the sentinel, so jobs still fire once this returns.
+[[startup]]
+command = ["./bin/herdr-kata", "ensure"]
+
+# The scheduler. --detach spawns it and exits, because a startup hook is
+# reaped rather than supervised. It fires again on live handoff, so the daemon
+# holds a lock file: every start after the first is a no-op.
+[[startup]]
+command = ["./bin/herdr-kata", "daemon", "--detach", "--tick", "5s"]
+
+# The board, opened in herdr-kata's own workspace and left unfocused. Herdr's
+# sidebar can only be reached through its agents list, and the board's pane is
+# what herdr-kata reports itself as, so this is what makes herdr-kata a row above
+# Spaces instead of a plugin somebody has to remember a keybinding for. It is a
+# no-op when a board is already open, which is the case on every live handoff.
+[[startup]]
+command = ["./bin/herdr-kata", "board", "--pin"]
+
+[[panes]]
+id = "board"
+title = "Herdr Kata"
+placement = "split"
+command = ["./bin/herdr-kata", "board"]
+
+# Was `job run --pick`, a flag that never existed: `job run` reads argv[0] as a
+# job id, so the action failed every time it was invoked. Picking a job is what
+# the board is for — this opens it, and `R` runs whatever is selected.
+[[actions]]
+id = "run-now"
+title = "Herdr Kata: pick a job and run it"
+contexts = ["workspace"]
+command = ["./bin/herdr-kata", "board-wide"]
+
+[[actions]]
+id = "parked"
+title = "Herdr Kata: show parked runs"
+contexts = ["workspace"]
+command = ["./bin/herdr-kata", "run", "list", "--state", "parked"]
+
+# Opens the board as a full-width horizontal split. Bind a key to
+# `salmonumbrella.herdr-kata.board-wide` to get it in one keystroke.
+[[actions]]
+id = "board-wide"
+title = "Herdr Kata: open board (wide)"
+contexts = ["workspace"]
+command = ["./bin/herdr-kata", "board-wide"]
