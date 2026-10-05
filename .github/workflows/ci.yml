@@ -1,0 +1,30 @@
+# What has to pass before a merge, run where nobody can forget it.
+#
+# `make ci` also runs locally: formatting, build, vet, race tests and supported
+# target compilation. Cross-build success is compilation evidence only.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Runs the actual project commands, including target compilation. Native
+      # daemon/Herdr smoke is opt-in locally until a compatible published Kata
+      # producer is available; CI does not substitute the retired API fixture.
+      - name: project checks
+        run: make ci

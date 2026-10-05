@@ -1,0 +1,293 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/salmonumbrella/herdr-kata/internal/lockfile"
+	"github.com/salmonumbrella/herdr-kata/internal/statefs"
+	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/version"
+)
+
+// A rebuilt herdr-kata does not reach the fleet until the pair is restarted, and
+// nothing restarted it.
+//
+// `herdr-kata ensure` starts a role only when its lock is free, which is the right
+// rule for "is anything running" and the wrong one for "is what is running the
+// build on disk". The two questions had the same answer for as long as herdr-kata
+// was only ever started fresh; they stopped having it the moment a fix was
+// merged under a live scheduler.
+//
+// The incident: the daemon and sentinel started on 2026-08-29 19:26 and were
+// still serving that build on 2026-09-05, seven days and eight merges later.
+// Two of those merges were the ones that write a park's reason into its note —
+// so when the account's session limit stopped three scheduled runs on 09-04,
+// each parked with an empty note, and the self-heal job listed three healthy
+// jobs as broken. The fix was on disk the whole time. Nothing was executing it.
+//
+// So each role stamps what it is running beside its lock, and ensure compares
+// that against itself. A role whose stamp is missing or names another build is
+// restarted — but only while the fleet is idle: a restart with runs in flight
+// strands them, which is a worse fault than the stale build it cures.
+
+// buildStamp is what a running role records about the build serving it.
+type buildStamp struct {
+	// Version is version.String() for the running binary — a tag, or the
+	// commit it was built from.
+	Version string `json:"version"`
+	// Exe is the path the role was started from. Compared so that a herdr-kata
+	// run out of a worktree or a scratch build never restarts the installed
+	// pair: two different installs are not two builds of one install.
+	Exe string `json:"exe"`
+	// PID is the process to signal. The lock file carries one too; this one is
+	// kept so a stamp read on its own says who wrote it.
+	PID int `json:"pid"`
+	// Started is when that process took its lock.
+	Started time.Time `json:"started"`
+}
+
+// buildStampPath is where a role records its build, beside its lock.
+func buildStampPath(role string) string {
+	return filepath.Join(stateDir(), role+".build")
+}
+
+// currentStamp describes the build making the call.
+//
+// An executable path that cannot be resolved is left empty rather than guessed:
+// an empty path compares unequal to every recorded one, which makes this side
+// of the comparison decline to act instead of acting on a wrong answer.
+func currentStamp() buildStamp {
+	exe, err := os.Executable()
+	if err != nil {
+		exe = ""
+	}
+	return buildStamp{
+		Version: version.String(),
+		Exe:     resolvePath(exe),
+		PID:     os.Getpid(),
+		Started: time.Now().UTC(),
+	}
+}
+
+// recordBuildStamp is called by a role once it holds its lock.
+//
+// Best-effort and silent, for the reason writeErrFile is: a role that is
+// running must not fail to start because a note about it could not be written.
+// A missing stamp is read as "some build that did not stamp", which is the
+// truth and is exactly the build this whole mechanism was added to evict.
+func recordBuildStamp(role string) {
+	b, err := json.Marshal(currentStamp())
+	if err != nil {
+		return
+	}
+	// The state directory is created by whatever opens the store, and a role
+	// can hold its lock before that has happened on a fresh machine.
+	if err := os.MkdirAll(stateDir(), statefs.Dir); err != nil {
+		return
+	}
+	_ = os.WriteFile(buildStampPath(role), append(b, '\n'), statefs.File)
+}
+
+// readBuildStamp reports what a role recorded, and whether it recorded anything.
+func readBuildStamp(role string) (buildStamp, bool) {
+	b, err := os.ReadFile(buildStampPath(role))
+	if err != nil {
+		return buildStamp{}, false
+	}
+	var s buildStamp
+	if err := json.Unmarshal(b, &s); err != nil {
+		return buildStamp{}, false
+	}
+	return s, true
+}
+
+// staleAgainst reports whether a running role's stamp calls for a restart, and
+// says why in the words the operator will read.
+//
+// The three cases are deliberately not one:
+//   - no stamp: the role predates stamping, so it is by definition an older
+//     build than the one asking. This is the case that evicts the pair once,
+//     the first time a stamping build runs ensure.
+//   - a different install: not this build's business. A worktree build or a
+//     `go run` must never restart the installed scheduler, because it would be
+//     replacing the fleet's binary with one nobody deployed.
+//   - a different version from the same path: the build was replaced in place,
+//     which is what `make build` does.
+func staleAgainst(running buildStamp, found bool, current buildStamp) (bool, string) {
+	if !found {
+		return true, "running a build that recorded no version (started before herdr-kata stamped one)"
+	}
+	if current.Exe == "" || running.Exe != current.Exe {
+		// Not stale — just not ours. Said out loud because the alternative is
+		// an ensure that silently does nothing on a machine with two installs.
+		return false, fmt.Sprintf("started from %s, not %s; leaving it alone", running.Exe, current.Exe)
+	}
+	if running.Version != current.Version {
+		return true, fmt.Sprintf("running %s, on disk is %s", running.Version, current.Version)
+	}
+	return false, ""
+}
+
+// staleRole is a running role that is not the build on disk.
+type staleRole struct {
+	role string
+	pid  int
+	why  string
+}
+
+// staleRoles lists the running roles whose build is not this one.
+func staleRoles() []staleRole {
+	current := currentStamp()
+	var out []staleRole
+	for _, role := range []string{roleDaemon, roleSentinel} {
+		if !lockfile.Held(lockPath(role)) {
+			continue
+		}
+		running, found := readBuildStamp(role)
+		stale, why := staleAgainst(running, found, current)
+		if !stale {
+			continue
+		}
+		out = append(out, staleRole{role: role, pid: lockfile.PIDOf(lockPath(role)), why: why})
+	}
+	return out
+}
+
+// runsInFlight counts the runs that could still be stranded by a restart.
+//
+// The idle check, and the reason this is not simply a kill: a scheduler
+// stopped mid-run leaves its agent unwatched and the row stuck at "running"
+// until reconcile corrects it. The stale build costs one wrong note per park;
+// stranding a live run costs the run. So the restart waits, and the two-minute
+// ensure timer means waiting is cheap — the next idle moment is minutes away,
+// not days.
+//
+// The count is not simply every row that says "running", because some of them
+// say it forever. A run's outcome is written by the process that launched it,
+// so a row whose launcher died leaves no result and names no agent, and
+// reconcile has nothing left to judge it by: two such rows on this machine had
+// been "running" since 2026-07-31 and 2026-08-04. Counting those would make the
+// fleet permanently busy, and a restart that waits for an idle moment that can
+// never arrive is a restart that never happens — the exact fault this file was
+// written to cure, reintroduced one level up.
+//
+// So a row only counts while it could still be true. A run cannot outlive its
+// job's own timeout, and past that it is not a run any more, only a row: a
+// restart can strand nothing that already ended.
+func runsInFlight(ctx context.Context, s *store.Store) (int, error) {
+	runs, err := s.Runs(ctx, string(store.StepRunning), 200)
+	if err != nil {
+		return 0, err
+	}
+	now := time.Now()
+	n := 0
+	for _, r := range runs {
+		timeout := jobTimeout(ctx, s, r.JobID)
+		if r.StartedAt.IsZero() || now.Sub(r.StartedAt) < timeout+inFlightGrace {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// inFlightGrace is how long past its timeout a run is still given the benefit
+// of the doubt. A job is killed at its timeout, but the row settles a moment
+// later and clocks differ; an hour is far beyond that and still far short of
+// the days a genuinely stranded row sits there.
+const inFlightGrace = time.Hour
+
+// defaultJobTimeout bounds a run belonging to a job that declares no timeout of
+// its own, or to a job that no longer exists. Generous on purpose: this decides
+// whether the fleet counts as busy, and the cost of guessing too long is one
+// more ensure tick, while the cost of guessing too short is a stranded run.
+const defaultJobTimeout = 6 * time.Hour
+
+// jobTimeout is how long the job behind a run was allowed to take.
+func jobTimeout(ctx context.Context, s *store.Store, jobID string) time.Duration {
+	if jobID == "" {
+		return defaultJobTimeout
+	}
+	j, err := s.Job(ctx, jobID)
+	if err != nil || j == nil || j.Timeout <= 0 {
+		return defaultJobTimeout
+	}
+	return j.Timeout
+}
+
+// restartTimeout bounds waiting for a signalled role to drop its lock. The
+// roles exit on a cancelled context between two five-second watch ticks, so
+// this is several times the expected wait and still short enough that an
+// ensure invocation cannot hang a startup hook.
+const restartTimeout = 30 * time.Second
+
+// restartStaleRoles brings the running pair onto the build on disk.
+//
+// Both roles are signalled before either is restarted, because they revive each
+// other: restarting the daemon while the old sentinel still watches would have
+// the old build spawn the replacement, which is the fault this is curing.
+//
+// It reports what it did rather than returning an error for a fleet it chose
+// not to touch. A busy fleet, a foreign install and a pair already on the right
+// build are all correct outcomes, and none of them is a failure of ensure.
+func restartStaleRoles(ctx context.Context, s *store.Store, w *os.File) error {
+	stale := staleRoles()
+	if len(stale) == 0 {
+		return nil
+	}
+	for _, sr := range stale {
+		fmt.Fprintf(w, "herdr-kata: %s is stale — %s\n", sr.role, sr.why)
+	}
+	n, err := runsInFlight(ctx, s)
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		fmt.Fprintf(w, "herdr-kata: %d run(s) in flight; leaving the stale pair alone until the fleet is idle\n", n)
+		return nil
+	}
+	for _, sr := range stale {
+		if sr.pid <= 0 {
+			continue
+		}
+		if err := terminatePID(sr.pid); err != nil {
+			fmt.Fprintf(w, "herdr-kata: stop %s (pid %d): %v\n", sr.role, sr.pid, err)
+		}
+	}
+	for _, sr := range stale {
+		if !awaitLockFree(lockPath(sr.role), restartTimeout) {
+			return fmt.Errorf("%s (pid %d) still holds its lock %s after %s",
+				sr.role, sr.pid, lockPath(sr.role), restartTimeout)
+		}
+	}
+	if err := EnsureRunning(); err != nil {
+		return err
+	}
+	for _, sr := range stale {
+		fmt.Fprintf(w, "herdr-kata: restarted %s on %s\n", sr.role, version.String())
+	}
+	return nil
+}
+
+// awaitLockFree waits for a signalled role to let go of its lock.
+func awaitLockFree(path string, within time.Duration) bool {
+	deadline := time.Now().Add(within)
+	for {
+		if !lockfile.Held(path) {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(lockPollInterval)
+	}
+}
+
+// lockPollInterval is how often the wait above re-probes. Held takes the lock
+// and drops it again, so this is not free; a tenth of a second is far below
+// the shutdown it is waiting on and far above the cost of the probe.
+const lockPollInterval = 100 * time.Millisecond
