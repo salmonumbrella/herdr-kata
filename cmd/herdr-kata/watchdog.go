@@ -180,7 +180,11 @@ func spawnRole(role string, args ...string) error {
 	// Recorded after the start, because the pid is the handle a person needs
 	// and there is no pid until there is a process.
 	recordStray(role, cmd.Process.Pid, stateDir())
-	return cmd.Process.Release()
+	// A long-lived board or peer remains the child's parent even after setsid.
+	// Releasing its handle leaves an exited child as a zombie until that parent
+	// exits; reap asynchronously without waiting for the running role here.
+	go func() { _ = cmd.Wait() }()
+	return nil
 }
 
 // EnsureRunning starts both roles if they are not already up.
@@ -292,8 +296,19 @@ func resolvePath(p string) string {
 	if err != nil {
 		abs = filepath.Clean(p)
 	}
-	if real, err := filepath.EvalSymlinks(abs); err == nil {
-		return real
+	// Resolve the existing parent too when the final store has not been
+	// created yet. macOS /tmp and /var are links into /private; falling back
+	// to the unresolved whole path would let missing scratch stores through.
+	probe, suffix := abs, ""
+	for {
+		if real, err := filepath.EvalSymlinks(probe); err == nil {
+			return filepath.Join(real, suffix)
+		}
+		parent := filepath.Dir(probe)
+		if parent == probe {
+			return abs
+		}
+		suffix = filepath.Join(filepath.Base(probe), suffix)
+		probe = parent
 	}
-	return abs
 }

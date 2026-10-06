@@ -225,7 +225,7 @@ func (b Bridge) Deliver(ctx context.Context, recipient string, requests []Reques
 		case state.Workspace != entry.Registration.Workspace || state.Pane != entry.Registration.Pane || state.Conversation != entry.Registration.Conversation || state.Agent != entry.Registration.Agent || state.SessionKind != entry.Registration.SessionKind || state.SessionSource != entry.Registration.SessionSource:
 			result.State = "needs-human"
 			result.Reason = "runtime conversation identity changed; reconnect explicitly"
-		case state.Status != "idle" || state.Draft:
+		case (state.Status != "idle" && state.Status != "done") || state.Draft:
 			result.State = "pending"
 		case entry.Last == fingerprint:
 			result.State = "coalesced"

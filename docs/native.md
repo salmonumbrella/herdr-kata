@@ -337,7 +337,9 @@ Each exact address has its own inbox. Reading `worker` never aggregates
 replaceable slot per issue/recipient, so concurrent replacement/clear can race.
 The local bridge retains busy or unavailable attention and validates the exact
 runtime conversation, pane and workspace. Generic Herdr currently requires
-manual wake; it never automatically types a request into an agent. Capability-
+manual wake for an idle or completed conversation with safe input; it never
+automatically types a request into an agent. Working, blocked, or drafted input
+keeps attention pending. Capability-
 bearing transports must atomically guard idle state, conversation and draft at
 submission. Disconnect stale registrations with `teammate disconnect --for ...`;
 registration and wake coalescing survive a local restart.

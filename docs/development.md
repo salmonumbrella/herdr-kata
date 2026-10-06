@@ -34,8 +34,8 @@ run the reusable release procedure from a clean checkout at `origin/main`:
 
 ```bash
 scripts/release.sh --check-only v0.1.0
-scripts/release.sh --draft v0.1.0 /path/to/release-notes.md "v0.1.0 — fixes and clearer versions"
-scripts/release.sh --publish v0.1.0 /path/to/release-notes.md "v0.1.0 — fixes and clearer versions"
+scripts/release.sh --draft v0.1.0 /path/to/release-notes.md "v0.1.0"
+scripts/release.sh --publish v0.1.0 /path/to/release-notes.md "v0.1.0"
 herdr plugin install salmonumbrella/herdr-kata --ref v0.1.0 --yes
 ```
 
@@ -46,6 +46,13 @@ clear any inherited `HERDR_KATA_HOME`, and retain the existing Go caches;
 Git and GitHub CLI keep the original home and credentials. It publishes source-only
 releases, refuses to move existing tags, and can resume a draft or a failed
 publication safely. Go, Git and GitHub CLI must be on `PATH`.
+
+For a prerelease, create the draft with the script, then publish it explicitly as
+a prerelease after validation:
+
+```bash
+gh release edit v0.1.0 --prerelease --draft=false --verify-tag
+```
 
 Without `--ref`, Herdr installs the repository's default HEAD, which can be newer
 than the latest release. A `go install …@<pseudo-version>` binary likewise reports

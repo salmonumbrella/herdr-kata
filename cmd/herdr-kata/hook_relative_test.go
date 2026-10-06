@@ -12,7 +12,13 @@ import (
 )
 
 func TestInstalledHookWorksWithRelativeStateOverride(t *testing.T) {
-	t.Chdir(t.TempDir())
+	// The shell's PWD is physical. Use the same directory spelling for this
+	// relative-path test on macOS, where the default temp root is a symlink.
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(base)
 	dir := "state"
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)

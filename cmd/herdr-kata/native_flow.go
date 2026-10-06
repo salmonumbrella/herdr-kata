@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/salmonumbrella/herdr-kata/internal/flow"
@@ -73,7 +72,7 @@ func runNativeFlow(ctx context.Context, s *store.Store, j store.Job, rec store.R
 	}
 	mapped := false
 	for _, checkout := range s.Native.Binding.Checkouts {
-		if j.CWD != "" && filepath.Clean(j.CWD) == filepath.Clean(checkout) {
+		if j.CWD != "" && resolvePath(j.CWD) == resolvePath(checkout) {
 			mapped = true
 		}
 	}

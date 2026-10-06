@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +29,12 @@ func TestRealTask10HerdrPackagingSmoke(t *testing.T) {
 	}
 	// Unix-domain socket paths include the config root and session name; keep
 	// this owned root short instead of nesting beneath Go's long test name.
-	root, err := os.MkdirTemp("", "hk10-")
+	tempRoot := ""
+	if runtime.GOOS == "darwin" {
+		// macOS's default TMPDIR alone can consume most of sun_path.
+		tempRoot = "/private/tmp"
+	}
+	root, err := os.MkdirTemp(tempRoot, "hk10-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +58,8 @@ func TestRealTask10HerdrPackagingSmoke(t *testing.T) {
 	if raw, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("package build: %v %s", err, raw)
 	}
-	session := fmt.Sprintf("task10-%d", time.Now().UnixNano())
+	// The unique config root already isolates the named session.
+	session := "smoke"
 	// Explicit OS/toolchain allowlist; all credentials, targets, hosted ports,
 	// proxies, live Herdr socket/caller context and user config are absent.
 	env := []string{}
@@ -138,6 +144,15 @@ func TestRealTask10HerdrPackagingSmoke(t *testing.T) {
 	cmd := exec.CommandContext(t.Context(), binary, "flow", "run", def.UID)
 	cmd.Env = env
 	cmd.Dir = c.Target.Workspace
+	if runtime.GOOS != "windows" {
+		// Shells report the canonical cwd even when the mapped checkout uses a
+		// symlink (including macOS /tmp). Exercise that real execution boundary.
+		checkout := filepath.Join(root, "checkout")
+		if err := os.Symlink(c.Target.Workspace, checkout); err != nil {
+			t.Fatal(err)
+		}
+		cmd.Args = append(cmd.Args, "--cwd", checkout)
+	}
 	result, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("real native/Herdr shell flow: %v %s", err, result)

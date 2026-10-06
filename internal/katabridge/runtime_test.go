@@ -126,6 +126,34 @@ func TestGenericRuntimeNeverTypesAndReadsDoNotClear(t *testing.T) {
 	}
 }
 
+func TestGenericCompletedRuntimeOffersManualWake(t *testing.T) {
+	for _, tc := range []struct {
+		name, status, conversation, want string
+		draft                            bool
+	}{
+		{"completed", "done", "session", "needs-human", false},
+		{"completed with draft", "done", "session", "pending", true},
+		{"working", "working", "session", "pending", false},
+		{"blocked", "blocked", "session", "pending", false},
+		{"foreign", "done", "foreign", "needs-human", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := Bridge{Dir: t.TempDir(), Scope: Scope{TargetKey: "target", ProjectUID: "project", Actor: "worker"}}
+			r := Registration{Recipient: "worker/child", Workspace: "w1", Pane: "p1", Conversation: "session"}
+			if err := b.Connect(r); err != nil {
+				t.Fatal(err)
+			}
+			result, err := b.Deliver(t.Context(), r.Recipient, []Request{{Ref: "abcd", Message: "Review"}}, genericRuntime{RuntimeState{Workspace: "w1", Pane: "p1", Conversation: tc.conversation, Status: tc.status, Draft: tc.draft}})
+			if err != nil || result.State != tc.want {
+				t.Fatalf("delivery=%+v err=%v", result, err)
+			}
+			if tc.name == "completed" && (result.Reason != "generic Herdr requires manual wake" || result.Prompt == "") {
+				t.Fatalf("completed conversation has no manual handoff: %+v", result)
+			}
+		})
+	}
+}
+
 func TestGuardedTransportAtomicallyRejectsDraftAppearingAfterInspection(t *testing.T) {
 	b := Bridge{Dir: t.TempDir(), Scope: Scope{TargetKey: "target", ProjectUID: "project", Actor: "worker"}}
 	r := Registration{Recipient: "worker/child", Workspace: "w1", Pane: "p1", Conversation: "session"}
