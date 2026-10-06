@@ -5,17 +5,17 @@ import (
 	"testing"
 )
 
-func TestFlowResumeUsageNamesTheReferenceOverride(t *testing.T) {
+func TestWorkflowResumeUsageNamesTheReferenceOverride(t *testing.T) {
 	t.Setenv("HERDR_KATA_HOME", t.TempDir())
-	err := flowResume(nil)
+	err := workflowResume(nil)
 	if err == nil || !strings.Contains(err.Error(), "[--ref <value>]") {
 		t.Fatalf("usage error = %v, want the reference override", err)
 	}
 }
 
-func TestFlowRunUsageNamesTheReferenceFlag(t *testing.T) {
+func TestWorkflowRunUsageNamesTheReferenceFlag(t *testing.T) {
 	t.Setenv("HERDR_KATA_HOME", t.TempDir())
-	err := flowRun(nil)
+	err := workflowRun(nil)
 	if err == nil || !strings.Contains(err.Error(), "[--ref <value>]") {
 		t.Fatalf("usage error = %v, want the reference flag", err)
 	}

@@ -229,29 +229,29 @@ func TestRunShowPrintsTheRunAndWhereItsArtifactsAre(t *testing.T) {
 	}
 }
 
-// A flow run's steps are recorded separately and shown by another command.
+// A workflow run's steps are recorded separately and shown by another command.
 // Saying how many there are is what tells a reader that the per-run view is
 // not the whole story.
-func TestRunShowPointsAtTheStepsOfAFlowRun(t *testing.T) {
+func TestRunShowPointsAtTheStepsOfAWorkflowRun(t *testing.T) {
 	ctx := runCmdEnv(t)
 	s := storeForEnv(t)
-	putRun(t, s, store.Run{ID: "flowrun", JobID: "nightly", Outcome: "done", Flow: "nightly"})
+	putRun(t, s, store.Run{ID: "workflowrun", JobID: "nightly", Outcome: "done", Workflow: "nightly"})
 	for i, id := range []string{"gather", "write"} {
 		if err := s.PutRunStep(ctx, store.RunStep{
-			RunID: "flowrun", Index: i, StepID: id, Kind: "agent", Outcome: "done",
+			RunID: "workflowrun", Index: i, StepID: id, Kind: "agent", Outcome: "done",
 		}); err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	out, err := captureStdout(t, func() error { return runShow([]string{"flowrun"}) })
+	out, err := captureStdout(t, func() error { return runShow([]string{"workflowrun"}) })
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, "steps") || !strings.Contains(out, "2") {
 		t.Errorf("run show did not report the 2 steps:\n%s", out)
 	}
-	if !strings.Contains(out, "flow status flowrun") {
+	if !strings.Contains(out, "workflow status workflowrun") {
 		t.Errorf("run show did not name the command that shows the steps:\n%s", out)
 	}
 }

@@ -34,8 +34,8 @@ func TestJobAddRejectsIncompleteJobs(t *testing.T) {
 		want string
 	}{
 		{"no id", []string{"--prompt", "hi"}, "--id is required"},
-		{"no prompt and no flow", []string{"--id", "x"}, "--prompt is required"},
-		{"prompt and flow together", []string{"--id", "x", "--prompt", "hi", "--flow", "f"},
+		{"no prompt and no workflow", []string{"--id", "x"}, "--prompt is required"},
+		{"prompt and workflow together", []string{"--id", "x", "--prompt", "hi", "--workflow", "f"},
 			"not both"},
 		{"cron schedule without an expression",
 			[]string{"--id", "x", "--prompt", "hi", "--schedule", "cron"}, "--cron"},

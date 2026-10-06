@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// Validation is where a flow's two house rules live: no step may run on
+// Validation is where a workflow's two house rules live: no step may run on
 // haiku, and no two steps may share an id. Both are cheap to state and
-// expensive to discover at 04:00, which is when an unattended flow runs.
+// expensive to discover at 04:00, which is when an unattended workflow runs.
 
 func newSteps(t *testing.T) *Store {
 	t.Helper()
@@ -21,7 +21,7 @@ func newSteps(t *testing.T) *Store {
 	return s
 }
 
-// The floor is sonnet. A flow is exactly where a cheap model quietly does
+// The floor is sonnet. A workflow is exactly where a cheap model quietly does
 // four of five steps and reports success.
 func TestValidationRejectsHaikuWhereverItIsNamed(t *testing.T) {
 	cases := []struct {
@@ -99,18 +99,18 @@ func TestARunStepNeedsNothingElse(t *testing.T) {
 	}
 }
 
-// A job names a flow; it does not carry one.
+// A job names a workflow; it does not carry one.
 //
-// The store deliberately does not validate the flow here. It is a file that a
+// The store deliberately does not validate the workflow here. It is a file that a
 // person or an agent edits without going near this code, so a check at write
 // time proves nothing about what the file says when the schedule fires — and
-// refusing to store a job whose flow does not exist yet would stop anyone
-// writing the job before the flow.
-func TestAJobRemembersWhichFlowItStartsAndWithWhat(t *testing.T) {
+// refusing to store a job whose workflow does not exist yet would stop anyone
+// writing the job before the workflow.
+func TestAJobRemembersWhichWorkflowItStartsAndWithWhat(t *testing.T) {
 	s := newSteps(t)
 	ctx := context.Background()
 	j := Job{ID: "nightly", Model: "sonnet", CWD: "/tmp", Enabled: true,
-		Flow: "triage", Input: "anything filed since yesterday"}
+		Workflow: "triage", Input: "anything filed since yesterday"}
 	if err := s.PutJob(ctx, j); err != nil {
 		t.Fatal(err)
 	}
@@ -118,50 +118,50 @@ func TestAJobRemembersWhichFlowItStartsAndWithWhat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.IsFlow() {
-		t.Error("a job naming a flow did not read back as a flow")
+	if !got.IsWorkflow() {
+		t.Error("a job naming a workflow did not read back as a workflow")
 	}
-	if got.Flow != "triage" || got.Input != "anything filed since yesterday" {
-		t.Errorf("read back flow %q input %q, want triage and the input it was given",
-			got.Flow, got.Input)
+	if got.Workflow != "triage" || got.Input != "anything filed since yesterday" {
+		t.Errorf("read back workflow %q input %q, want triage and the input it was given",
+			got.Workflow, got.Input)
 	}
 }
 
-// A job pointing at a flow nobody has written yet is still storable. Refusing
-// it would impose an order — flow first, job second — that nothing else does.
-func TestAJobMayNameAFlowThatDoesNotExistYet(t *testing.T) {
+// A job pointing at a workflow nobody has written yet is still storable. Refusing
+// it would impose an order — workflow first, job second — that nothing else does.
+func TestAJobMayNameAWorkflowThatDoesNotExistYet(t *testing.T) {
 	s := newSteps(t)
 	if err := s.PutJob(context.Background(), Job{ID: "early", Model: "sonnet",
-		CWD: "/tmp", Enabled: true, Flow: "not-written-yet"}); err != nil {
-		t.Fatalf("storing a job before its flow: %v", err)
+		CWD: "/tmp", Enabled: true, Workflow: "not-written-yet"}); err != nil {
+		t.Fatalf("storing a job before its workflow: %v", err)
 	}
 }
 
-// The run remembers which flow ran and what it was called with.
+// The run remembers which workflow ran and what it was called with.
 //
 // Not looked up from the job, and the difference matters on resume: taking
 // today's input from the job would resume a parked run as a different run, and
-// a flow called directly has no job to look anything up from.
-func TestARunRemembersItsFlowAndInput(t *testing.T) {
+// a workflow called directly has no job to look anything up from.
+func TestARunRemembersItsWorkflowAndInput(t *testing.T) {
 	s := newSteps(t)
 	ctx := context.Background()
 	if err := s.PutRun(ctx, Run{ID: "r1", JobID: "triage", Outcome: "parked",
-		StartedAt: time.Now(), Flow: "triage", Input: "PR #431"}); err != nil {
+		StartedAt: time.Now(), Workflow: "triage", Input: "PR #431"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.Run(ctx, "r1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Flow != "triage" || got.Input != "PR #431" {
-		t.Errorf("read back flow %q input %q, want what the run was started with",
-			got.Flow, got.Input)
+	if got.Workflow != "triage" || got.Input != "PR #431" {
+		t.Errorf("read back workflow %q input %q, want what the run was started with",
+			got.Workflow, got.Input)
 	}
 }
 
-// A plain job stays plain: nothing about flows may turn an ordinary one-prompt
-// job into a flow with an empty name.
-func TestAPromptOnlyJobIsNotAFlow(t *testing.T) {
+// A plain job stays plain: nothing about workflows may turn an ordinary one-prompt
+// job into a workflow with an empty name.
+func TestAPromptOnlyJobIsNotAWorkflow(t *testing.T) {
 	s := newSteps(t)
 	ctx := context.Background()
 	if err := s.PutJob(ctx, Job{ID: "plain", Prompt: "do it", Model: "sonnet",
@@ -172,14 +172,14 @@ func TestAPromptOnlyJobIsNotAFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plain.IsFlow() {
-		t.Errorf("a prompt-only job reads back as a flow named %q", plain.Flow)
+	if plain.IsWorkflow() {
+		t.Errorf("a prompt-only job reads back as a workflow named %q", plain.Workflow)
 	}
 }
 
 // The rows exist from the start of the run, so the board can say "2 of 4"
 // rather than counting only the steps that got far enough to report — and a
-// flow that died at step one still says it had four.
+// workflow that died at step one still says it had four.
 func TestSeedRunStepsDeclaresEveryStepAndKeepsWhatRan(t *testing.T) {
 	s := newSteps(t)
 	ctx := context.Background()
@@ -198,7 +198,7 @@ func TestSeedRunStepsDeclaresEveryStepAndKeepsWhatRan(t *testing.T) {
 	}
 	for i, want := range []string{"sync", "author", "verify"} {
 		if got[i].StepID != want {
-			t.Errorf("row %d is %q, want %q: the order is the flow", i, got[i].StepID, want)
+			t.Errorf("row %d is %q, want %q: the order is the workflow", i, got[i].StepID, want)
 		}
 		if got[i].Outcome != StepPending {
 			t.Errorf("%s starts as %q, want pending", got[i].StepID, got[i].Outcome)
@@ -250,7 +250,7 @@ func TestRunStepsForManyRuns(t *testing.T) {
 	}
 	if _, ok := got["run3"]; ok {
 		// An ordinary run has no steps, and the absence is what tells the board
-		// it is not a flow.
+		// it is not a workflow.
 		t.Error("a run with no steps came back with an entry")
 	}
 	if _, err := s.RunStepsFor(ctx, nil); err != nil {
@@ -258,7 +258,7 @@ func TestRunStepsForManyRuns(t *testing.T) {
 	}
 }
 
-// A backward edge is the one place a flow stops being a straight line, so what
+// A backward edge is the one place a workflow stops being a straight line, so what
 // it may say is checked before anything runs. Every case below is a loop that
 // would either never terminate or never fix anything.
 func TestValidationRejectsAnImpossibleOnFail(t *testing.T) {
@@ -304,7 +304,7 @@ func TestValidationRejectsAnImpossibleOnFail(t *testing.T) {
 	}
 }
 
-// The edge a flow is meant to declare, on both kinds of step: `go test` is the
+// The edge a workflow is meant to declare, on both kinds of step: `go test` is the
 // cheapest reviewer there is, and it should be able to hand back too.
 func TestAWorkableOnFailIsAccepted(t *testing.T) {
 	steps := []Step{
@@ -331,7 +331,7 @@ func TestAWorkableOnFailIsAccepted(t *testing.T) {
 // StepIndex is how an on_fail edge becomes a place to resume. The runner
 // compares what it returns against the failing step's own position and refuses
 // anything at or after it, so an index that is merely off — rather than absent
-// — either replays the wrong half of the flow or turns a legal backward edge
+// — either replays the wrong half of the workflow or turns a legal backward edge
 // into a hard error mid-run.
 func TestStepIndexResolvesAGotoTheWayValidationAcceptedIt(t *testing.T) {
 	steps := []Step{
@@ -349,10 +349,10 @@ func TestStepIndexResolvesAGotoTheWayValidationAcceptedIt(t *testing.T) {
 		{"the last step", "verify", 2},
 		// Validation matches ids case-insensitively and trims them, so a goto
 		// it accepted has to resolve here. If it did not, the runner would
-		// reject at runtime an edge the flow was allowed to declare.
+		// reject at runtime an edge the workflow was allowed to declare.
 		{"a goto in another case", "MAKE", 0},
 		{"a goto with surrounding space", "  test  ", 1},
-		{"a step that is not in the flow", "deploy", -1},
+		{"a step that is not in the workflow", "deploy", -1},
 		{"nothing at all", "", -1},
 	}
 	for _, c := range cases {
@@ -364,9 +364,9 @@ func TestStepIndexResolvesAGotoTheWayValidationAcceptedIt(t *testing.T) {
 	}
 }
 
-// An empty flow has no steps to find, and the answer is -1 rather than a panic
+// An empty workflow has no steps to find, and the answer is -1 rather than a panic
 // or a zero that would point at a step that does not exist.
-func TestStepIndexOnAFlowWithNoSteps(t *testing.T) {
+func TestStepIndexOnAWorkflowWithNoSteps(t *testing.T) {
 	if got := StepIndex(nil, "make"); got != -1 {
 		t.Errorf("StepIndex on no steps = %d, want -1", got)
 	}

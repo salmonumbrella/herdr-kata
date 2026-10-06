@@ -13,11 +13,11 @@ rm -rf "${HERDR_KATA_HOME:?}" && mkdir -p "$HERDR_KATA_HOME"
 
 say() { printf '\n== %s\n' "$1"; }
 
-say "flows"
-FLOWS="${HERDR_KATA_HOME:-$HOME/.herdr-kata}/flows"
-mkdir -p "$FLOWS"
+say "workflows"
+WORKFLOWS="${HERDR_KATA_HOME:-$HOME/.herdr-kata}/workflows"
+mkdir -p "$WORKFLOWS"
 
-cat > "$FLOWS/nightly-build.yml" <<'YAML'
+cat > "$WORKFLOWS/nightly-build.yml" <<'YAML'
 about: build and test on a schedule
 steps:
   - id: build
@@ -26,14 +26,14 @@ steps:
     run: go test ./internal/version/ -count=1
 YAML
 
-cat > "$FLOWS/docs-sweep.yml" <<'YAML'
+cat > "$WORKFLOWS/docs-sweep.yml" <<'YAML'
 about: count the docs
 steps:
   - id: count
     run: ls -1 /src/*.md | wc -l
 YAML
 
-cat > "$FLOWS/release-check.yml" <<'YAML'
+cat > "$WORKFLOWS/release-check.yml" <<'YAML'
 about: the pre-release gate
 input: the version being cut, e.g. v2.1.0
 steps:
@@ -45,12 +45,12 @@ steps:
     run: 'echo "checked $HERDR_KATA_INPUT: $HERDR_KATA_PREVIOUS"'
 YAML
 
-# A flow that takes an input and is never run here, because the screenshot has
-# to show the INPUT column carrying something. Every other demo flow is
+# A workflow that takes an input and is never run here, because the screenshot has
+# to show the INPUT column carrying something. Every other demo workflow is
 # `run:`-only and input-less — there are no API credentials in this container,
-# so an agent step would park — and a FLOWS tab where that column is all dashes
-# hides the one thing that makes a flow callable.
-cat > "$FLOWS/triage.yml" <<'YAML'
+# so an agent step would park — and a WORKFLOWS tab where that column is all dashes
+# hides the one thing that makes a workflow callable.
+cat > "$WORKFLOWS/triage.yml" <<'YAML'
 about: triage an incoming report, then act on it
 input: a report, a PR number, or a stack trace
 steps:
@@ -63,7 +63,7 @@ steps:
     run: go test ./...
 YAML
 
-cat > "$FLOWS/link-audit.yml" <<'YAML'
+cat > "$WORKFLOWS/link-audit.yml" <<'YAML'
 about: find broken links
 steps:
   - id: broken
@@ -72,19 +72,19 @@ YAML
 
 say "jobs"
 herdr-kata job add --id nightly-build --name "Nightly build" \
-    --flow nightly-build --cron '0 4 * * *' --model sonnet --tags ci,go --favorite
+    --workflow nightly-build --cron '0 4 * * *' --model sonnet --tags ci,go --favorite
 herdr-kata job add --id docs-sweep --name "Docs sweep" \
-    --flow docs-sweep --interval 6h --model sonnet --tags docs
+    --workflow docs-sweep --interval 6h --model sonnet --tags docs
 herdr-kata job add --id release-check --name "Release check" \
-    --flow release-check --cron '30 9 * * 1' --model opus --tags release
+    --workflow release-check --cron '30 9 * * 1' --model opus --tags release
 herdr-kata job add --id link-audit --name "Link audit" \
-    --flow link-audit --cron '0 12 * * *' --model sonnet --tags docs
+    --workflow link-audit --cron '0 12 * * *' --model sonnet --tags docs
 
 say "runs — these execute for real"
-herdr-kata flow run nightly-build || true
-herdr-kata flow run docs-sweep    || true
-herdr-kata flow run release-check --input v2.1.0 || true
-herdr-kata flow run link-audit    || true   # fails on purpose: a parked run
+herdr-kata workflow run nightly-build || true
+herdr-kata workflow run docs-sweep    || true
+herdr-kata workflow run release-check --input v2.1.0 || true
+herdr-kata workflow run link-audit    || true   # fails on purpose: a parked run
 
 say "leases"
 herdr-kata lease claim browser --scope local:example --as worker --run run-a --ttl 20m --why 'screenshotting the board'

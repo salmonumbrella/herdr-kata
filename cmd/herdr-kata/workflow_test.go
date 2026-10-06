@@ -1,0 +1,304 @@
+package main
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/salmonumbrella/herdr-kata/internal/runner"
+	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
+)
+
+// The command layer's half of a workflow: the run row and the step rows have to
+// agree with what actually happened on disk, because that pair is what `herdr-kata
+// workflow status` prints and what the board renders.
+//
+// Every step here is a `run:` step, so nothing in this file starts an agent.
+// HERDR_KATA_HOME points the store and the run directories at a temporary
+// directory, keeping every command in this test off normal state.
+//
+// HERDR_BIN_PATH points at nothing for the same reason. A workflow run opens a
+// space of its own, and run from inside a herdr pane the real herdr answers:
+// every `go test` left parked WORKFLOWS:wf rooms in the developer's session. A test
+// that wants herdr sets its own fake after this.
+
+func workflowStore(t *testing.T) *store.Store {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("HERDR_KATA_HOME", dir)
+	t.Setenv("HERDR_BIN_PATH", filepath.Join(dir, "no-herdr"))
+	s, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { s.Close() })
+	return s
+}
+
+// A parked workflow has to be resumable from what is on disk, by a process that
+// knows nothing but the run id — which is the situation a human is in the
+// morning after.
+func TestAParkedWorkflowResumesWithoutRedoingTheCompletedSteps(t *testing.T) {
+	s := workflowStore(t)
+	ctx := context.Background()
+	work := t.TempDir()
+	gate := filepath.Join(work, "gate")
+	counter := filepath.Join(work, "counter")
+
+	writeWorkflow(t, "wf", "steps:\n"+
+		"  - id: sync\n    run: echo ran >> "+counter+"\n"+
+		"  - id: gate\n    run: test -f "+gate+"\n"+
+		"  - id: ship\n    run: echo shipped >> "+counter+"\n")
+	job := store.Job{ID: "wf", Name: "Workflow", CWD: work, Kind: "claude",
+		Model: "sonnet", Enabled: true, Timeout: 0, Workflow: "wf"}
+	if err := s.PutJob(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+
+	var run *runner.Run
+	captureExpectedWorkflowFallback(t, "wf", func() { run, _ = Execute(ctx, s, job, "manual") })
+	if run == nil || string(run.Outcome) != "parked" {
+		t.Fatalf("first run ended %+v, want parked at the gate", run)
+	}
+	rec, err := s.Run(ctx, run.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.Outcome != "parked" || !strings.Contains(rec.Note, "gate") {
+		t.Errorf("the stored run reads %q / %q and does not name the step it parked at",
+			rec.Outcome, rec.Note)
+	}
+	steps, err := s.RunSteps(ctx, run.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) != 3 {
+		t.Fatalf("stored %d step rows, want 3: a workflow that died at step two still had three", len(steps))
+	}
+	want := []string{store.StepDone, store.StepFailed, store.StepPending}
+	for i, w := range want {
+		if steps[i].Outcome != w {
+			t.Errorf("step %s is %q, want %q", steps[i].StepID, steps[i].Outcome, w)
+		}
+	}
+
+	// The world changes — which is the only thing that makes a resume different
+	// from a retry — and the same run picks up at the step that stopped it.
+	if err := os.WriteFile(gate, []byte("open"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var resumed *runner.Run
+	captureExpectedWorkflowFallback(t, "wf", func() { resumed, err = runWorkflow(ctx, s, job, *rec, workflowOpts{}) })
+	if err != nil {
+		t.Fatalf("resume failed: %v", err)
+	}
+	if string(resumed.Outcome) != "done" {
+		t.Fatalf("resume ended %s, want done", resumed.Outcome)
+	}
+	if resumed.RunID != run.RunID {
+		t.Errorf("resume created run %s instead of continuing %s", resumed.RunID, run.RunID)
+	}
+	body, err := os.ReadFile(counter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Fields(string(body))
+	if len(lines) != 2 || lines[0] != "ran" || lines[1] != "shipped" {
+		t.Errorf("the counter reads %v, want one 'ran' and one 'shipped': the completed step was run twice", lines)
+	}
+	steps, err = s.RunSteps(ctx, run.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, st := range steps {
+		if st.Outcome != store.StepDone {
+			t.Errorf("after resume step %s is %q, want done", st.StepID, st.Outcome)
+		}
+	}
+}
+
+// A workflow job must not be launchable as a single empty prompt. Everything
+// that starts a job — the daemon, the board, `job run` — goes through Execute.
+func TestExecuteSendsAWorkflowJobDownTheWorkflowPath(t *testing.T) {
+	s := workflowStore(t)
+	ctx := context.Background()
+	work := t.TempDir()
+	writeWorkflow(t, "wf", "steps:\n  - id: only\n    run: true\n")
+	job := store.Job{ID: "wf", CWD: work, Kind: "claude", Model: "sonnet",
+		Enabled: true, Workflow: "wf"}
+	if err := s.PutJob(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+	var run *runner.Run
+	var err error
+	captureExpectedWorkflowFallback(t, "wf", func() { run, err = Execute(ctx, s, job, "scheduled") })
+	if err != nil {
+		t.Fatalf("workflow job failed: %v", err)
+	}
+	steps, err := s.RunSteps(ctx, run.RunID)
+	if err != nil || len(steps) != 1 {
+		t.Fatalf("the run has %d step rows (%v); it was not run as a workflow", len(steps), err)
+	}
+}
+
+// The resume above calls runWorkflow with a record it already holds, which is not
+// the situation the morning after: then the only thing anyone has is the run id
+// printed in the park message, and `herdr-kata workflow resume` has to find the rest in
+// the run row. It reads Workflow back to decide there is anything to resume at all,
+// so a scheduled run that did not record its workflow is unresumable — and every
+// scheduled workflow run comes from Execute.
+func TestAScheduledWorkflowRunRecordsItsWorkflowSoResumeCanFindIt(t *testing.T) {
+	s := workflowStore(t)
+	ctx := context.Background()
+	work := t.TempDir()
+	gate := filepath.Join(work, "gate")
+
+	writeWorkflow(t, "wf", "steps:\n"+
+		"  - id: sync\n    run: true\n"+
+		"  - id: gate\n    run: test -f "+gate+"\n")
+	job := store.Job{ID: "nightly", Name: "Nightly", CWD: work, Kind: "claude",
+		Model: "sonnet", Enabled: true, Workflow: "wf", Input: "everything since yesterday"}
+	if err := s.PutJob(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+
+	var run *runner.Run
+	captureExpectedWorkflowFallback(t, "wf", func() { run, _ = Execute(ctx, s, job, "scheduled") })
+	if run == nil || string(run.Outcome) != "parked" {
+		t.Fatalf("the run ended %+v, want parked at the gate", run)
+	}
+	rec, err := s.Run(ctx, run.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.Workflow != "wf" {
+		t.Errorf("the stored run names workflow %q, want \"wf\": resume refuses a run with no workflow", rec.Workflow)
+	}
+	// The input has to be the one the run started with, not whatever the job
+	// carries today, or a resume quietly becomes a different run.
+	if rec.Input != "everything since yesterday" {
+		t.Errorf("the stored run kept input %q, want the one it was started with", rec.Input)
+	}
+
+	// Legacy definitions are adoption input; the saved journal remains intact.
+	if err := workflowResume([]string{run.RunID}); err == nil {
+		t.Fatalf("legacy product resume escaped gate: %v", err)
+	}
+	unchanged, err := s.Run(ctx, run.RunID)
+	if err != nil || unchanged.Outcome != "parked" || unchanged.Workflow != rec.Workflow || unchanged.Input != rec.Input {
+		t.Fatalf("held resume changed journal %+v %v", unchanged, err)
+	}
+}
+
+// The old spelling has to keep dispatching, because the callers that hold it
+// are the ones nobody re-reads: cron entries, launcher scripts, and the SKILL
+// text an agent memorised. A renamed verb fails at 04:00, in a shell nobody is
+// watching, on the feature that exists precisely for unattended sequences.
+func TestTheOldWorkflowSpellingStillRunsAWorkflow(t *testing.T) {
+	fn, ok := commands()["workflow"]
+	if !ok {
+		t.Fatal("`herdr-kata workflow` no longer dispatches; every stored cron entry holding it breaks silently")
+	}
+	err := fn([]string{"nonsense"})
+	if err == nil || !strings.Contains(err.Error(), "workflow subcommand") {
+		t.Errorf("the alias returned %v; it should reach workflowCmd and be told the subcommand is unknown", err)
+	}
+}
+
+// writeWorkflow puts a workflow file where the command layer will look for it.
+//
+// Workflows are files now, so a test that wants one has to write one — and writing
+// it under HERDR_KATA_HOME is what keeps this out of the real ~/.herdr-kata/workflows
+// that this machine's own agents are using.
+func writeWorkflow(t *testing.T, id, body string) {
+	t.Helper()
+	dir := workflowDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, id+".yml")
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The template `workflow new` writes must itself be a valid workflow.
+//
+// It is the first workflow anybody sees and the thing they edit into their own, so
+// a template that does not parse turns "make a workflow" into "debug herdr-kata". This
+// caught a real one: an unquoted `run: echo "verified: $X"` is not legal YAML,
+// because a bare scalar cannot contain ": ".
+func TestTheNewWorkflowTemplateParses(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HERDR_KATA_HOME", dir)
+	if err := workflowNew([]string{"sample", "--about", "a sample"}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := workflow.Load(workflowDraftDir(), "sample")
+	if err != nil {
+		t.Fatalf("the template herdr-kata writes does not load: %v", err)
+	}
+	if len(f.Steps) == 0 {
+		t.Error("the template has no steps")
+	}
+	if !f.TakesInput() {
+		t.Error("the template does not declare an input, so it cannot demonstrate {{input}}")
+	}
+}
+
+// A directly-called workflow must be runnable with agent steps, not only `run:`
+// ones.
+//
+// This is a regression test for a bug that shipped in v2.0.0. `workflowJob` left
+// Kind empty, PutJob is where every other job gets it filled in, and a workflow
+// called directly never goes through PutJob — so herdr refused every agent step
+// with "unsupported interactive agent kind:". A workflow made only of `run:` steps
+// worked perfectly, which is exactly why the unit tests and the end-to-end
+// suite both missed it: neither launched an agent.
+func TestADirectlyCalledWorkflowCanLaunchAnAgentStep(t *testing.T) {
+	j := workflowJob(workflow.Workflow{ID: "triage", About: "triage"}, "/tmp", "", "")
+	if j.Kind != store.DefaultKind {
+		t.Errorf("kind is %q, want %q — herdr refuses an agent with no kind",
+			j.Kind, store.DefaultKind)
+	}
+	if j.Model != store.DefaultModel {
+		t.Errorf("model is %q, want %q", j.Model, store.DefaultModel)
+	}
+	// An explicit choice still wins.
+	if got := workflowJob(workflow.Workflow{ID: "t"}, "/tmp", "opus", "codex"); got.Kind != "codex" || got.Model != "opus" {
+		t.Errorf("explicit kind/model were overridden: %q %q", got.Kind, got.Model)
+	}
+}
+
+// Resuming a directly-called workflow must run its agent steps the same way the
+// first attempt did.
+//
+// This is a regression test for a bug introduced by the fix for the v2.0.1 one.
+// `workflowResume` built its fallback job by hand — model and kind, no
+// SkipPermissions — so a resumed workflow enabled permission prompts that nobody
+// was there to answer and parked at `blocked`. The first attempt worked, which
+// is what made it hard to see: the workflow only broke on the retry, which is
+// exactly when somebody is already dealing with a failure.
+//
+// Asserting on the resume path specifically, because the earlier test asserted
+// on workflowJob and workflowJob was never the half that was wrong.
+func TestAResumedWorkflowKeepsTheUnattendedDefaults(t *testing.T) {
+	j := workflowJob(workflow.Workflow{ID: "triage"}, "", "", "")
+	j.ID = "some-run-job"
+
+	if !j.SkipPermissions {
+		t.Error("a resumed workflow would stop at the first permission prompt with nobody to answer it")
+	}
+	if j.Kind != store.DefaultKind {
+		t.Errorf("kind is %q, want %q — herdr refuses an agent with no kind", j.Kind, store.DefaultKind)
+	}
+	if j.Model != store.DefaultModel {
+		t.Errorf("model is %q, want %q", j.Model, store.DefaultModel)
+	}
+	if j.Workflow != "triage" {
+		t.Errorf("workflow is %q, want the one the run recorded", j.Workflow)
+	}
+}

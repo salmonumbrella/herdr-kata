@@ -1,6 +1,6 @@
 // Package store keeps derived native definition caches and installation-local
 // execution journals, mappings, sessions and resource leases in SQLite.
-// Kata owns shared job/flow definitions and bounded reported evidence; local
+// Kata owns shared job/workflow definitions and bounded reported evidence; local
 // scheduling and activation remain independent of whether Herdr is running.
 package store
 
@@ -50,10 +50,10 @@ const DefaultModel = "sonnet"
 //
 // It is a constant rather than a literal because the literal was written in
 // three places and the one that mattered was missing from a fourth: PutJob
-// filled it in, so every job stored through the CLI had it, and a flow called
-// directly never goes through PutJob. `flow run` therefore built a job with no
+// filled it in, so every job stored through the CLI had it, and a workflow called
+// directly never goes through PutJob. `workflow run` therefore built a job with no
 // kind at all, and herdr refused every agent step with "unsupported interactive
-// agent kind:" — a flow of `run:` steps worked perfectly, which is why nothing
+// agent kind:" — a workflow of `run:` steps worked perfectly, which is why nothing
 // caught it.
 const DefaultKind = "claude"
 
@@ -101,15 +101,15 @@ type Job struct {
 	Prompt      string
 	CWD         string
 	Kind        string // herdr agent kind
-	// Flow is the id of a flow this job starts instead of running Prompt.
+	// Workflow is the id of a workflow this job starts instead of running Prompt.
 	//
-	// The sequence itself is not here. A flow is a YAML file that a person or an
-	// agent edits directly, and a job only names one — so the same flow can be
+	// The sequence itself is not here. A workflow is a YAML file that a person or an
+	// agent edits directly, and a job only names one — so the same workflow can be
 	// called on a schedule, by hand, and by an agent, without three copies of it
 	// drifting apart. Empty for the ordinary one-prompt job, which is most of
 	// them.
-	Flow string
-	// Input is what this job passes the flow when the schedule fires. It is the
+	Workflow string
+	// Input is what this job passes the workflow when the schedule fires. It is the
 	// x in A(x): a scheduled call still has to supply one, and the schedule is
 	// the only thing available to supply it.
 	Input string
@@ -237,13 +237,13 @@ type Run struct {
 	CacheCreationTokens int64
 	Model               string
 
-	// Flow and Input are what this run was: which flow ran, and the x it was
+	// Workflow and Input are what this run was: which workflow ran, and the x it was
 	// called with. Both are recorded on the run rather than looked up from a job,
-	// because a flow can be called with no job at all — and because resuming has
+	// because a workflow can be called with no job at all — and because resuming has
 	// to use the input the run actually started with. Taking today's input from
 	// the job would resume a parked run as a different run.
-	Flow  string
-	Input string
+	Workflow string
+	Input    string
 
 	// Space is the workspace reused when this run resumes.
 	Space string
@@ -313,8 +313,8 @@ CREATE TABLE IF NOT EXISTS run_events (
 );
 CREATE INDEX IF NOT EXISTS run_events_due ON run_events(delivered_at, next_at, id);
 
--- One row per declared step of a flow run, written pending before the
--- flow starts so the board can say "2 of 4" rather than counting only the
+-- One row per declared step of a workflow run, written pending before the
+-- workflow starts so the board can say "2 of 4" rather than counting only the
 -- steps that got far enough to report.
 CREATE TABLE IF NOT EXISTS run_steps (
   run_id      TEXT NOT NULL,
@@ -362,8 +362,8 @@ var addColumns = []struct{ table, column, ddl string }{
 	{"runs", "context_session", "TEXT NOT NULL DEFAULT ''"},
 	{"runs", "context_note", "TEXT NOT NULL DEFAULT ''"},
 	{"jobs", "updated_at", "INTEGER NOT NULL DEFAULT 0"},
-	{"jobs", "flow_id", "TEXT NOT NULL DEFAULT ''"},
-	{"jobs", "flow_input", "TEXT NOT NULL DEFAULT ''"},
+	{"jobs", "workflow_id", "TEXT NOT NULL DEFAULT ''"},
+	{"jobs", "workflow_input", "TEXT NOT NULL DEFAULT ''"},
 	{"jobs", "ref", "TEXT NOT NULL DEFAULT ''"},
 	{"runs", "trigger", "TEXT NOT NULL DEFAULT 'manual'"},
 	{"runs", "input_tokens", "INTEGER NOT NULL DEFAULT 0"},
@@ -371,8 +371,8 @@ var addColumns = []struct{ table, column, ddl string }{
 	{"runs", "cache_read_tokens", "INTEGER NOT NULL DEFAULT 0"},
 	{"runs", "cache_creation_tokens", "INTEGER NOT NULL DEFAULT 0"},
 	{"runs", "model", "TEXT NOT NULL DEFAULT ''"},
-	{"runs", "flow_id", "TEXT NOT NULL DEFAULT ''"},
-	{"runs", "flow_input", "TEXT NOT NULL DEFAULT ''"},
+	{"runs", "workflow_id", "TEXT NOT NULL DEFAULT ''"},
+	{"runs", "workflow_input", "TEXT NOT NULL DEFAULT ''"},
 	{"runs", "space_id", "TEXT NOT NULL DEFAULT ''"},
 	{"runs", "ref", "TEXT NOT NULL DEFAULT ''"},
 	{"run_events", "generation", "INTEGER NOT NULL DEFAULT 0"},
@@ -388,6 +388,10 @@ func Open(dir string) (*Store, error) {
 	// other on the same file; WAL lets them read and write concurrently.
 	db, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
+		return nil, err
+	}
+	if err := rejectLegacyWorkflowColumns(db); err != nil {
+		db.Close()
 		return nil, err
 	}
 	if _, err := db.Exec(schema); err != nil {
@@ -503,7 +507,7 @@ func (s *Store) Close() error {
 const jobColumns = `id, name, description, tags, prompt, cwd, kind, model, permission_mode,
 	allowed_tools, disallowed_tools, add_dirs, extra_args, skip_permissions, max_budget_usd,
 	autocompact, schedule_type, interval_seconds, cron_expr, run_at, catchup, timeout_ms,
-	enabled, favorite, persistent, keep_context, created_at, updated_at, flow_id, flow_input, ref, on_context_loss`
+	enabled, favorite, persistent, keep_context, created_at, updated_at, workflow_id, workflow_input, ref, on_context_loss`
 
 // PutJob inserts or replaces a job.
 func (s *Store) PutJob(ctx context.Context, j Job) error {
@@ -548,12 +552,12 @@ func (s *Store) PutJob(ctx context.Context, j Job) error {
 	if j.RunAt != nil {
 		runAt = j.RunAt.Unix()
 	}
-	// The flow a job names is deliberately *not* validated here. It is a file on
+	// The workflow a job names is deliberately *not* validated here. It is a file on
 	// disk that a person or an agent edits without going near this code, so a
 	// check at write time proves nothing about what the file says at 04:00 —
-	// which is when it matters. The flow is read and validated at the moment it
-	// runs, and refusing to store a job because a flow does not exist yet would
-	// also stop anyone writing the job first and the flow second.
+	// which is when it matters. The workflow is read and validated at the moment it
+	// runs, and refusing to store a job because a workflow does not exist yet would
+	// also stop anyone writing the job first and the workflow second.
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO jobs (`+jobColumns+`)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -571,7 +575,7 @@ func (s *Store) PutJob(ctx context.Context, j Job) error {
 		  enabled=excluded.enabled, favorite=excluded.favorite,
 		  persistent=excluded.persistent, keep_context=excluded.keep_context,
 		  updated_at=excluded.updated_at,
-		  flow_id=excluded.flow_id, flow_input=excluded.flow_input, ref=excluded.ref, on_context_loss=excluded.on_context_loss`,
+		  workflow_id=excluded.workflow_id, workflow_input=excluded.workflow_input, ref=excluded.ref, on_context_loss=excluded.on_context_loss`,
 		j.ID, j.Name, j.Description, strings.Join(j.Tags, ","),
 		j.Prompt, j.CWD, j.Kind, j.Model, j.PermissionMode,
 		j.AllowedTools, j.DisallowedTools, strings.Join(j.AddDirs, "\n"), j.ExtraArgs,
@@ -579,7 +583,7 @@ func (s *Store) PutJob(ctx context.Context, j Job) error {
 		string(j.Schedule), j.IntervalSeconds, j.CronExpr, runAt, j.Catchup,
 		j.Timeout.Milliseconds(), boolToInt(j.Enabled), boolToInt(j.Favorite),
 		boolToInt(j.Persistent), boolToInt(j.KeepContext),
-		j.CreatedAt.Unix(), j.UpdatedAt.Unix(), j.Flow, j.Input, j.Ref, j.OnContextLoss)
+		j.CreatedAt.Unix(), j.UpdatedAt.Unix(), j.Workflow, j.Input, j.Ref, j.OnContextLoss)
 	return err
 }
 
@@ -593,7 +597,7 @@ func scanJob(rows interface{ Scan(...any) error }) (Job, error) {
 		&j.Model, &j.PermissionMode, &j.AllowedTools, &j.DisallowedTools, &addDirs,
 		&j.ExtraArgs, &skip, &j.MaxBudgetUSD, &j.AutoCompact, &schedule, &j.IntervalSeconds,
 		&j.CronExpr, &runAt, &j.Catchup, &timeoutMS, &enabled, &favorite,
-		&persistent, &keepContext, &created, &updated, &j.Flow, &j.Input, &j.Ref, &j.OnContextLoss)
+		&persistent, &keepContext, &created, &updated, &j.Workflow, &j.Input, &j.Ref, &j.OnContextLoss)
 	if err != nil {
 		return j, err
 	}
@@ -759,7 +763,7 @@ func (s *Store) DeleteJob(ctx context.Context, id string) error {
 const runColumns = `id, job_id, trigger, outcome, park_reason, status, note,
 	run_dir, tab_id, agent_name, started_at, ended_at,
 	input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, model,
-	flow_id, flow_input, space_id, ref, context, context_session, context_note`
+	workflow_id, workflow_input, space_id, ref, context, context_session, context_note`
 
 // PutRun inserts or updates a run.
 func (s *Store) PutRun(ctx context.Context, r Run) error {
@@ -811,12 +815,12 @@ func (s *Store) PutRun(ctx context.Context, r Run) error {
 		  cache_read_tokens=excluded.cache_read_tokens,
 		  cache_creation_tokens=excluded.cache_creation_tokens,
 		  model=excluded.model,
-		  flow_id=excluded.flow_id, flow_input=excluded.flow_input,
+		  workflow_id=excluded.workflow_id, workflow_input=excluded.workflow_input,
 		  space_id=excluded.space_id, ref=excluded.ref, context=excluded.context, context_session=excluded.context_session, context_note=excluded.context_note`,
 		r.ID, r.JobID, r.Trigger, r.Outcome, r.ParkReason, r.Status, r.Note,
 		r.RunDir, r.TabID, r.AgentName, r.StartedAt.Unix(), ended,
 		r.InputTokens, r.OutputTokens, r.CacheReadTokens, r.CacheCreationTokens,
-		r.Model, r.Flow, r.Input, r.Space, r.Ref, r.Context, r.ContextSession, r.ContextNote)
+		r.Model, r.Workflow, r.Input, r.Space, r.Ref, r.Context, r.ContextSession, r.ContextNote)
 	if err != nil {
 		return err
 	}
@@ -839,7 +843,7 @@ func scanRun(rows interface{ Scan(...any) error }) (Run, error) {
 	err := rows.Scan(&r.ID, &r.JobID, &r.Trigger, &r.Outcome, &r.ParkReason,
 		&r.Status, &r.Note, &r.RunDir, &r.TabID, &r.AgentName, &started, &ended,
 		&r.InputTokens, &r.OutputTokens, &r.CacheReadTokens,
-		&r.CacheCreationTokens, &r.Model, &r.Flow, &r.Input, &r.Space, &r.Ref, &r.Context, &r.ContextSession, &r.ContextNote)
+		&r.CacheCreationTokens, &r.Model, &r.Workflow, &r.Input, &r.Space, &r.Ref, &r.Context, &r.ContextSession, &r.ContextNote)
 	if err != nil {
 		return r, err
 	}
@@ -922,7 +926,7 @@ func (s *Store) Run(ctx context.Context, id string) (*Run, error) {
 // exactly wrong for the jobs the finished rule is meant to find, since a
 // one-shot's last run is by definition the oldest news on the board.
 //
-// Runs not attached to a job (a flow called directly) have no job to key on and
+// Runs not attached to a job (a workflow called directly) have no job to key on and
 // are left out.
 func (s *Store) LastRuns(ctx context.Context) (map[string]Run, error) {
 	rows, err := s.db.QueryContext(ctx, `

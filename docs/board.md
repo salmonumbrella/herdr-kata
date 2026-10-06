@@ -22,12 +22,12 @@ have to remember.
 
 ## Keys
 
-A flow run is one row until `space` opens it, and then each step is a row of
+A workflow run is one row until `space` opens it, and then each step is a row of
 its own with what it did and how long it took:
 
 | key | action |
 |-----|--------|
-| `1` … `4` | jobs / runs / flows / leases — the tabs, left to right |
+| `1` … `4` | jobs / runs / workflows / leases — the tabs, left to right |
 | `tab` `shift+tab` | cycle lists; `h` `l` move between detail levels |
 | `j` `k` | move |
 | `enter` | open job detail (or focus the agent, from a run) |
@@ -37,7 +37,7 @@ its own with what it did and how long it took:
 | `F` | show / hide finished one-shots (hidden by default) |
 | `P` | prune finished one-shots — names them and waits for `y` (jobs list) |
 | `a` | focus the run's agent |
-| `space` | open a flow run's steps (runs list) |
+| `space` | open a workflow run's steps (runs list) |
 | `/` | search — filters both lists as you type |
 | `esc` | clear the search, or go back a level |
 | `[` `]` | previous / next page |
@@ -50,7 +50,7 @@ The board takes the mouse, so the wheel and the pointer work the way they do in
 anything else on screen:
 
 - **Click a row** to select it. Click the row that is already selected to open
-  it, which is what `l` does — and only what `l` does. `enter` on a flow
+  it, which is what `l` does — and only what `l` does. `enter` on a workflow
   launches it, and a slipped double click that started an agent would spend
   money there is no undo for.
 - **Click a tab** to switch lists.

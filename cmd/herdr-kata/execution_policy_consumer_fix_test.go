@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 	"github.com/salmonumbrella/herdr-kata/internal/runner"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
-func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
+func TestConsumerJobWorkflowResolvedReferenceSavedResume(t *testing.T) {
 	for _, tc := range []struct {
 		name, original string
 		oldRow         bool
@@ -27,7 +27,7 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, dir, _ := policyProduct(t)
 			cwd := s.Native.Binding.Checkouts["primary"]
-			draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "first", Run: "printf x >> fix-resume-count; printf '%s' \"$HERDR_KATA_REF\" > initial-ref"}, {ID: "second", Run: "test -f ready && printf '%s' \"$HERDR_KATA_INPUT|$HERDR_KATA_REF\" > resumed-values"}}}, "", "")
+			draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "first", Run: "printf x >> fix-resume-count; printf '%s' \"$HERDR_KATA_REF\" > initial-ref"}, {ID: "second", Run: "test -f ready && printf '%s' \"$HERDR_KATA_INPUT|$HERDR_KATA_REF\" > resumed-values"}}}, "", "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -35,7 +35,7 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			j := policyJob(t, s, store.Job{Name: "Inspect", CWD: cwd, Flow: fd.UID, Ref: original, Input: "retained input", Timeout: time.Second, Schedule: store.ScheduleManual})
+			j := policyJob(t, s, store.Job{Name: "Inspect", CWD: cwd, Workflow: fd.UID, Ref: original, Input: "retained input", Timeout: time.Second, Schedule: store.ScheduleManual})
 			def, err := s.Native.Client.Definition(t.Context(), "job", j.ID)
 			if err != nil {
 				t.Fatal(err)
@@ -63,7 +63,7 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 			ctx := context.WithValue(t.Context(), nativeFireTime{}, fire)
 			first, err := Execute(ctx, s, j, "scheduled")
 			if err != nil || first == nil || first.Outcome == runner.OutcomeDone {
-				t.Fatalf("first flow must fail after one real step: %+v %v", first, err)
+				t.Fatalf("first workflow must fail after one real step: %+v %v", first, err)
 			}
 			rec, err := s.Run(t.Context(), first.RunID)
 			if err != nil {
@@ -105,16 +105,16 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 			}
 			// Mutate both shared definitions, then delete them. Resume must not refresh
 			// intent or run the changed command, and must retain the original input/ref.
-			var changedFlow map[string]json.RawMessage
-			if err := katacli.Decode(fd.Definition, &changedFlow); err != nil {
+			var changedWorkflow map[string]json.RawMessage
+			if err := katacli.Decode(fd.Definition, &changedWorkflow); err != nil {
 				t.Fatal(err)
 			}
-			changedFlow["steps"] = policyJSON(t, []map[string]any{{"key": "replacement", "kind": "command", "command": "printf rejected > changed-definition"}})
-			fdDraft, err := katacli.NewDraft("flow", fd.UID, fd.Name, policyJSON(t, changedFlow), fd.DefinitionEventUID)
+			changedWorkflow["steps"] = policyJSON(t, []map[string]any{{"key": "replacement", "kind": "command", "command": "printf rejected > changed-definition"}})
+			fdDraft, err := katacli.NewDraft("workflow", fd.UID, fd.Name, policyJSON(t, changedWorkflow), fd.DefinitionEventUID)
 			if err != nil {
 				t.Fatal(err)
 			}
-			editedFlow, err := s.Native.Save(t.Context(), fdDraft)
+			editedWorkflow, err := s.Native.Save(t.Context(), fdDraft)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -131,7 +131,7 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 			if err := s.Native.Delete(t.Context(), "job", editedJob); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.Native.Delete(t.Context(), "flow", editedFlow); err != nil {
+			if err := s.Native.Delete(t.Context(), "workflow", editedWorkflow); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(filepath.Join(cwd, "ready"), nil, 0600); err != nil {
@@ -142,12 +142,12 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 				// for an explicit caller override of the stored old row.
 				bad := *rec
 				bad.Ref = policyIssueUID
-				if _, err := runFlow(t.Context(), s, j, bad, flowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
+				if _, err := runWorkflow(t.Context(), s, j, bad, workflowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
 					t.Fatalf("caller replaced old row reference: %v", err)
 				}
 			}
-			if err := resumeFlowRun(s, rec.ID); err != nil {
-				t.Fatalf("unchanged saved job flow could not recover after shared edits/deletion: %v", err)
+			if err := resumeWorkflowRun(s, rec.ID); err != nil {
+				t.Fatalf("unchanged saved job workflow could not recover after shared edits/deletion: %v", err)
 			}
 			got, err := s.Run(t.Context(), rec.ID)
 			if err != nil || got.Outcome != "done" || got.Ref != policyIssueUID || got.Input != rec.Input {
@@ -159,10 +159,10 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 				t.Fatalf("steps/ref/input not preserved: count=%q values=%q", count, values)
 			}
 			if _, err := os.Stat(filepath.Join(cwd, "changed-definition")); !os.IsNotExist(err) {
-				t.Fatal("mutable shared flow was executed")
+				t.Fatal("mutable shared workflow was executed")
 			}
 			after, err := runner.LoadNativeContext(rec.RunDir)
-			if err != nil || after.Job.DefinitionEventUID != jd.DefinitionEventUID || after.Flow.DefinitionEventUID != fd.DefinitionEventUID || after.Occurrence != frozen.Occurrence {
+			if err != nil || after.Job.DefinitionEventUID != jd.DefinitionEventUID || after.Workflow.DefinitionEventUID != fd.DefinitionEventUID || after.Occurrence != frozen.Occurrence {
 				t.Fatalf("frozen winners changed: %+v %v", after, err)
 			}
 			// A real attempted change must fail before process execution and preserve row.
@@ -176,7 +176,7 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 				case "input":
 					bad.Input = "changed input"
 				}
-				if _, err := runFlow(t.Context(), s, j, bad, flowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
+				if _, err := runWorkflow(t.Context(), s, j, bad, workflowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
 					t.Fatalf("changed %s accepted: %v", fault, err)
 				}
 			}
@@ -192,7 +192,7 @@ func TestConsumerJobFlowResolvedReferenceSavedResume(t *testing.T) {
 func TestConsumerPerRunIssueReplacesLocalTextReference(t *testing.T) {
 	s, _, _ := policyProduct(t)
 	cwd := s.Native.Binding.Checkouts["primary"]
-	draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf '%s' \"$HERDR_KATA_REF\" > local-reference"}}}, "", "")
+	draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf '%s' \"$HERDR_KATA_REF\" > local-reference"}}}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestConsumerPerRunIssueReplacesLocalTextReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	ref := "external ticket ABC"
-	j := policyJob(t, s, store.Job{Name: "Inspect", CWD: cwd, Flow: fd.UID, Ref: ref, Schedule: store.ScheduleManual, Timeout: time.Second})
+	j := policyJob(t, s, store.Job{Name: "Inspect", CWD: cwd, Workflow: fd.UID, Ref: ref, Schedule: store.ScheduleManual, Timeout: time.Second})
 	first, err := Execute(t.Context(), s, j, "manual")
 	if err != nil || first == nil || first.Outcome != runner.OutcomeDone {
 		t.Fatalf("local reference execution: %+v %v", first, err)
@@ -229,7 +229,7 @@ func TestConsumerPerRunIssueReplacesLocalTextReference(t *testing.T) {
 		} else {
 			bad.Input = "changed input"
 		}
-		if _, err := runFlow(t.Context(), s, j, bad, flowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
+		if _, err := runWorkflow(t.Context(), s, j, bad, workflowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
 			t.Fatalf("local reference %s override accepted: %v", field, err)
 		}
 	}

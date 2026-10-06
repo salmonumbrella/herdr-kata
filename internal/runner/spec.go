@@ -26,7 +26,7 @@ func FromStore(j store.Job) Job {
 	}
 }
 
-// StepJob converts one flow step into a runnable job.
+// StepJob converts one workflow step into a runnable job.
 //
 // The step inherits everything the job settled — working directory, timeout,
 // permissions — and overrides only what it names. It is never persistent: each
@@ -63,7 +63,7 @@ func BuildStepArgs(j store.Job, s store.Step) []string {
 		cfg.Kind = k
 	}
 	// A step may take the permission bypass back. The default is on, because a
-	// flow step has nobody in its pane to answer a prompt — but a step that
+	// workflow step has nobody in its pane to answer a prompt — but a step that
 	// touches something consequential should be able to say "not me", and the
 	// only place that can be said is next to the step itself.
 	if s.SkipPermissions != nil {

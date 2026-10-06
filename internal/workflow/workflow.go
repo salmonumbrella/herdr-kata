@@ -1,0 +1,233 @@
+// Package workflow reads and writes unsaved local YAML drafts and projects shared
+// native workflow documents for the runner. Kata owns saved definitions; local draft
+// files are editing inputs and explicit upstream adoption sources.
+// A declared sequence stops at a step that cannot show it finished.
+package workflow
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/salmonumbrella/herdr-kata/internal/statefs"
+	"github.com/salmonumbrella/herdr-kata/internal/store"
+)
+
+// Ext is the extension a workflow file carries. Only one is accepted: two spellings
+// would mean `triage.yml` and `triage.yaml` are both "triage", and whichever
+// loses is a file somebody keeps editing with no effect.
+const Ext = ".yml"
+
+// Workflow is one declared sequence.
+//
+// The id is not a field. It is the filename without its extension, so renaming
+// the file renames the workflow and there is no second place for the name to live
+// and disagree — a file called triage.yml whose body says `id: cleanup` is a
+// bug waiting for somebody to run the wrong thing.
+type Workflow struct {
+	NativeName       string          `yaml:"-"`
+	NativeDefinition json.RawMessage `yaml:"-"`
+	NativeEventUID   string          `yaml:"-"`
+	ID               string          `yaml:"-"`
+	// Path is where it was read from, for error messages that can be acted on.
+	Path string `yaml:"-"`
+
+	// About is what this workflow is for, shown in `workflow list` and on the board.
+	About string `yaml:"about,omitempty"`
+	// Input describes what the caller has to supply. It is a description, not a
+	// type: the steps are prompts, and a sentence tells a person and an agent
+	// equally well what belongs here. An empty Input means the workflow takes none.
+	Input string `yaml:"input,omitempty"`
+
+	// SkipPermissions runs this workflow's agent steps with the permission bypass.
+	//
+	// It defaults to on, and that default is the whole reason workflows work
+	// unattended: there is nobody sitting in a step's pane, so a permission
+	// prompt is a step that waits until its grace runs out and then parks. A
+	// workflow that does something consequential can turn it off here, and any step
+	// can override either way.
+	//
+	// A pointer because unset and explicitly false are different answers, and
+	// only a pointer can tell them apart.
+	SkipPermissions *bool `yaml:"skip_permissions,omitempty"`
+
+	// Overwatch configures the agent that oversees this workflow's runs. Every
+	// workflow has one; nil means the defaults, not "none". See overwatch.go.
+	Overwatch *Overwatch `yaml:"overwatch,omitempty"`
+
+	// Steps run in order.
+	Steps []store.Step `yaml:"steps"`
+}
+
+// Watcher is this workflow's overwatch with every default filled in.
+func (f Workflow) Watcher() Overwatch { return f.Overwatch.Resolve() }
+
+// BypassesPermissions reports whether this workflow's agent steps run with
+// --dangerously-skip-permissions, absent a per-step override.
+func (f Workflow) BypassesPermissions() bool {
+	if f.SkipPermissions == nil {
+		return true
+	}
+	return *f.SkipPermissions
+}
+
+// TakesInput reports whether the workflow declares one.
+func (f Workflow) TakesInput() bool { return strings.TrimSpace(f.Input) != "" }
+
+// Dir is where workflows live under a state directory.
+func Dir(stateDir string) string { return filepath.Join(stateDir, "workflows") }
+
+// idPattern is the same shape as a job id: lowercase, digits,
+// single hyphens. It is a filename and a run-directory name, so anything else
+// would either be illegal on some filesystem or invisible in a listing.
+var idPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// ParseID validates a workflow id.
+func ParseID(s string) (string, error) {
+	id := strings.TrimSpace(s)
+	if id == "" {
+		return "", errors.New("a workflow needs an id")
+	}
+	if !idPattern.MatchString(id) {
+		return "", fmt.Errorf("%q is not a workflow id: lowercase letters, digits and single "+
+			"hyphens, like a job id (e.g. triage, release-check)", s)
+	}
+	return id, nil
+}
+
+// Load reads one workflow.
+func Load(dir, id string) (Workflow, error) {
+	parsed, err := ParseID(id)
+	if err != nil {
+		return Workflow{}, err
+	}
+	path := filepath.Join(dir, parsed+Ext)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return Workflow{}, fmt.Errorf("no workflow %s: `herdr-kata workflow list` says which there are", parsed)
+	}
+	if err != nil {
+		return Workflow{}, err
+	}
+	return decode(data, parsed, path)
+}
+
+// decode parses and validates one workflow file.
+//
+// Unknown fields are refused rather than ignored. A typo in a hand-written file
+// is the ordinary case here — these are edited by people and by agents, neither
+// of which gets a schema in front of them — and a silently dropped `agnet:` key
+// is a step that never runs, in a workflow that reports success.
+func decode(data []byte, id, path string) (Workflow, error) {
+	var f Workflow
+	dec := yaml.NewDecoder(strings.NewReader(string(data)))
+	dec.KnownFields(true)
+	if err := dec.Decode(&f); err != nil {
+		return Workflow{}, fmt.Errorf("%s: %w", path, err)
+	}
+	f.ID, f.Path = id, path
+	if len(f.Steps) == 0 {
+		return Workflow{}, fmt.Errorf("%s: a workflow needs at least one step", path)
+	}
+	// The same rules a job's steps were held to, so a workflow cannot express
+	// something the runner would refuse halfway through.
+	if err := store.ValidateSteps(f.Steps, ""); err != nil {
+		return Workflow{}, fmt.Errorf("%s: %w", path, err)
+	}
+	if err := f.Overwatch.validate(); err != nil {
+		return Workflow{}, fmt.Errorf("%s: %w", path, err)
+	}
+	// A step called "overwatch" would share a run id with the overwatch agent's
+	// own consults, which is a directory clash that shows up as one agent
+	// reading another's result -- confusing enough to be worth refusing at read
+	// time rather than debugging at run time.
+	for _, st := range f.Steps {
+		if st.ID == OverwatchStepID {
+			return Workflow{}, fmt.Errorf("%s: a step cannot be called %q — that name belongs to "+
+				"the workflow's overwatch agent", path, OverwatchStepID)
+		}
+	}
+	// Placeholders are checked here, at read time, so a typo costs nothing. The
+	// same check at run time has already spent an agent turn producing a prompt
+	// with a literal {{inpt}} in it, which the agent will then try to interpret.
+	if err := CheckPlaceholders(f); err != nil {
+		return Workflow{}, err
+	}
+	return f, nil
+}
+
+// List reads every workflow in the directory, by id.
+//
+// A file that does not parse is returned as an error alongside the ones that
+// do, rather than failing the listing: one broken workflow must not make the other
+// nine unlistable, and the broken one is exactly what the reader needs told.
+func List(dir string) ([]Workflow, []error) {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, []error{err}
+	}
+	var out []Workflow
+	var bad []error
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), Ext) {
+			continue
+		}
+		id := strings.TrimSuffix(e.Name(), Ext)
+		f, err := Load(dir, id)
+		if err != nil {
+			bad = append(bad, err)
+			continue
+		}
+		out = append(out, f)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, bad
+}
+
+// Save writes a workflow, refusing to overwrite one that exists.
+//
+// Overwriting silently is how a `workflow new` with a name somebody else already
+// used replaces a working sequence with an empty template, and the first anyone
+// hears of it is a run that does nothing.
+func Save(dir string, f Workflow) error {
+	if _, err := ParseID(f.ID); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, statefs.Dir); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, f.ID+Ext)
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("workflow %s already exists at %s", f.ID, path)
+	}
+	data, err := yaml.Marshal(f)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, statefs.File)
+}
+
+// Remove deletes a workflow file.
+func Remove(dir, id string) error {
+	parsed, err := ParseID(id)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(dir, parsed+Ext)
+	if err := os.Remove(path); errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("no workflow %s", parsed)
+	} else if err != nil {
+		return err
+	}
+	return nil
+}

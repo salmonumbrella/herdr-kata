@@ -13,7 +13,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// — selecting a run id, or the argv line — is on the pages the list keys do
 	// not reach. It is checked ahead of everything except the boxes that are
 	// being typed into, where `M` is a letter.
-	if msg.String() == "M" && m.editor == nil && m.flowInput == nil &&
+	if msg.String() == "M" && m.editor == nil && m.workflowInput == nil &&
 		m.prune == nil && !m.searching {
 		return m, m.toggleMouse()
 	}
@@ -34,10 +34,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.detail != nil {
 		return m.handleDetailKey(msg)
 	}
-	// The flow input box owns the keyboard while it is open: `q` is a letter in
-	// what a flow is being called with before it is a command.
-	if m.flowInput != nil {
-		return m.handleFlowInputKey(msg)
+	// The workflow input box owns the keyboard while it is open: `q` is a letter in
+	// what a workflow is being called with before it is a command.
+	if m.workflowInput != nil {
+		return m.handleWorkflowInputKey(msg)
 	}
 	// While typing a search, keys belong to the query.
 	if m.searching {
@@ -63,7 +63,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.movePage(-1)
 		return m, nil
 	case " ", "space":
-		// Open the selected flow run's steps in place. A run that is one
+		// Open the selected workflow run's steps in place. A run that is one
 		// agent has no steps, and space does nothing.
 		return m, m.toggleSteps()
 	case "i":
@@ -125,18 +125,18 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "a":
 		return m, m.focusRun()
 	case "enter":
-		// Enter on a flow calls it. It is the one list where the selected thing
+		// Enter on a workflow calls it. It is the one list where the selected thing
 		// is something to start rather than somewhere to go.
-		if m.focus == focusFlows {
-			return m, m.launchSelectedFlow()
+		if m.focus == focusWorkflows {
+			return m, m.launchSelectedWorkflow()
 		}
 		return m, m.descend()
 	case "u":
-		// Unparking only means something to a flow: a run row has no flow
+		// Unparking only means something to a workflow: a run row has no workflow
 		// identity to resume against, and a job is a schedule rather than a
 		// sequence that stopped halfway.
-		if m.focus == focusFlows {
-			return m, m.unparkSelectedFlow()
+		if m.focus == focusWorkflows {
+			return m, m.unparkSelectedWorkflow()
 		}
 		return m, nil
 	case "R":
@@ -171,8 +171,8 @@ func (m *Model) descend() tea.Cmd {
 	switch m.focus {
 	case focusJobs:
 		return m.openDetail()
-	case focusFlows:
-		// Nothing lives under a flow: it is a file, and its runs are the RUNS
+	case focusWorkflows:
+		// Nothing lives under a workflow: it is a file, and its runs are the RUNS
 		// tab. `l` deliberately does not launch it either — a horizontal key
 		// that started agents would spend money on a mistyped navigation.
 		return nil

@@ -22,7 +22,7 @@ type NativeExecutionContext struct {
 	ProjectUID      string              `json:"project_uid"`
 	ExecutorLabel   string              `json:"executor_label,omitempty"`
 	Job             *katacli.Definition `json:"job,omitempty"`
-	Flow            *katacli.Definition `json:"flow,omitempty"`
+	Workflow        *katacli.Definition `json:"workflow,omitempty"`
 	Runtime         store.Job           `json:"runtime"`
 	Occurrence      string              `json:"occurrence,omitempty"`
 	IssueUID        string              `json:"issue_uid,omitempty"`

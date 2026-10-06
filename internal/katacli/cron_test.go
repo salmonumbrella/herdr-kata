@@ -86,3 +86,14 @@ func TestInvalidOperationAndDefinitionInputs(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkflowDraftUsesCronContract(t *testing.T) {
+	d, err := NewDraft("workflow", uid, "Inspect", json.RawMessage(`{"version":1,"steps":[]}`), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"cron", "workflow", "create", "--uid", uid, "--file", "-"}
+	if !reflect.DeepEqual(d.Args(), want) {
+		t.Fatalf("args = %q, want %q", d.Args(), want)
+	}
+}

@@ -6,8 +6,8 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 )
 
-// ValidateNativeFlowPolicy checks the portable subset supported by this executor.
-func ValidateNativeFlowPolicy(raw json.RawMessage) error {
+// ValidateNativeWorkflowPolicy checks the portable subset supported by this executor.
+func ValidateNativeWorkflowPolicy(raw json.RawMessage) error {
 	var body struct {
 		Steps []struct {
 			Retries int `json:"retries"`
@@ -18,7 +18,7 @@ func ValidateNativeFlowPolicy(raw json.RawMessage) error {
 	}
 	for _, step := range body.Steps {
 		if step.Retries != 0 {
-			return errors.New("unsupported flow step retries: this installation supports zero")
+			return errors.New("unsupported workflow step retries: this installation supports zero")
 		}
 	}
 	return nil

@@ -40,13 +40,13 @@ the skill it copied.
    <!-- herdr-kata-skill:begin -->
    ## Herdr Kata — the agent harness on this machine
 
-   Scheduled jobs, declared flows, and execution records that outlive any one
+   Scheduled jobs, declared workflows, and execution records that outlive any one
    agent. `herdr-kata --version` checks it is here. **Before writing to any of
    it, load the `herdr-kata` skill — it holds the traps `--help` cannot.**
 
-   - **Flow** — declared execution steps: `herdr-kata flow run <id> --input '...'`.
+   - **Workflow** — declared execution steps: `herdr-kata workflow run <id> --input '...'`.
    - **Run** — retained results and parked artifacts: `herdr-kata run list` and
-     `herdr-kata flow status <run>`; resume with `herdr-kata flow resume <run>`.
+     `herdr-kata workflow status <run>`; resume with `herdr-kata workflow resume <run>`.
    - **Lease** — exclusive execution resources: `herdr-kata lease claim <resource>
      --scope <scope> --as <holder> --run <run> --ttl 20m`. Renew before expiry;
      only that exact holder/run may release it. Use Kata for the work ledger.

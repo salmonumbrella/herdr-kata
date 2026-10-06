@@ -65,7 +65,7 @@ func TestPerRunIssueLostReplyResumesFrozenIdentityAndOffsets(t *testing.T) {
 	if _, err := os.Stat(nativeDeliveryPath(rec.RunDir)); !os.IsNotExist(err) {
 		t.Errorf("pre-launch preparation published incomplete shared run identity: %v", err)
 	}
-	result, err := runNativeFlow(t.Context(), s, j, *rec, flowOpts{})
+	result, err := runNativeWorkflow(t.Context(), s, j, *rec, workflowOpts{})
 	if err != nil || result == nil || result.Outcome != runner.OutcomeDone {
 		t.Fatalf("same-run recovery: %+v %v", result, err)
 	}
@@ -167,7 +167,7 @@ func TestOldPerRunContextMissingCreationIntentPreservesCompletedHistory(t *testi
 	}
 	j = *mapped
 	j.Ref, j.Input = "external ticket ABC", "retained input"
-	fd, err := s.Native.Client.Definition(t.Context(), "flow", j.Flow)
+	fd, err := s.Native.Client.Definition(t.Context(), "workflow", j.Workflow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,13 +177,13 @@ func TestOldPerRunContextMissingCreationIntentPreservesCompletedHistory(t *testi
 	}
 	target := s.Native.Client.Target
 	target.Token = ""
-	c := runner.NativeExecutionContext{Version: 1, RunUID: uid, Target: target, ProjectUID: s.Native.Binding.ProjectUID, Runtime: j, Job: &katacli.Definition{UID: j.ID, DefinitionEventUID: j.NativeEventUID, Definition: j.NativeDefinition}, Flow: &fd}
+	c := runner.NativeExecutionContext{Version: 1, RunUID: uid, Target: target, ProjectUID: s.Native.Binding.ProjectUID, Runtime: j, Job: &katacli.Definition{UID: j.ID, DefinitionEventUID: j.NativeEventUID, Definition: j.NativeDefinition}, Workflow: &fd}
 	dir := runDirFor(uid)
 	if err := c.Save(dir); err != nil {
 		t.Fatal(err)
 	}
 	ended := time.Now().UTC().Truncate(time.Second).Add(-time.Hour)
-	rec := store.Run{ID: uid, JobID: j.ID, Trigger: "manual", Flow: j.Flow, Ref: j.Ref, Input: j.Input, RunDir: dir, Outcome: "done", Note: "Retained result", StartedAt: ended.Add(-time.Minute), EndedAt: &ended}
+	rec := store.Run{ID: uid, JobID: j.ID, Trigger: "manual", Workflow: j.Workflow, Ref: j.Ref, Input: j.Input, RunDir: dir, Outcome: "done", Note: "Retained result", StartedAt: ended.Add(-time.Minute), EndedAt: &ended}
 	if err := s.PutRun(t.Context(), rec); err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestOldPerRunContextMissingCreationIntentPreservesCompletedHistory(t *testi
 		}
 		artifacts[path] = raw
 	}
-	_, err = captureStdout(t, func() error { return flowCmd([]string{"resume", uid}) })
+	_, err = captureStdout(t, func() error { return workflowCmd([]string{"resume", uid}) })
 	if err == nil || !strings.Contains(err.Error(), "lacks its creation time; inspect this local run") {
 		t.Fatalf("missing old-intent diagnostic: %v", err)
 	}

@@ -452,8 +452,8 @@ func (r *Runner) Execute(ctx context.Context, job Job, runID string) (*Run, erro
 
 // ExecuteIn runs one job with its artifacts in a caller-chosen directory.
 //
-// Flow steps use it: a step is a run in every respect except where its
-// result.json lives, which is inside the flow's run directory rather than
+// Workflow steps use it: a step is a run in every respect except where its
+// result.json lives, which is inside the workflow's run directory rather than
 // beside it. Everything else — the result contract, the parking rules, the
 // transcript — is the same, so a step needs no result plumbing of its own.
 func (r *Runner) ExecuteIn(ctx context.Context, job Job, runID, runDir string) (*Run, error) {

@@ -28,8 +28,6 @@ import (
 // A function rather than a literal inside main, so a test can ask whether the
 // commands the plugin manifest invokes actually exist. Two of them did not, and
 // nothing noticed until they failed on a user's machine.
-//
-// "workflow" is the compatibility spelling of "flow".
 func commands() map[string]func([]string) error {
 	return map[string]func([]string) error{
 		"run-once":   runOnce,
@@ -40,7 +38,6 @@ func commands() map[string]func([]string) error {
 		"teammate":   teammateCmd,
 		"run":        runCmd,
 		"hook":       hookCmd,
-		"flow":       flowCmd,
 		"workflow":   workflowCmd,
 		"lease":      leaseCmd,
 		"usage":      usageCmd,
@@ -85,7 +82,7 @@ func usage() {
 Usage:
   herdr-kata native configure --file mapping.json   Bind explicit Kata target and installation
   herdr-kata native import --source snapshot --source-id retained-name --checkout-key primary
-  herdr-kata native refresh              Refresh native job/flow cache
+  herdr-kata native refresh              Refresh native job/workflow cache
   herdr-kata native tui [issue-ref]       Open installed Kata TUI
   herdr-kata inbox list|open|deliver --for actor[/teammate] [--ref issue]
   herdr-kata teammate connect --for actor[/teammate] --workspace w1 --pane w1:p1 --conversation session-id
@@ -99,19 +96,19 @@ Usage:
   herdr-kata job remove <id>             Remove a job
   herdr-kata job run <id>                Run a stored job now
   herdr-kata run list [--state parked]   List runs
-  herdr-kata flow new <id> [--about]     Write an unsaved local flow draft
-  herdr-kata flow save <draft-id>        Save draft to native Kata with retained UID/CAS
-  herdr-kata flow list                   Native flows, labeled offline when cached
-  herdr-kata flow show|edit|rm <id>      Read, open, or delete one
-  herdr-kata flow run <id> [--input ...] Call a flow with an x
-  herdr-kata flow status <run>           Per-step outcome and duration
-  herdr-kata flow resume <run>           Restart at the step that parked
+  herdr-kata workflow new <id> [--about]     Write an unsaved local workflow draft
+  herdr-kata workflow save <draft-id>        Save draft to native Kata with retained UID/CAS
+  herdr-kata workflow list                   Native workflows, labeled offline when cached
+  herdr-kata workflow show|edit|rm <id>      Read, open, or delete one
+  herdr-kata workflow run <id> [--input ...] Call a workflow with an x
+  herdr-kata workflow status <run>           Per-step outcome and duration
+  herdr-kata workflow resume <run>           Restart at the step that parked
                      [--reset-loops]  ...and give its on_fail edges a full budget again
 
-  Native Kata owns jobs/flows; local SQLite holds only derived cache, mappings,
+  Native Kata owns jobs/workflows; local SQLite holds only derived cache, mappings,
   leases and execution journals. Explicit native configuration is required for
-  saved writes. Flow YAML lives under ~/.herdr-kata/drafts/flows and stays unsaved
-  until flow save succeeds. Failed saves keep the draft and UID. Jobs start
+  saved writes. Workflow YAML lives under ~/.herdr-kata/drafts/workflows and stays unsaved
+  until workflow save succeeds. Failed saves keep the draft and UID. Jobs start
   disabled; checkout paths and secret values stay in local installation mappings.
   The board's K key opens the installed Kata TUI in the existing pane.
   New jobs require current native definitions and local checkout mappings for

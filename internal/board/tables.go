@@ -71,8 +71,8 @@ func (m *Model) renderJobs(start, end int) string {
 			switch c.title {
 			case "NEXT":
 				cells = append(cells, m.nextFirePlain(j))
-			case "FLOW":
-				cells = append(cells, jobFlowCell(j))
+			case "WORKFLOW":
+				cells = append(cells, jobWorkflowCell(j))
 			default:
 				cells = append(cells, "")
 			}
@@ -158,13 +158,13 @@ func (m *Model) jobColumns() []column {
 		{title: "LAST", width: 9},
 		{title: "WHEN", width: 9},
 	}
-	// FLOW buys the first spare column, ahead of NEXT, because it is the only
+	// WORKFLOW buys the first spare column, ahead of NEXT, because it is the only
 	// one of the two that cannot be worked out from what is already on screen.
 	// SCHEDULE is right there, so NEXT refines something visible; nothing on
 	// this row says whether the job sends one prompt or drives a four-step
 	// sequence, and those behave nothing alike.
-	if m.spareAfter(cols, colFlowWidth) {
-		cols = append(cols, column{title: "FLOW", width: colFlowWidth})
+	if m.spareAfter(cols, colWorkflowWidth) {
+		cols = append(cols, column{title: "WORKFLOW", width: colWorkflowWidth})
 	}
 	// NEXT answers the question a cron expression does not. It only earns its
 	// place if the inspector still fits afterwards.
@@ -174,15 +174,15 @@ func (m *Model) jobColumns() []column {
 	return cols
 }
 
-// jobFlowCell names the flow a job starts, or says it sends a prompt.
+// jobWorkflowCell names the workflow a job starts, or says it sends a prompt.
 //
 // A dash rather than a blank, because a blank cell in a table reads as missing
 // data and "this one is a plain prompt" is the answer, not the absence of one.
-func jobFlowCell(j store.Job) string {
-	if !j.IsFlow() {
+func jobWorkflowCell(j store.Job) string {
+	if !j.IsWorkflow() {
 		return "—"
 	}
-	return j.Flow
+	return j.Workflow
 }
 
 func (m *Model) runColumns() []column {
@@ -224,8 +224,8 @@ func (m *Model) tableWidth() int {
 	switch m.focus {
 	case focusRuns:
 		cols = m.runColumns()
-	case focusFlows:
-		cols = m.flowColumns()
+	case focusWorkflows:
+		cols = m.workflowColumns()
 	case focusLeases:
 		return m.contentWidth()
 	}
@@ -278,7 +278,7 @@ func (m *Model) renderRuns(start, end int) string {
 		}
 		steps := m.steps[r.ID]
 		if len(steps) > 0 {
-			// A flow row says where the sequence got to. The note belongs
+			// A workflow row says where the sequence got to. The note belongs
 			// to whichever step spoke last, and the row is about the run.
 			detail = stepProgress(steps)
 		}

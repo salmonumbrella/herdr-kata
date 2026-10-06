@@ -264,10 +264,10 @@ func TestInvalidActiveInputBlocksSaveAndNavigation(t *testing.T) {
 	}
 }
 
-func TestFlowJobCanSaveWithoutAPrompt(t *testing.T) {
+func TestWorkflowJobCanSaveWithoutAPrompt(t *testing.T) {
 	m := newTestModel(t)
 	j := storedJob(t, m, "beta")
-	j.Flow, j.Input, j.Prompt = "daily", "original input", ""
+	j.Workflow, j.Input, j.Prompt = "daily", "original input", ""
 	if err := m.store.PutJob(context.Background(), j); err != nil {
 		t.Fatal(err)
 	}
@@ -277,20 +277,20 @@ func TestFlowJobCanSaveWithoutAPrompt(t *testing.T) {
 	m.typeText(t, "updated description")
 	m.pressSpecial(t, tea.KeyCtrlS)
 	if m.editor != nil {
-		t.Fatal("valid flow job refused to save")
+		t.Fatal("valid workflow job refused to save")
 	}
 	got := storedJob(t, m, "beta")
-	if got.Description != "updated description" || got.Flow != "daily" || got.Input != "original input" || got.Prompt != "" {
-		t.Fatalf("flow job was not preserved: %+v", got)
+	if got.Description != "updated description" || got.Workflow != "daily" || got.Input != "original input" || got.Prompt != "" {
+		t.Fatalf("workflow job was not preserved: %+v", got)
 	}
 }
 
-func TestEmptyFlowPromptCanBeCommittedAndSaved(t *testing.T) {
+func TestEmptyWorkflowPromptCanBeCommittedAndSaved(t *testing.T) {
 	for _, key := range []tea.KeyType{tea.KeyTab, tea.KeyCtrlS} {
 		t.Run(tea.KeyMsg{Type: key}.String(), func(t *testing.T) {
 			m := newTestModel(t)
 			j := storedJob(t, m, "beta")
-			j.Flow, j.Input, j.Prompt = "daily", "saved input", ""
+			j.Workflow, j.Input, j.Prompt = "daily", "saved input", ""
 			if err := m.store.PutJob(context.Background(), j); err != nil {
 				t.Fatal(err)
 			}
@@ -300,16 +300,16 @@ func TestEmptyFlowPromptCanBeCommittedAndSaved(t *testing.T) {
 			m.pressSpecial(t, key)
 			if key == tea.KeyTab {
 				if e.active >= 0 {
-					t.Fatal("empty flow prompt traps field navigation")
+					t.Fatal("empty workflow prompt traps field navigation")
 				}
 				m.pressSpecial(t, tea.KeyCtrlS)
 			}
 			if m.editor != nil {
-				t.Fatal("empty active flow prompt prevents saving")
+				t.Fatal("empty active workflow prompt prevents saving")
 			}
 			got := storedJob(t, m, "beta")
-			if got.Flow != "daily" || got.Input != "saved input" || got.Prompt != "" {
-				t.Fatal("flow definition changed")
+			if got.Workflow != "daily" || got.Input != "saved input" || got.Prompt != "" {
+				t.Fatal("workflow definition changed")
 			}
 		})
 	}

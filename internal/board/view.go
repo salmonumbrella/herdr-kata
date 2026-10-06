@@ -61,8 +61,8 @@ func (m *Model) listPane() pane {
 	switch m.focus {
 	case focusJobs:
 		shown, total = len(m.visibleJobs()), len(m.jobs)
-	case focusFlows:
-		shown, total = len(m.visibleFlows()), len(m.flowRows())
+	case focusWorkflows:
+		shown, total = len(m.visibleWorkflows()), len(m.workflowRows())
 	default:
 		shown, total = len(m.visibleRuns()), len(m.runs)
 	}
@@ -72,8 +72,8 @@ func (m *Model) listPane() pane {
 	switch m.focus {
 	case focusJobs:
 		body.WriteString(beside(m.renderJobs(start, end), m.inspector(m.renderInspector)))
-	case focusFlows:
-		body.WriteString(beside(m.renderFlows(start, end), m.inspector(m.renderFlowInspector)))
+	case focusWorkflows:
+		body.WriteString(beside(m.renderWorkflows(start, end), m.inspector(m.renderWorkflowInspector)))
 	default:
 		body.WriteString(m.renderRuns(start, end))
 	}
@@ -87,11 +87,11 @@ func (m *Model) listPane() pane {
 	if pl := m.pageLabel(shown, total, pageNum, pages); pl != "" {
 		bottom.WriteString(dimStyle.Render("  "+pl) + "\n")
 	}
-	if m.flowInput != nil {
+	if m.workflowInput != nil {
 		// The box sits under the table it was opened from, and pinned, because
 		// a box you are typing into that has scrolled off the pane is worse
 		// than no box.
-		bottom.WriteString(m.renderFlowInput())
+		bottom.WriteString(m.renderWorkflowInput())
 	}
 	if m.prune != nil {
 		// Pinned for the same reason, and more so: this box is the only place
@@ -100,14 +100,14 @@ func (m *Model) listPane() pane {
 	}
 	bottom.WriteString(m.renderFooter())
 	// Each list gets its own help line rather than one long shared one: space
-	// is only meaningful on runs and enter only launches on flows, and a help
+	// is only meaningful on runs and enter only launches on workflows, and a help
 	// line that grows past the pane width wraps, which costs a row the
 	// arithmetic above did not budget for.
 	help := "tab lists · / search · [ ] page · j/k move · l/→ open · R run · f fav · F finished · P prune · p pause · n new · M mouse · q quit"
 	switch m.focus {
 	case focusRuns:
 		help = "tab lists · / search · [ ] page · j/k move · space steps · l/→ open · a attach · i issue · K Kata · M mouse · q quit"
-	case focusFlows:
+	case focusWorkflows:
 		help = "tab lists · / search · [ ] page · j/k move · enter run · u unpark · r reload · M mouse · q quit"
 	}
 	bottom.WriteString("\n" + helpStyle.Render(help))

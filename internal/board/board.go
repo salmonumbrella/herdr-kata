@@ -15,11 +15,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/herdrcli"
 	"github.com/salmonumbrella/herdr-kata/internal/katabridge"
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 // refreshInterval is how often the board re-reads the store. The board is
@@ -62,29 +62,29 @@ type Model struct {
 	jobs []store.Job
 	runs []store.Run
 	last map[string]store.Run // job id -> most recent run
-	// steps is the per-step record of the flow runs on screen, keyed by run
-	// id. Ordinary runs have no entry, which is what makes a run a flow as
+	// steps is the per-step record of the workflow runs on screen, keyed by run
+	// id. Ordinary runs have no entry, which is what makes a run a workflow as
 	// far as this view is concerned.
 	steps map[string][]store.RunStep
-	// expanded is which flow runs are showing their steps. Keyed by run id
+	// expanded is which workflow runs are showing their steps. Keyed by run id
 	// so the block survives the three-second refresh under it.
 	expanded map[string]bool
 	leases   []store.Lease
 
-	// flows is every flow on disk and flowErrs is the files that would not
-	// parse. Both are re-read on the tick, because a flow is a file: it is
+	// workflows is every workflow on disk and workflowErrs is the files that would not
+	// parse. Both are re-read on the tick, because a workflow is a file: it is
 	// edited between one tick and the next by a person in an editor or an agent
 	// with a filesystem, and a board that read them once at open would keep
-	// offering a flow that has since been renamed.
-	flows    []flow.Flow
-	flowErrs []error
-	// lastFlow is the most recent run of each flow, by flow id. It is kept apart
-	// from `last`, which is keyed by job id: a flow called directly has no job
+	// offering a workflow that has since been renamed.
+	workflows    []workflow.Workflow
+	workflowErrs []error
+	// lastWorkflow is the most recent run of each workflow, by workflow id. It is kept apart
+	// from `last`, which is keyed by job id: a workflow called directly has no job
 	// at all, so its own history cannot be found there.
-	lastFlow map[string]store.Run
-	// flowInput is the open "what is this flow called with" box; nil when
+	lastWorkflow map[string]store.Run
+	// workflowInput is the open "what is this workflow called with" box; nil when
 	// nothing is being launched.
-	flowInput *flowPrompt
+	workflowInput *workflowPrompt
 	// prune is the open "delete these finished one-shots?" box; nil when
 	// nothing has been asked. See prune.go.
 	prune *prunePrompt
@@ -158,7 +158,7 @@ type focus int
 const (
 	focusJobs focus = iota
 	focusRuns
-	focusFlows
+	focusWorkflows
 	focusLeases
 )
 
@@ -169,15 +169,15 @@ const (
 // dependency so it can trigger runs without importing the command layer.
 type RunFunc func(job store.Job, trigger string) error
 
-// RunFlowFunc starts a flow with an input, the same call a human types.
-type RunFlowFunc func(flowID, input string) error
+// RunWorkflowFunc starts a workflow with an input, the same call a human types.
+type RunWorkflowFunc func(workflowID, input string) error
 
-// ResumeFlowFunc picks a parked flow run up at the step that stopped it.
+// ResumeWorkflowFunc picks a parked workflow run up at the step that stopped it.
 //
-// It takes a run rather than a flow because that is what resuming is about: the
-// steps already finished live in one run's directory, and starting the flow
+// It takes a run rather than a workflow because that is what resuming is about: the
+// steps already finished live in one run's directory, and starting the workflow
 // again by name would redo the ones that already cost money.
-type ResumeFlowFunc func(runID string) error
+type ResumeWorkflowFunc func(runID string) error
 
 // Deps are the behaviours the board needs from the command layer.
 
@@ -185,14 +185,14 @@ type ResumeFlowFunc func(runID string) error
 type Deps struct {
 	KataCommand func(issue string) (*exec.Cmd, error)
 	Run         RunFunc
-	// RunFlow and ResumeFlow are the two things the FLOWS tab does. Without
-	// them the board could show a parked flow and never act on it, which is the
+	// RunWorkflow and ResumeWorkflow are the two things the WORKFLOWS tab does. Without
+	// them the board could show a parked workflow and never act on it, which is the
 	// state that tab exists to end.
-	RunFlow    RunFlowFunc
-	ResumeFlow ResumeFlowFunc
-	// FlowDir is the local draft directory. Saved flows come from the native
+	RunWorkflow    RunWorkflowFunc
+	ResumeWorkflow ResumeWorkflowFunc
+	// WorkflowDir is the local draft directory. Saved workflows come from the native
 	// snapshot; this path is used only when opening a draft in the editor.
-	FlowDir string
+	WorkflowDir string
 	// DaemonRunning reports whether a scheduler is alive. The board shows it,
 	// because a stopped scheduler means nothing on screen will ever fire.
 	DaemonRunning func() bool
@@ -204,13 +204,13 @@ type Deps struct {
 func New(s *store.Store, h *herdrcli.Client, deps Deps) *Model {
 	return &Model{
 		store: s, herdr: h, runJob: deps.Run, deps: deps,
-		last:     map[string]store.Run{},
-		lastFlow: map[string]store.Run{},
-		steps:    map[string][]store.RunStep{},
-		expanded: map[string]bool{},
-		watcher:  newBinaryWatcher(),
-		running:  map[string]bool{},
-		hits:     map[int]hit{},
+		last:         map[string]store.Run{},
+		lastWorkflow: map[string]store.Run{},
+		steps:        map[string][]store.RunStep{},
+		expanded:     map[string]bool{},
+		watcher:      newBinaryWatcher(),
+		running:      map[string]bool{},
+		hits:         map[int]hit{},
 		// No frame has been drawn yet, so there is no tab row to click.
 		tabRow: -1,
 	}
@@ -234,13 +234,13 @@ type dataMsg struct {
 	// finished rule exists to hide.
 	lastRuns map[string]store.Run
 	leases   []store.Lease
-	// steps is the per-step record of whichever of those runs are flows.
+	// steps is the per-step record of whichever of those runs are workflows.
 	steps map[string][]store.RunStep
-	// flows is what is on disk, and flowErrs the files that would not parse.
+	// workflows is what is on disk, and workflowErrs the files that would not parse.
 	// The bad ones travel with the good ones rather than as an error on the
-	// read: one unparseable flow must not empty the tab.
-	flows    []flow.Flow
-	flowErrs []error
+	// read: one unparseable workflow must not empty the tab.
+	workflows    []workflow.Workflow
+	workflowErrs []error
 
 	err error
 }
@@ -284,8 +284,8 @@ func (m *Model) load() tea.Cmd {
 		nativeLabel := ""
 		shared := map[string]katacli.ReportedRun{}
 		historyTarget, historyLabel := "", ""
-		var nativeFlows []flow.Flow
-		var projectionErrs, nativeFlowErrs []error
+		var nativeWorkflows []workflow.Workflow
+		var projectionErrs, nativeWorkflowErrs []error
 		if m.store.Native != nil {
 			snapshot, e := m.store.Native.Refresh(ctx)
 			if e != nil {
@@ -293,8 +293,8 @@ func (m *Model) load() tea.Cmd {
 			}
 			nativeLabel = snapshot.Label()
 			jobs, projectionErrs = m.store.Native.ProjectJobs(snapshot)
-			nativeFlows, nativeFlowErrs = flow.ProjectDefinitions(snapshot.Flows)
-			projectionErrs = append(projectionErrs, nativeFlowErrs...)
+			nativeWorkflows, nativeWorkflowErrs = workflow.ProjectDefinitions(snapshot.Workflows)
+			projectionErrs = append(projectionErrs, nativeWorkflowErrs...)
 			if m.store.Native.Client != nil {
 				historyTarget = katacli.LocalTargetKey(m.store.Native.Client.Target) + "/" + m.store.Native.Binding.ProjectUID
 				if historyTarget == cachedTarget {
@@ -384,18 +384,18 @@ func (m *Model) load() tea.Cmd {
 		if err != nil {
 			return dataMsg{err: err}
 		}
-		// Flows are files, so they are listed rather than queried — here, beside
+		// Workflows are files, so they are listed rather than queried — here, beside
 		// the store reads, because this is the goroutine that is allowed to
 		// block. A directory read on the event loop would stall every keystroke
 		// behind it.
-		flows := nativeFlows
-		flowErrs := nativeFlowErrs
+		workflows := nativeWorkflows
+		workflowErrs := nativeWorkflowErrs
 		if m.store.Native == nil {
-			flows, flowErrs = m.readFlows()
+			workflows, workflowErrs = m.readWorkflows()
 		}
 		return dataMsg{sharedRuns: shared, historyTarget: historyTarget, historyLabel: historyLabel, projectionErrs: projectionErrs, nativeLabel: nativeLabel, jobs: jobs, runs: runs, deadHooks: deadHooks, pendingDelivery: pendingDelivery, failedDelivery: failedDelivery, pendingInbox: pendingInbox, lastRuns: lastRuns, steps: steps,
-			leases: leases,
-			flows:  flows, flowErrs: flowErrs}
+			leases:    leases,
+			workflows: workflows, workflowErrs: workflowErrs}
 	}
 }
 
@@ -475,7 +475,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sharedRuns, m.historyTarget, m.historyLabel = msg.sharedRuns, msg.historyTarget, msg.historyLabel
 		m.deadHooks = msg.deadHooks
 		m.pendingDelivery, m.failedDelivery, m.pendingInbox = msg.pendingDelivery, msg.failedDelivery, msg.pendingInbox
-		m.flows, m.flowErrs = msg.flows, msg.flowErrs
+		m.workflows, m.workflowErrs = msg.workflows, msg.workflowErrs
 		m.leases = msg.leases
 		// Each job's latest run comes from the store, not from the window above:
 		// the LAST column and the finished rule both read this, and both are
@@ -484,15 +484,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.last == nil {
 			m.last = map[string]store.Run{}
 		}
-		m.lastFlow = map[string]store.Run{}
-		// runs arrive newest first, so the first sighting of a flow wins.
+		m.lastWorkflow = map[string]store.Run{}
+		// runs arrive newest first, so the first sighting of a workflow wins.
 		for _, r := range msg.runs {
-			// A run that names a flow is that flow's history.
-			if r.Flow == "" {
+			// A run that names a workflow is that workflow's history.
+			if r.Workflow == "" {
 				continue
 			}
-			if _, seen := m.lastFlow[r.Flow]; !seen {
-				m.lastFlow[r.Flow] = r
+			if _, seen := m.lastWorkflow[r.Workflow]; !seen {
+				m.lastWorkflow[r.Workflow] = r
 			}
 		}
 		m.clampCursor()
@@ -581,15 +581,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.refreshDetail()
 
-	case flowDoneMsg:
-		delete(m.running, flowRunKey(msg.flowID))
+	case workflowDoneMsg:
+		delete(m.running, workflowRunKey(msg.workflowID))
 		if msg.err != nil {
 			m.err = msg.err
 			return m, nil
 		}
-		// A flow that parked is not an error and does not arrive as one — the
+		// A workflow that parked is not an error and does not arrive as one — the
 		// row's own STATE column is what says so, and the next tick fills it in.
-		m.status = "flow " + msg.flowID + " finished"
+		m.status = "workflow " + msg.workflowID + " finished"
 		return m, nil
 
 	case tea.KeyMsg:
@@ -604,10 +604,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 const (
 	colNextWidth = 14
 	colDescWidth = 30
-	// colFlowWidth fits a flow id comfortably; ids are shaped like job ids, so
+	// colWorkflowWidth fits a workflow id comfortably; ids are shaped like job ids, so
 	// they are short by construction, and a long one scrolls rather than being
 	// cut — the tail of an id is what tells two of them apart.
-	colFlowWidth = 14
+	colWorkflowWidth = 14
 )
 
 // Run starts the board TUI, restarting into a newer build if one appears.

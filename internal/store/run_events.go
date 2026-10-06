@@ -79,7 +79,7 @@ func settlementPayload(r Run, id int64, settlement int, previous string, result 
 	type run struct {
 		ID         string  `json:"id"`
 		JobID      string  `json:"job_id"`
-		Flow       string  `json:"flow"`
+		Workflow   string  `json:"workflow"`
 		Trigger    string  `json:"trigger"`
 		Outcome    string  `json:"outcome"`
 		ParkReason string  `json:"park_reason"`
@@ -109,7 +109,7 @@ func settlementPayload(r Run, id int64, settlement int, previous string, result 
 	}{
 		Version: 1, Event: "run.settled", EventID: id, Settlement: settlement,
 		PreviousOutcome: previous, HerdrKataVersion: version.String(),
-		Run: run{ID: r.ID, JobID: r.JobID, Flow: r.Flow, Trigger: r.Trigger,
+		Run: run{ID: r.ID, JobID: r.JobID, Workflow: r.Workflow, Trigger: r.Trigger,
 			Outcome: r.Outcome, ParkReason: r.ParkReason, Note: r.Note, Ref: r.Ref,
 			RunDir: r.RunDir, Space: r.Space,
 			StartedAt: r.StartedAt.UTC().Format(time.RFC3339), EndedAt: ended,

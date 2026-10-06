@@ -123,7 +123,7 @@ func TestTabCyclesEveryListAndResetsCursor(t *testing.T) {
 	if m.cursor != 0 {
 		t.Errorf("cursor is %d after switching lists, want 0: the old index means nothing in the new list", m.cursor)
 	}
-	for _, want := range []focus{focusFlows, focusLeases, focusJobs} {
+	for _, want := range []focus{focusWorkflows, focusLeases, focusJobs} {
 		m.pressSpecial(t, tea.KeyTab)
 		if m.focus != want {
 			t.Fatalf("tab moved to focus %d, want %d", m.focus, want)
@@ -131,7 +131,7 @@ func TestTabCyclesEveryListAndResetsCursor(t *testing.T) {
 	}
 
 	// Backwards too, or a reader who overshoots has to walk all the way round.
-	for _, want := range []focus{focusLeases, focusFlows, focusRuns, focusJobs} {
+	for _, want := range []focus{focusLeases, focusWorkflows, focusRuns, focusJobs} {
 		m.pressSpecial(t, tea.KeyShiftTab)
 		if m.focus != want {
 			t.Fatalf("shift+tab moved to focus %d, want %d", m.focus, want)
@@ -350,7 +350,7 @@ func TestRenderedRowsMatchThePageBounds(t *testing.T) {
 func TestHelpFitsTheDemoTerminal(t *testing.T) {
 	m := newTestModel(t)
 	m.width, m.height = demoColumns, 40
-	for _, focus := range []focus{focusJobs, focusRuns, focusLeases, focusFlows} {
+	for _, focus := range []focus{focusJobs, focusRuns, focusLeases, focusWorkflows} {
 		m.focus = focus
 		for _, line := range strings.Split(m.View(), "\n") {
 			if w := lipgloss.Width(line); w > m.width {
@@ -368,7 +368,7 @@ const demoColumns = 134
 // that are not printed, so counting runes would flag lines that fit.
 func TestNoRenderedLineExceedsThePane(t *testing.T) {
 	m := newTestModel(t)
-	for _, focus := range []focus{focusJobs, focusRuns, focusLeases, focusFlows} {
+	for _, focus := range []focus{focusJobs, focusRuns, focusLeases, focusWorkflows} {
 		m.focus = focus
 		for _, line := range strings.Split(m.View(), "\n") {
 			if w := lipgloss.Width(line); w > m.width {

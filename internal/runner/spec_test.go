@@ -60,20 +60,20 @@ func TestFromStoreDoesNotInventPersistence(t *testing.T) {
 	}
 }
 
-func TestAStoredReferenceReachesAnAgentAndEveryFlowAgentStep(t *testing.T) {
+func TestAStoredReferenceReachesAnAgentAndEveryWorkflowAgentStep(t *testing.T) {
 	j := store.Job{ID: "brief", Ref: "Ticket: Mixed / #42"}
 	if got := FromStore(j).Env["HERDR_KATA_REF"]; got != j.Ref {
 		t.Fatalf("job agent ref = %q, want %q", got, j.Ref)
 	}
 	if got := StepJob(j, store.Step{ID: "review"}).Env["HERDR_KATA_REF"]; got != j.Ref {
-		t.Fatalf("flow agent ref = %q, want %q", got, j.Ref)
+		t.Fatalf("workflow agent ref = %q, want %q", got, j.Ref)
 	}
 	if got, ok := FromStore(store.Job{ID: "unbound"}).Env["HERDR_KATA_REF"]; !ok || got != "" {
 		t.Fatalf("unbound agent ref = %q (present %t), want an explicit empty value", got, ok)
 	}
 }
 
-// The flags are typed by hand — in the board's editor as one line, in a flow
+// The flags are typed by hand — in the board's editor as one line, in a workflow
 // file as a block — so both spellings have to reach argv. A newline-separated
 // block parsed as a single argument is one unusable flag, and the agent rejects
 // its own command line.
@@ -157,7 +157,7 @@ func TestStepArgsCarryThePermissionDecision(t *testing.T) {
 	}
 }
 
-// A job that keeps context carries the flag onto the runnable job, and a flow
+// A job that keeps context carries the flag onto the runnable job, and a workflow
 // step never does. A step that kept context would be handed the previous
 // step's conversation, which is the thing StepJob exists to prevent -- the
 // reviewer would inherit the writer's assumptions and review its own work.
@@ -171,6 +171,6 @@ func TestKeepContextTravelsToTheJobButNeverToAStep(t *testing.T) {
 		t.Error("KeepContext did not reach the runnable job")
 	}
 	if got := StepJob(job, store.Step{ID: "review", Agent: "review it"}); got.KeepContext {
-		t.Error("a flow step kept context: it would inherit the previous step's conversation")
+		t.Error("a workflow step kept context: it would inherit the previous step's conversation")
 	}
 }

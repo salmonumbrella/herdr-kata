@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/runner"
 	"github.com/salmonumbrella/herdr-kata/internal/sched"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +15,7 @@ import (
 
 func consumerShellJob(t *testing.T, s *store.Store) store.Job {
 	t.Helper()
-	draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> consumer-count"}}}, "", "")
+	draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> consumer-count"}}}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func consumerShellJob(t *testing.T, s *store.Store) store.Job {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return policyJob(t, s, store.Job{Name: "Inspect", CWD: s.Native.Binding.Checkouts["primary"], Flow: fd.UID, Ref: policyIssueUID, Schedule: store.ScheduleManual, Timeout: time.Second})
+	return policyJob(t, s, store.Job{Name: "Inspect", CWD: s.Native.Binding.Checkouts["primary"], Workflow: fd.UID, Ref: policyIssueUID, Schedule: store.ScheduleManual, Timeout: time.Second})
 }
 
 func TestConsumerOrdinaryIssueReadiness(t *testing.T) {

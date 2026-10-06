@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/runner"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 func TestExecutionPolicyNativeOnceDeactivatesOnlyAfterOutcome(t *testing.T) {
@@ -20,8 +20,8 @@ func TestExecutionPolicyNativeOnceDeactivatesOnlyAfterOutcome(t *testing.T) {
 		{name: "prompt-done", want: runner.OutcomeDone},
 		{name: "prompt-failed", status: "error", want: runner.OutcomeFailed},
 		{name: "prompt-parked", status: "none", want: runner.OutcomeParked},
-		{name: "flow-done", command: "true", want: runner.OutcomeDone},
-		{name: "flow-parked", command: "false", want: runner.OutcomeParked},
+		{name: "workflow-done", command: "true", want: runner.OutcomeDone},
+		{name: "workflow-parked", command: "false", want: runner.OutcomeParked},
 		{name: "prelaunch", prelaunch: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -35,7 +35,7 @@ func TestExecutionPolicyNativeOnceDeactivatesOnlyAfterOutcome(t *testing.T) {
 			at := time.Now().Add(time.Hour)
 			j := store.Job{Name: "Inspect", Kind: "codex", Prompt: "Inspect workspace", CWD: s.Native.Binding.Checkouts["primary"], Schedule: store.ScheduleOnce, RunAt: &at, Timeout: time.Second}
 			if tc.command != "" {
-				draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: tc.command}}}, "", "")
+				draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: tc.command}}}, "", "")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -43,7 +43,7 @@ func TestExecutionPolicyNativeOnceDeactivatesOnlyAfterOutcome(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				j.Flow = fd.UID
+				j.Workflow = fd.UID
 				j.Prompt = ""
 			}
 			j = policyJob(t, s, j)

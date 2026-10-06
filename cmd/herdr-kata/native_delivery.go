@@ -254,7 +254,7 @@ func sameObservationEvidence(a, b katacli.RunObservation) bool {
 }
 
 func sameObservationIdentity(a, b katacli.RunObservation) bool {
-	return a.JobUID == b.JobUID && a.DefinitionEventUID == b.DefinitionEventUID && a.FlowUID == b.FlowUID && a.FlowDefinitionEventUID == b.FlowDefinitionEventUID && a.OccurrenceKey == b.OccurrenceKey && a.IssueUID == b.IssueUID && a.Teammate == b.Teammate && a.ExecutorLabel == b.ExecutorLabel
+	return a.JobUID == b.JobUID && a.DefinitionEventUID == b.DefinitionEventUID && a.WorkflowUID == b.WorkflowUID && a.WorkflowDefinitionEventUID == b.WorkflowDefinitionEventUID && a.OccurrenceKey == b.OccurrenceKey && a.IssueUID == b.IssueUID && a.Teammate == b.Teammate && a.ExecutorLabel == b.ExecutorLabel
 }
 
 // Existing local SQL history has whole-second timestamps. Comparing that

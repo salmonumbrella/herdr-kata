@@ -14,9 +14,9 @@ import (
 // click reads that map back.
 //
 // Recording beats arithmetic here because the arithmetic is wrong: the runs
-// table injects step lines under an expanded flow, so the nth row of the table
+// table injects step lines under an expanded workflow, so the nth row of the table
 // is not the nth line of the body, and a click near the bottom of a list with
-// one flow expanded would act on a row several places from the one under the
+// one workflow expanded would act on a row several places from the one under the
 // pointer. The map cannot drift, because it is written by the same loop that
 // writes the lines.
 //
@@ -32,7 +32,7 @@ const (
 	hitNone hitKind = iota
 	hitJob
 	hitRun
-	hitFlow
+	hitWorkflow
 	// hitDetailRun is a run in the job detail's history, which is indexed into
 	// m.detailRuns rather than into the runs list.
 	hitDetailRun
@@ -156,7 +156,7 @@ func (m *Model) selectable() bool {
 
 // click selects whatever is under the pointer.
 func (m *Model) click(x, y int) (tea.Model, tea.Cmd) {
-	if m.editor != nil || m.flowInput != nil || m.prune != nil {
+	if m.editor != nil || m.workflowInput != nil || m.prune != nil {
 		return m, nil
 	}
 	if cmd, ok := m.clickTab(x, y); ok {
@@ -173,11 +173,11 @@ func (m *Model) click(x, y int) (tea.Model, tea.Cmd) {
 	if !ok || h.kind == hitNone {
 		return m, nil
 	}
-	// The inspector sits to the right of the jobs and flows tables and describes
+	// The inspector sits to the right of the jobs and workflows tables and describes
 	// the selected row; clicking it must not choose a different one. The gutter
 	// the cursor mark occupies is part of the row, so it counts as table. The
 	// other two lists have nothing beside them, so nothing to guard against.
-	if h.kind == hitJob || h.kind == hitFlow {
+	if h.kind == hitJob || h.kind == hitWorkflow {
 		if x >= m.tableWidth()+2 {
 			return m, nil
 		}
@@ -193,7 +193,7 @@ func (m *Model) click(x, y int) (tea.Model, tea.Cmd) {
 // activate is the second click on an already-selected row.
 //
 // It does what `l` does, deliberately, and not what `enter` does: `l` navigates
-// and `enter` on a flow launches it. A stray double click that started an agent
+// and `enter` on a workflow launches it. A stray double click that started an agent
 // would spend money on a slipped pointer, and there is no undo for that.
 func (m *Model) activate(k hitKind) tea.Cmd {
 	if k == hitDetailRun {

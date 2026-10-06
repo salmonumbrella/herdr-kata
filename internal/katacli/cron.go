@@ -8,7 +8,7 @@ import (
 )
 
 func (c *Client) Definitions(ctx context.Context, resource string, deleted bool) ([]Definition, error) {
-	if resource != "job" && resource != "flow" {
+	if resource != "job" && resource != "workflow" {
 		return nil, errors.New("unknown definition resource")
 	}
 	args := []string{"cron", resource, "list"}
@@ -26,7 +26,7 @@ func (c *Client) Definitions(ctx context.Context, resource string, deleted bool)
 	return defs, nil
 }
 func (c *Client) Definition(ctx context.Context, resource, uid string) (Definition, error) {
-	if resource != "job" && resource != "flow" {
+	if resource != "job" && resource != "workflow" {
 		return Definition{}, errors.New("unknown definition resource")
 	}
 	uid, e := NormalizeUID(uid)
@@ -76,7 +76,7 @@ func (c *Client) Save(ctx context.Context, d Draft) (Definition, error) {
 	return def, nil
 }
 func (c *Client) DefinitionAction(ctx context.Context, resource, action, uid, expected string) (Definition, error) {
-	if resource != "job" && resource != "flow" || action != "delete" && action != "restore" {
+	if resource != "job" && resource != "workflow" || action != "delete" && action != "restore" {
 		return Definition{}, errors.New("unknown definition action")
 	}
 	uid, e := NormalizeUID(uid)

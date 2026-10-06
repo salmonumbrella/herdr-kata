@@ -77,8 +77,8 @@ type Draft struct {
 }
 
 func NewDraft(resource, uid, name string, raw json.RawMessage, expected string) (Draft, error) {
-	if resource != "job" && resource != "flow" {
-		return Draft{}, errors.New("definition resource must be job or flow")
+	if resource != "job" && resource != "workflow" {
+		return Draft{}, errors.New("definition resource must be job or workflow")
 	}
 	var e error
 	if uid == "" {

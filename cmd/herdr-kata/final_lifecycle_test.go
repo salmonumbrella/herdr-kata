@@ -35,7 +35,7 @@ func TestRawNativeLifecycleRefreshesOfflineCache(t *testing.T) {
 		}
 	}
 }
-func TestFlowRemovalWarnsAboutRawDependencies(t *testing.T) {
+func TestWorkflowRemovalWarnsAboutRawDependencies(t *testing.T) {
 	s, _, _ := policyProduct(t)
 	j := consumerShellJob(t, s)
 	var raw map[string]any
@@ -52,7 +52,7 @@ func TestFlowRemovalWarnsAboutRawDependencies(t *testing.T) {
 		t.Fatal(err)
 	}
 	var runErr error
-	text := captureDateDiagnostics(t, func() { _, runErr = captureStdout(t, func() error { return flowRemove([]string{j.Flow}) }) })
+	text := captureDateDiagnostics(t, func() { _, runErr = captureStdout(t, func() error { return workflowRemove([]string{j.Workflow}) }) })
 	if runErr != nil {
 		t.Fatal(runErr)
 	}
@@ -61,8 +61,8 @@ func TestFlowRemovalWarnsAboutRawDependencies(t *testing.T) {
 			t.Errorf("missing referencing job %s in %q", uid, text)
 		}
 	}
-	def, err := s.Native.Client.Definition(t.Context(), "flow", j.Flow)
+	def, err := s.Native.Client.Definition(t.Context(), "workflow", j.Workflow)
 	if err != nil || def.DeletedAt == nil {
-		t.Fatalf("flow not tombstoned: %+v %v", def, err)
+		t.Fatalf("workflow not tombstoned: %+v %v", def, err)
 	}
 }

@@ -14,16 +14,16 @@ import (
 func TestFrozenNativeSecretReferencesReachProcessAndFailBeforeLaunch(t *testing.T) {
 	s, _, _ := policyProduct(t)
 	j := consumerShellJob(t, s)
-	fd, err := s.Native.Client.Definition(t.Context(), "flow", j.Flow)
+	fd, err := s.Native.Client.Definition(t.Context(), "workflow", j.Workflow)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var flowDoc map[string]any
-	if err := katacli.Decode(fd.Definition, &flowDoc); err != nil {
+	var workflowDoc map[string]any
+	if err := katacli.Decode(fd.Definition, &workflowDoc); err != nil {
 		t.Fatal(err)
 	}
-	flowDoc["steps"] = []any{map[string]any{"key": "inspect", "kind": "command", "command": "printf '%s' \"$SERVICE_TOKEN\" > received-secret"}}
-	fd.Definition = policyJSON(t, flowDoc)
+	workflowDoc["steps"] = []any{map[string]any{"key": "inspect", "kind": "command", "command": "printf '%s' \"$SERVICE_TOKEN\" > received-secret"}}
+	fd.Definition = policyJSON(t, workflowDoc)
 	s.Native.Binding.Secrets = map[string]string{"service": "local-only-value"}
 	for _, tc := range []struct {
 		name, env, ref string
@@ -53,14 +53,14 @@ func TestFrozenNativeSecretReferencesReachProcessAndFailBeforeLaunch(t *testing.
 			}
 			target := s.Native.Client.Target
 			target.Token = ""
-			c := runner.NativeExecutionContext{Version: 1, RunUID: uid, Target: target, ProjectUID: policyProjectUID, Runtime: frozen, IssueUID: policyIssueUID, Job: &katacli.Definition{UID: j.ID, DefinitionEventUID: j.NativeEventUID, Definition: frozen.NativeDefinition}, Flow: &fd}
+			c := runner.NativeExecutionContext{Version: 1, RunUID: uid, Target: target, ProjectUID: policyProjectUID, Runtime: frozen, IssueUID: policyIssueUID, Job: &katacli.Definition{UID: j.ID, DefinitionEventUID: j.NativeEventUID, Definition: frozen.NativeDefinition}, Workflow: &fd}
 			if err := c.Save(runDirFor(uid)); err != nil {
 				t.Fatal(err)
 			}
 			marker := filepath.Join(j.CWD, "received-secret")
 			os.Remove(marker)
-			rec := store.Run{ID: uid, JobID: j.ID, Flow: j.Flow, Ref: policyIssueUID, RunDir: runDirFor(uid)}
-			_, err = runNativeContext(t.Context(), s, c, rec, flowOpts{})
+			rec := store.Run{ID: uid, JobID: j.ID, Workflow: j.Workflow, Ref: policyIssueUID, RunDir: runDirFor(uid)}
+			_, err = runNativeContext(t.Context(), s, c, rec, workflowOpts{})
 			raw, _ := os.ReadFile(marker)
 			if tc.reject {
 				if err == nil || len(raw) > 0 {

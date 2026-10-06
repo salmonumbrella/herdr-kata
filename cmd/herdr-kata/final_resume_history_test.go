@@ -39,7 +39,7 @@ func TestCompletedPerRunRefusalPreservesHistory(t *testing.T) {
 		t.Fatalf("control did not complete: %+v", before)
 	}
 	policyWrite(t, filepath.Join(dir, "issues.json"), map[string]any{before.Ref: map[string]any{"uid": before.Ref, "project_id": 73, "status": "closed", "author": "worker"}})
-	_, err = captureStdout(t, func() error { return flowCmd([]string{"resume", run.RunID}) })
+	_, err = captureStdout(t, func() error { return workflowCmd([]string{"resume", run.RunID}) })
 	if err == nil || !strings.Contains(err.Error(), "closed") {
 		t.Fatalf("expected readiness refusal, got %v", err)
 	}

@@ -133,7 +133,7 @@ func TestRealTask10HerdrPackagingSmoke(t *testing.T) {
 	// workspace lifecycle; the command step makes a concrete local shell effect.
 	artifact := filepath.Join(c.Target.Workspace, "smoke-result.txt")
 	definition, _ := json.Marshal(map[string]any{"version": 1, "steps": []any{map[string]any{"key": "inspect", "kind": "command", "command": "printf task10 > smoke-result.txt"}}})
-	draft, err := katacli.NewDraft("flow", "", "Packaging smoke", definition, "")
+	draft, err := katacli.NewDraft("workflow", "", "Packaging smoke", definition, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestRealTask10HerdrPackagingSmoke(t *testing.T) {
 	if err != nil {
 		realNativeFailure(t, err)
 	}
-	cmd := exec.CommandContext(t.Context(), binary, "flow", "run", def.UID)
+	cmd := exec.CommandContext(t.Context(), binary, "workflow", "run", def.UID)
 	cmd.Env = env
 	cmd.Dir = c.Target.Workspace
 	if runtime.GOOS != "windows" {
@@ -155,13 +155,13 @@ func TestRealTask10HerdrPackagingSmoke(t *testing.T) {
 	}
 	result, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("real native/Herdr shell flow: %v %s", err, result)
+		t.Fatalf("real native/Herdr shell workflow: %v %s", err, result)
 	}
 	data, err := os.ReadFile(artifact)
 	if err != nil || string(data) != "task10" {
 		t.Fatalf("shell effect absent: %q %v output=%s", data, err, result)
 	}
-	t.Logf("real native/Herdr shell flow: %s", result)
+	t.Logf("real native/Herdr shell workflow: %s", result)
 	if raw, err := call("plugin", "unlink", "salmonumbrella.herdr-kata"); err != nil {
 		t.Fatalf("actual uninstall: %v %s", err, raw)
 	}

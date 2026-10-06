@@ -86,7 +86,7 @@ func TestTheViewNeverRendersMoreRowsThanThePaneHas(t *testing.T) {
 		if msgs > 0 {
 			seedLongLeases(t, m, msgs)
 		}
-		for _, focus := range []focus{focusJobs, focusRuns, focusLeases, focusFlows} {
+		for _, focus := range []focus{focusJobs, focusRuns, focusLeases, focusWorkflows} {
 			m.focus = focus
 			for height := 4; height <= 40; height++ {
 				m.height = height

@@ -62,19 +62,19 @@ func fakeSpaceServer(t *testing.T, ownID string, known ...string) (*herdrcli.Cli
 
 // A job that names a space gets that space, and herdr-kata's own is never touched.
 //
-// This is what keeps a flow's steps together: every step names the flow's
+// This is what keeps a workflow's steps together: every step names the workflow's
 // space, and a run that quietly landed somewhere else would put the steps in
 // different threads without anything reporting a problem.
 func TestSpaceForHonoursTheSpaceTheJobNamed(t *testing.T) {
-	h, calls := fakeSpaceServer(t, "ws-own", "ws-flow")
+	h, calls := fakeSpaceServer(t, "ws-own", "ws-workflow")
 	r := &Runner{Herdr: h, StateDir: t.TempDir()}
 
-	got, err := r.spaceFor(context.Background(), Job{WorkspaceID: "ws-flow"})
+	got, err := r.spaceFor(context.Background(), Job{WorkspaceID: "ws-workflow"})
 	if err != nil {
 		t.Fatalf("spaceFor: %v", err)
 	}
-	if got != "ws-flow" {
-		t.Errorf("run went to space %q, want the one the job named, ws-flow", got)
+	if got != "ws-workflow" {
+		t.Errorf("run went to space %q, want the one the job named, ws-workflow", got)
 	}
 	if strings.Contains(calls(), "create") {
 		t.Error("a space was created even though the named one was there")

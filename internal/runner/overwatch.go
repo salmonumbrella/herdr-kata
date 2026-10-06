@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/statefs"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 // The overwatch: the one reader that holds the whole run.
@@ -23,19 +23,19 @@ import (
 // from two steps up.
 //
 // So at every point where a run would otherwise stop, an agent that has been
-// handed the flow definition, every step's outcome, and the failure's own
+// handed the workflow definition, every step's outcome, and the failure's own
 // artifacts is asked what to do. Three things keep that from becoming a way to
 // wave work through:
 //
 //  1. A declared `on_fail` edge wins. It is explicit, it is free, and an agent
 //     overruling what the file says is the failure this tool exists to prevent.
-//     Overwatch is consulted where the flow would park, including when an edge
+//     Overwatch is consulted where the workflow would park, including when an edge
 //     has run out — not instead of the edge.
 //  2. `skip` is not in the default allow-list. Accepting a failed step is the
-//     one decision that breaks what a flow is for, so a flow that wants it has
+//     one decision that breaks what a workflow is for, so a workflow that wants it has
 //     to say so in the file where a reviewer sees it.
 //  3. Anything unreadable parks. No decision file, unparseable JSON, a verb the
-//     flow does not permit, a goto naming a step that does not exist or has not
+//     workflow does not permit, a goto naming a step that does not exist or has not
 //     run — every one of them parks with the reason named. Ambiguity resolves
 //     towards stopping, never towards continuing.
 
@@ -49,7 +49,7 @@ const DecisionFile = "decision.json"
 
 // Decision is the overwatch's answer.
 type Decision struct {
-	// Decision is one of flow.Decide*.
+	// Decision is one of workflow.Decide*.
 	Decision string `json:"decision"`
 	// Step is the step to go back to, for a goto.
 	Step string `json:"step,omitempty"`
@@ -59,12 +59,12 @@ type Decision struct {
 	Why string `json:"why,omitempty"`
 }
 
-// ParkOverwatch is why a flow parked: its overwatch said so, or could not say
+// ParkOverwatch is why a workflow parked: its overwatch said so, or could not say
 // anything usable. The distinction lives in the note, not in the reason —
 // both mean the run stopped with a reader having looked at it.
 const ParkOverwatch ParkReason = "overwatch"
 
-// ParkOverwatchSpent is why a flow parked: the overwatch used its whole budget
+// ParkOverwatchSpent is why a workflow parked: the overwatch used its whole budget
 // of decisions and the run is still not finished. It is a park like an
 // exhausted loop — the attempts are on disk and the run resumes — rather than
 // an agent left deciding all night.
@@ -100,7 +100,7 @@ func writeOverwatchLedger(runDir string, l overwatchLedger) error {
 
 // overwatchDir is where one consult's artifacts live. Outside steps/, because
 // the overwatch is not a step and a reader walking steps/ is asking what the
-// flow declared.
+// workflow declared.
 func overwatchDir(runDir string, consult int) string {
 	return filepath.Join(runDir, "overwatch", fmt.Sprintf("%d", consult))
 }
@@ -111,19 +111,19 @@ func overwatchDir(runDir string, consult int) string {
 // It never returns an error for a decision it did not like: an overwatch that
 // cannot be understood is a park, with the reason on the record. The only
 // errors here are the harness's own — a directory that could not be made.
-func (w *Flow) consult(ctx context.Context, job store.Job, def flow.Flow, cfg flow.Overwatch,
-	wr *FlowRun, runID, runDir string, trigger overwatchTrigger) Decision {
+func (w *Workflow) consult(ctx context.Context, job store.Job, def workflow.Workflow, cfg workflow.Overwatch,
+	wr *WorkflowRun, runID, runDir string, trigger overwatchTrigger) Decision {
 
 	ledger := readOverwatchLedger(runDir)
 	if ledger.Consults >= cfg.Budget {
-		return Decision{Decision: flow.DecidePark, Why: fmt.Sprintf(
+		return Decision{Decision: workflow.DecidePark, Why: fmt.Sprintf(
 			"the overwatch has spent its whole budget of %d decision(s) on this run", cfg.Budget)}
 	}
 	if w.Launch == nil {
-		// A flow of `run:` steps in a harness with no launcher. Nothing to ask,
+		// A workflow of `run:` steps in a harness with no launcher. Nothing to ask,
 		// and pretending otherwise would park with a reason that reads like the
 		// overwatch had an opinion.
-		return Decision{Decision: flow.DecidePark, Why: "no agent launcher, so nothing could be asked"}
+		return Decision{Decision: workflow.DecidePark, Why: "no agent launcher, so nothing could be asked"}
 	}
 
 	// The consult gets its own deadline. Without one, a job with no timeout --
@@ -135,29 +135,29 @@ func (w *Flow) consult(ctx context.Context, job store.Job, def flow.Flow, cfg fl
 	consult := ledger.Consults + 1
 	dir := overwatchDir(runDir, consult)
 	if err := w.prepare(dir); err != nil {
-		return Decision{Decision: flow.DecidePark, Why: "the overwatch's directory could not be written: " + err.Error()}
+		return Decision{Decision: workflow.DecidePark, Why: "the overwatch's directory could not be written: " + err.Error()}
 	}
 
 	step := store.Step{
-		ID:     flow.OverwatchStepID,
+		ID:     workflow.OverwatchStepID,
 		Agent:  overwatchBrief(def, cfg, wr, trigger),
 		Model:  cfg.Model,
 		Effort: cfg.Effort,
 		Kind:   cfg.Kind,
 	}
 	sr := StepRun{ID: step.ID, Index: -1, Kind: "overwatch", Dir: dir, Attempt: consult}
-	w.runAgentStep(ctx, job, step, flow.Values{}, runID, &sr)
+	w.runAgentStep(ctx, job, step, workflow.Values{}, runID, &sr)
 
 	ledger.Consults = consult
 	if err := writeOverwatchLedger(runDir, ledger); err != nil {
 		// The budget is a bound, and a bound that failed to record itself has
 		// to stop the run rather than be silently reset by the next consult.
-		return Decision{Decision: flow.DecidePark, Why: "the overwatch's budget could not be recorded: " + err.Error()}
+		return Decision{Decision: workflow.DecidePark, Why: "the overwatch's budget could not be recorded: " + err.Error()}
 	}
 
 	d, err := readDecision(dir)
 	if err != nil {
-		return Decision{Decision: flow.DecidePark,
+		return Decision{Decision: workflow.DecidePark,
 			Why: "the overwatch left no decision this run could act on: " + err.Error()}
 	}
 	return sanitise(d, cfg, def, wr)
@@ -189,33 +189,33 @@ func readDecision(dir string) (Decision, error) {
 //
 // Every rejection becomes a park that names what was wrong with the answer,
 // because the alternative — treating an unusable decision as "carry on" — is
-// how an agent's confusion becomes a flow that ran its remaining steps on a
+// how an agent's confusion becomes a workflow that ran its remaining steps on a
 // failure nobody read.
-func sanitise(d Decision, cfg flow.Overwatch, def flow.Flow, wr *FlowRun) Decision {
+func sanitise(d Decision, cfg workflow.Overwatch, def workflow.Workflow, wr *WorkflowRun) Decision {
 	park := func(why string) Decision {
-		return Decision{Decision: flow.DecidePark, Why: why + parenthetical(d.Why)}
+		return Decision{Decision: workflow.DecidePark, Why: why + parenthetical(d.Why)}
 	}
 	switch d.Decision {
-	case flow.DecidePark, flow.DecideContinue, flow.DecideAbort,
-		flow.DecideRetry, flow.DecideGoto, flow.DecideSkip:
+	case workflow.DecidePark, workflow.DecideContinue, workflow.DecideAbort,
+		workflow.DecideRetry, workflow.DecideGoto, workflow.DecideSkip:
 	default:
 		return park(fmt.Sprintf("the overwatch answered %q, which is not a decision", d.Decision))
 	}
 	if !cfg.Permits(d.Decision) {
-		return park(fmt.Sprintf("the overwatch chose %q, which this flow does not allow", d.Decision))
+		return park(fmt.Sprintf("the overwatch chose %q, which this workflow does not allow", d.Decision))
 	}
-	if d.Decision == flow.DecideGoto {
+	if d.Decision == workflow.DecideGoto {
 		if d.Step == "" {
 			return park("the overwatch chose goto without naming a step")
 		}
 		if !declares(def, d.Step) {
-			return park(fmt.Sprintf("the overwatch chose goto %q, which this flow has no step called", d.Step))
+			return park(fmt.Sprintf("the overwatch chose goto %q, which this workflow has no step called", d.Step))
 		}
 		if !hasRun(wr, d.Step) {
-			// Forward edges are branches, and a flow is a series. The same rule
+			// Forward edges are branches, and a workflow is a series. The same rule
 			// a declared on_fail edge is held to.
 			return park(fmt.Sprintf("the overwatch chose goto %q, which has not run yet — "+
-				"a flow goes back, never forward", d.Step))
+				"a workflow goes back, never forward", d.Step))
 		}
 	}
 	return d
@@ -230,8 +230,8 @@ func parenthetical(why string) string {
 	return " (it said: " + why + ")"
 }
 
-// declares reports whether the flow has a step with this id.
-func declares(def flow.Flow, id string) bool {
+// declares reports whether the workflow has a step with this id.
+func declares(def workflow.Workflow, id string) bool {
 	for _, s := range def.Steps {
 		if s.ID == id {
 			return true
@@ -241,7 +241,7 @@ func declares(def flow.Flow, id string) bool {
 }
 
 // hasRun reports whether this run has already executed a step.
-func hasRun(wr *FlowRun, id string) bool {
+func hasRun(wr *WorkflowRun, id string) bool {
 	for _, s := range wr.Steps {
 		if s.ID == id {
 			return true
@@ -259,7 +259,7 @@ type overwatchTrigger struct {
 	// everywhere else: a park reason, an exhausted loop, a plain failure.
 	Why string
 	// Settled is true when the step finished normally and the overwatch is
-	// being consulted only because the flow asked to see every step.
+	// being consulted only because the workflow asked to see every step.
 	Settled bool
 }
 
@@ -267,17 +267,17 @@ type overwatchTrigger struct {
 //
 // It is long on purpose. This agent is being asked to take a decision about
 // work it did not do, and the failure mode of a short brief here is an
-// overwatch that guesses -- so it gets the flow as declared, the run as it
+// overwatch that guesses -- so it gets the workflow as declared, the run as it
 // happened, the failure's own artifacts, and an explicit statement of which
 // decisions it may return and what each one costs.
-func overwatchBrief(def flow.Flow, cfg flow.Overwatch, wr *FlowRun, t overwatchTrigger) string {
+func overwatchBrief(def workflow.Workflow, cfg workflow.Overwatch, wr *WorkflowRun, t overwatchTrigger) string {
 	var b strings.Builder
-	b.WriteString("You are the overwatch for a herdr-kata flow: the one agent that sees the whole run.\n")
-	b.WriteString("Every step in this flow was a separate agent that read nothing but its own prompt.\n")
+	b.WriteString("You are the overwatch for a herdr-kata workflow: the one agent that sees the whole run.\n")
+	b.WriteString("Every step in this workflow was a separate agent that read nothing but its own prompt.\n")
 	b.WriteString("You have what none of them had, which is all of it.\n\n")
 
-	b.WriteString("# The flow as declared\n\n")
-	fmt.Fprintf(&b, "flow: %s\n", def.ID)
+	b.WriteString("# The workflow as declared\n\n")
+	fmt.Fprintf(&b, "workflow: %s\n", def.ID)
 	if def.About != "" {
 		fmt.Fprintf(&b, "about: %s\n", def.About)
 	}
@@ -322,7 +322,7 @@ func overwatchBrief(def flow.Flow, cfg flow.Overwatch, wr *FlowRun, t overwatchT
 
 	b.WriteString("\n# Why you are being asked\n\n")
 	if t.Settled {
-		fmt.Fprintf(&b, "Step %s finished and this flow asks to see every step.\n", t.StepID)
+		fmt.Fprintf(&b, "Step %s finished and this workflow asks to see every step.\n", t.StepID)
 		b.WriteString("If nothing is wrong, answer `continue`. That is the expected answer.\n")
 	} else {
 		fmt.Fprintf(&b, "Step %s did not complete: %s.\n", t.StepID, t.Why)
@@ -339,11 +339,11 @@ func overwatchBrief(def flow.Flow, cfg flow.Overwatch, wr *FlowRun, t overwatchT
 	b.WriteString("Write " + DecisionFile + " in your own run directory ($HERDR_KATA_STEP_DIR):\n\n")
 	b.WriteString("    {\"decision\": \"<one of below>\", \"step\": \"<step id, goto only>\", \"why\": \"<one or two sentences>\"}\n\n")
 	b.WriteString("Then write result.json as any step does, saying whether you managed to decide.\n\n")
-	b.WriteString("Decisions this flow allows:\n\n")
+	b.WriteString("Decisions this workflow allows:\n\n")
 	for _, d := range describeDecisions(cfg, t) {
 		b.WriteString("  " + d + "\n")
 	}
-	b.WriteString("\nAnything else — no file, unreadable JSON, a decision this flow does not allow,\n")
+	b.WriteString("\nAnything else — no file, unreadable JSON, a decision this workflow does not allow,\n")
 	b.WriteString("a goto naming a step that has not run — parks the run. Ambiguity stops the run;\n")
 	b.WriteString("it never carries it on.\n")
 
@@ -364,7 +364,7 @@ func overwatchBrief(def flow.Flow, cfg flow.Overwatch, wr *FlowRun, t overwatchT
 	b.WriteString("work nobody checked is not.\n")
 
 	if strings.TrimSpace(cfg.Brief) != "" {
-		b.WriteString("\n# From the flow itself\n\n")
+		b.WriteString("\n# From the workflow itself\n\n")
 		b.WriteString(strings.TrimSpace(cfg.Brief) + "\n")
 	}
 	return b.String()
@@ -372,26 +372,26 @@ func overwatchBrief(def flow.Flow, cfg flow.Overwatch, wr *FlowRun, t overwatchT
 
 // describeDecisions lists the verbs this consult may return, each with what it
 // costs, so the overwatch is choosing between known consequences.
-func describeDecisions(cfg flow.Overwatch, t overwatchTrigger) []string {
+func describeDecisions(cfg workflow.Overwatch, t overwatchTrigger) []string {
 	var out []string
 	if t.Settled {
 		out = append(out, "`continue` — nothing needs doing. The run carries on to the next step.")
 	}
-	if cfg.Permits(flow.DecideRetry) && !t.Settled {
+	if cfg.Permits(workflow.DecideRetry) && !t.Settled {
 		out = append(out, "`retry` — run this same step again, unchanged. For a transient: a "+
 			"network blip, a tool that was busy. Pointless if the input was wrong.")
 	}
-	if cfg.Permits(flow.DecideGoto) {
+	if cfg.Permits(workflow.DecideGoto) {
 		out = append(out, "`goto` with `step` — go back to an earlier step that has already run, "+
 			"and re-run from there. For when the fault is upstream of where it surfaced.")
 	}
 	out = append(out, "`park` — stop here, resumable. Everything finished stays done and a person "+
 		"picks it up. Choose this whenever you are not sure.")
-	if cfg.Permits(flow.DecideAbort) {
+	if cfg.Permits(workflow.DecideAbort) {
 		out = append(out, "`abort` — stop, and say this run is not worth resuming.")
 	}
-	if cfg.Permits(flow.DecideSkip) {
-		out = append(out, "`skip` — accept the failed step and carry on to the next one. This flow "+
+	if cfg.Permits(workflow.DecideSkip) {
+		out = append(out, "`skip` — accept the failed step and carry on to the next one. This workflow "+
 			"has explicitly allowed it. It means the steps after this one run on work that did "+
 			"not pass; be certain.")
 	}
@@ -430,20 +430,20 @@ const (
 	owCarryOn overwatchAction = iota
 	// owJump sets the loop index; the caller continues from there.
 	owJump
-	// owStop returns the run. The FlowRun has already been given its outcome.
+	// owStop returns the run. The WorkflowRun has already been given its outcome.
 	owStop
 )
 
 // actOn turns a sanitised decision into what the run does next.
 //
-// The park it is handed is already recorded on the FlowRun before this is
+// The park it is handed is already recorded on the WorkflowRun before this is
 // called, which is deliberate: a decision can only ever move a run *off* a
 // park, never onto one it would not have taken anyway. If anything here fails,
 // what the harness had already decided stands.
-func (w *Flow) actOn(d Decision, def flow.Flow, wr *FlowRun, runDir string, at int, stepID string) (overwatchAction, int) {
+func (w *Workflow) actOn(d Decision, def workflow.Workflow, wr *WorkflowRun, runDir string, at int, stepID string) (overwatchAction, int) {
 	switch d.Decision {
-	case flow.DecideContinue, flow.DecideSkip:
-		if d.Decision == flow.DecideSkip {
+	case workflow.DecideContinue, workflow.DecideSkip:
+		if d.Decision == workflow.DecideSkip {
 			// Named on the record, because a run that carried on past a failed
 			// step looks from the outside exactly like a run where nothing
 			// failed, and the difference is a step nobody checked.
@@ -451,7 +451,7 @@ func (w *Flow) actOn(d Decision, def flow.Flow, wr *FlowRun, runDir string, at i
 		}
 		return owCarryOn, 0
 
-	case flow.DecideRetry:
+	case workflow.DecideRetry:
 		wr.Loops++
 		wr.Outcome, wr.ParkReason, wr.StoppedAt = OutcomeDone, "", ""
 		// One before, so the caller's i++ lands back on the same step. The
@@ -459,7 +459,7 @@ func (w *Flow) actOn(d Decision, def flow.Flow, wr *FlowRun, runDir string, at i
 		// is a real attempt rather than a reuse of the failure.
 		return owJump, at - 1
 
-	case flow.DecideGoto:
+	case workflow.DecideGoto:
 		target := store.StepIndex(def.Steps, d.Step)
 		if target < 0 || target > at {
 			// sanitise already refused both, so reaching here means the
@@ -479,7 +479,7 @@ func (w *Flow) actOn(d Decision, def flow.Flow, wr *FlowRun, runDir string, at i
 		wr.Outcome, wr.ParkReason, wr.StoppedAt = OutcomeDone, "", ""
 		return owJump, target - 1
 
-	case flow.DecideAbort:
+	case workflow.DecideAbort:
 		wr.Outcome, wr.StoppedAt, wr.ParkReason = OutcomeParked, stepID, ParkOverwatch
 		return owStop, 0
 

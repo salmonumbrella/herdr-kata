@@ -111,12 +111,12 @@ func (r *NativeRepository) JobDraft(j Job) (katacli.Draft, error) {
 		}
 	}
 	action := map[string]string{"kind": "execute"}
-	if j.Flow != "" {
-		flowUID, e := katacli.NormalizeUID(j.Flow)
+	if j.Workflow != "" {
+		workflowUID, e := katacli.NormalizeUID(j.Workflow)
 		if e != nil {
-			return katacli.Draft{}, errors.New("select a native flow UID")
+			return katacli.Draft{}, errors.New("select a native workflow UID")
 		}
-		action["flow_uid"] = flowUID
+		action["workflow_uid"] = workflowUID
 	} else {
 		action["prompt"] = j.Prompt
 	}
@@ -147,8 +147,8 @@ func (r *NativeRepository) JobFrom(def katacli.Definition, offline bool) (Job, e
 			Interval       int `json:"interval_seconds"`
 		} `json:"trigger"`
 		Action struct {
-			Prompt string `json:"prompt"`
-			Flow   string `json:"flow_uid"`
+			Prompt   string `json:"prompt"`
+			Workflow string `json:"workflow_uid"`
 		} `json:"action"`
 		Checkout string                     `json:"checkout_key"`
 		Catchup  string                     `json:"catchup"`
@@ -178,7 +178,7 @@ func (r *NativeRepository) JobFrom(def katacli.Definition, offline bool) (Job, e
 			return Job{}, e
 		}
 	}
-	j := Job{CreatedAt: def.CreatedAt, ID: def.UID, Name: def.Name, Description: opts.Description, Ref: opts.Ref, Kind: opts.Kind, Model: opts.Model, Prompt: body.Action.Prompt, Flow: body.Action.Flow, Input: opts.Input, CWD: r.Binding.Checkouts[body.Checkout], CheckoutKey: body.Checkout, Enabled: body.Enabled, Schedule: ScheduleType(body.Trigger.Kind), CronExpr: body.Trigger.Cron, IntervalSeconds: body.Trigger.Interval, Catchup: body.Catchup, Timeout: time.Duration(body.Timeout) * time.Second, Tags: opts.Tags, PermissionMode: opts.PermissionMode, AllowedTools: opts.AllowedTools, DisallowedTools: opts.DisallowedTools, ExtraArgs: opts.ExtraArgs, SkipPermissions: opts.SkipPermissions, MaxBudgetUSD: opts.MaxBudgetUSD, AutoCompact: opts.AutoCompact, OnContextLoss: opts.OnContextLoss, Favorite: opts.Favorite, Persistent: opts.Persistent, KeepContext: opts.KeepContext, NativeEventUID: def.DefinitionEventUID, NativeDefinition: append(json.RawMessage(nil), def.Definition...), NativeOffline: offline}
+	j := Job{CreatedAt: def.CreatedAt, ID: def.UID, Name: def.Name, Description: opts.Description, Ref: opts.Ref, Kind: opts.Kind, Model: opts.Model, Prompt: body.Action.Prompt, Workflow: body.Action.Workflow, Input: opts.Input, CWD: r.Binding.Checkouts[body.Checkout], CheckoutKey: body.Checkout, Enabled: body.Enabled, Schedule: ScheduleType(body.Trigger.Kind), CronExpr: body.Trigger.Cron, IntervalSeconds: body.Trigger.Interval, Catchup: body.Catchup, Timeout: time.Duration(body.Timeout) * time.Second, Tags: opts.Tags, PermissionMode: opts.PermissionMode, AllowedTools: opts.AllowedTools, DisallowedTools: opts.DisallowedTools, ExtraArgs: opts.ExtraArgs, SkipPermissions: opts.SkipPermissions, MaxBudgetUSD: opts.MaxBudgetUSD, AutoCompact: opts.AutoCompact, OnContextLoss: opts.OnContextLoss, Favorite: opts.Favorite, Persistent: opts.Persistent, KeepContext: opts.KeepContext, NativeEventUID: def.DefinitionEventUID, NativeDefinition: append(json.RawMessage(nil), def.Definition...), NativeOffline: offline}
 	if body.Trigger.At != "" {
 		at, e := time.Parse(time.RFC3339Nano, body.Trigger.At)
 		if e != nil {

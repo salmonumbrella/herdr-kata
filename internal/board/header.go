@@ -73,8 +73,8 @@ func itoa(n int) string {
 }
 
 var (
-	tabOrder  = []focus{focusJobs, focusRuns, focusFlows, focusLeases}
-	tabLabels = []string{"JOBS", "RUNS", "FLOWS", "LEASES"}
+	tabOrder  = []focus{focusJobs, focusRuns, focusWorkflows, focusLeases}
+	tabLabels = []string{"JOBS", "RUNS", "WORKFLOWS", "LEASES"}
 )
 
 // tabIndex is where the current focus sits in the drawn order.

@@ -21,7 +21,7 @@ func TestSettlementPipeHonorsCancellationWithoutBlockingOtherWrites(t *testing.T
 		t.Fatal(err)
 	}
 	defer s.Close()
-	runDir := filepath.Join(dir, "runs", "flow-local")
+	runDir := filepath.Join(dir, "runs", "workflow-local")
 	if err = os.MkdirAll(runDir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestSettlementPipeHonorsCancellationWithoutBlockingOtherWrites(t *testing.T
 		}
 	}()
 	now := time.Now()
-	r := Run{ID: "flow-local", JobID: "local", Flow: "local", Outcome: "running", StartedAt: now, RunDir: runDir}
+	r := Run{ID: "workflow-local", JobID: "local", Workflow: "local", Outcome: "running", StartedAt: now, RunDir: runDir}
 	if err = s.PutRun(context.Background(), r); err != nil {
 		t.Fatal(err)
 	}

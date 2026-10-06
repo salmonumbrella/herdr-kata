@@ -95,7 +95,7 @@ func TestStateDirContainsEverythingHerdrKataWrites(t *testing.T) {
 
 	paths := map[string]string{
 		"stop file":     stopFile(),
-		"flow dir":      flowDir(),
+		"workflow dir":  workflowDir(),
 		"run dir":       runDirFor("20260101T000000Z-somejob"),
 		"sentinel lock": lockPath(roleSentinel),
 	}

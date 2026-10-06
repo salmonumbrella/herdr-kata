@@ -1,4 +1,4 @@
-# VHS drives a real terminal: Jobs, Runs, Flows, Leases and expanded steps.
+# VHS drives a real terminal: Jobs, Runs, Workflows, Leases and expanded steps.
 Output board.gif
 
 Set Shell bash
@@ -24,7 +24,7 @@ Type "2"
 Sleep 2s
 Screenshot board-runs.png
 
-# A two-step run opened up: a flow is one row, its steps sit underneath it.
+# A two-step run opened up: a workflow is one row, its steps sit underneath it.
 Type "jjj"
 Sleep 1s
 Type " "
@@ -33,7 +33,7 @@ Screenshot board-steps.png
 Type " "
 Sleep 1s
 
-# Flows — what is callable, what each takes, and when it last ran. This is the
+# Workflows — what is callable, what each takes, and when it last ran. This is the
 # launcher: enter runs one and asks for its input first.
 #
 # The sleep before the keystroke is not padding. Late in a tape VHS will take
@@ -43,12 +43,12 @@ Sleep 1s
 Sleep 1s
 Type "3"
 Sleep 1s
-# Onto the flow that actually has a sequence worth inspecting: the panel is
-# where a flow's steps live, and parking the cursor on a one-step flow shows
+# Onto the workflow that actually has a sequence worth inspecting: the panel is
+# where a workflow's steps live, and parking the cursor on a one-step workflow shows
 # the panel without showing what it is for.
 Type "jjjj"
 Sleep 2s
-Screenshot board-flows.png
+Screenshot board-workflows.png
 Sleep 1s
 
 # Leases — explicit coordinator scope, holder, run, expiry and reason.

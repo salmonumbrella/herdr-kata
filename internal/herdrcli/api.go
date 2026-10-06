@@ -129,7 +129,7 @@ func (c *Client) TabClose(ctx context.Context, tabID string) error {
 
 // WorkspaceClose closes a workspace and everything in it.
 //
-// Only ever called on a space herdr-kata created and recorded — a flow run's own
+// Only ever called on a space herdr-kata created and recorded — a workflow run's own
 // space, once its steps have finished. Closing one herdr-kata merely found would
 // take a person's window away from them.
 func (c *Client) WorkspaceClose(ctx context.Context, workspaceID string) error {

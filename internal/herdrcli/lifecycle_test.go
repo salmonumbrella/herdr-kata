@@ -34,8 +34,8 @@ func TestLifecycleArgumentAssembly(t *testing.T) {
 		},
 		{
 			name: "workspace rename puts the id before the new label",
-			call: func(c *Client) error { return c.WorkspaceRename(context.Background(), "w1", "flow: nightly") },
-			want: []string{"workspace", "rename", "w1", "flow: nightly"},
+			call: func(c *Client) error { return c.WorkspaceRename(context.Background(), "w1", "workflow: nightly") },
+			want: []string{"workspace", "rename", "w1", "workflow: nightly"},
 		},
 		{
 			// Distinct from AgentClearName, which is the same subcommand with
@@ -210,7 +210,7 @@ func TestWorkspaceListReportsAFailureRatherThanNothing(t *testing.T) {
 	}
 }
 
-// TabCreate is how a flow step gets its own tab, and the env entries are how
+// TabCreate is how a workflow step gets its own tab, and the env entries are how
 // HERDR_KATA_RUN_DIR reaches the agent in it — an agent started without that
 // variable writes its result where nothing looks for it.
 func TestTabCreateCarriesLabelCwdAndEnv(t *testing.T) {

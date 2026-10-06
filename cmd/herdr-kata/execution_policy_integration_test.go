@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 	"github.com/salmonumbrella/herdr-kata/internal/runner"
 	"github.com/salmonumbrella/herdr-kata/internal/statefs"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 // Only Kata is real here. Herdr's public process/prompt boundary is an owned
@@ -230,7 +230,7 @@ func TestRealExecutionPolicyFrozenReferenceResumeAfterSharedEditsAndDeletion(t *
 	if err := c.Create(t.Context(), "Inspect workspace", "Saved recovery", "frozen-reference-issue", &issue); err != nil {
 		realNativeFailure(t, err)
 	}
-	draft, err := flow.NativeDraft(flow.Flow{NativeName: "Saved inspection", Steps: []store.Step{{ID: "first", Run: "printf x >> frozen-count"}, {ID: "second", Run: "test -f ready && printf '%s' \"$HERDR_KATA_INPUT|$HERDR_KATA_REF\" > frozen-values"}}}, "", "")
+	draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Saved inspection", Steps: []store.Step{{ID: "first", Run: "printf x >> frozen-count"}, {ID: "second", Run: "test -f ready && printf '%s' \"$HERDR_KATA_INPUT|$HERDR_KATA_REF\" > frozen-values"}}}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,7 +238,7 @@ func TestRealExecutionPolicyFrozenReferenceResumeAfterSharedEditsAndDeletion(t *
 	if err != nil {
 		realNativeFailure(t, err)
 	}
-	j := policyJob(t, s, store.Job{Name: "Saved inspection", CWD: c.Target.Workspace, Flow: fd.UID, Input: "retained input", Timeout: time.Second})
+	j := policyJob(t, s, store.Job{Name: "Saved inspection", CWD: c.Target.Workspace, Workflow: fd.UID, Input: "retained input", Timeout: time.Second})
 	var body map[string]json.RawMessage
 	katacli.Decode(j.NativeDefinition, &body)
 	body["issue"] = policyJSON(t, map[string]any{"kind": "existing", "uid": issue.Issue.UID})
@@ -270,7 +270,7 @@ func TestRealExecutionPolicyFrozenReferenceResumeAfterSharedEditsAndDeletion(t *
 	var changed map[string]json.RawMessage
 	katacli.Decode(fd.Definition, &changed)
 	changed["steps"] = policyJSON(t, []map[string]any{{"key": "replacement", "kind": "command", "command": "printf rejected > changed-definition"}})
-	edit, err := katacli.NewDraft("flow", fd.UID, fd.Name, policyJSON(t, changed), fd.DefinitionEventUID)
+	edit, err := katacli.NewDraft("workflow", fd.UID, fd.Name, policyJSON(t, changed), fd.DefinitionEventUID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,13 +290,13 @@ func TestRealExecutionPolicyFrozenReferenceResumeAfterSharedEditsAndDeletion(t *
 	if err := s.Native.Delete(t.Context(), "job", jd2); err != nil {
 		realNativeFailure(t, err)
 	}
-	if err := s.Native.Delete(t.Context(), "flow", fd2); err != nil {
+	if err := s.Native.Delete(t.Context(), "workflow", fd2); err != nil {
 		realNativeFailure(t, err)
 	}
 	if err := os.WriteFile(filepath.Join(j.CWD, "ready"), nil, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := resumeFlowRun(s, rec.ID); err != nil {
+	if err := resumeWorkflowRun(s, rec.ID); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.Run(t.Context(), rec.ID)
@@ -317,7 +317,7 @@ func TestRealExecutionPolicyFrozenReferenceResumeAfterSharedEditsAndDeletion(t *
 	}
 	bad := *got
 	bad.Ref = policyIssueUID
-	if _, err := runFlow(t.Context(), s, j, bad, flowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
+	if _, err := runWorkflow(t.Context(), s, j, bad, workflowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("reference override accepted: %v", err)
 	}
 }

@@ -115,20 +115,20 @@ func TestBranchNativeCLIIntegration(t *testing.T) {
 	if e := c.Inbox(ctx, "worker/adapter", &inbox); e != nil || inbox.Recipient != "worker/adapter" || len(inbox.Requests) != 1 {
 		t.Fatalf("exact inbox %+v %v", inbox, e)
 	}
-	flowUID, _ := NewUID()
-	flowDraft, _ := NewDraft("flow", flowUID, "Inspect", json.RawMessage(`{"version":1,"steps":[{"key":"inspect","kind":"command","command":"git status","options":{"limit":9007199254740993}}]}`), "")
-	flowDef, e := c.Save(ctx, flowDraft)
+	workflowUID, _ := NewUID()
+	workflowDraft, _ := NewDraft("workflow", workflowUID, "Inspect", json.RawMessage(`{"version":1,"steps":[{"key":"inspect","kind":"command","command":"git status","options":{"limit":9007199254740993}}]}`), "")
+	workflowDef, e := c.Save(ctx, workflowDraft)
 	if e != nil {
 		integrationFailure(t, e)
 	}
-	if !strings.Contains(string(flowDef.Definition), "9007199254740993") {
-		t.Fatal("native flow numbers rounded")
+	if !strings.Contains(string(workflowDef.Definition), "9007199254740993") {
+		t.Fatal("native workflow numbers rounded")
 	}
-	if retry, e := c.Save(ctx, flowDraft); e != nil || retry.DefinitionEventUID != flowDef.DefinitionEventUID {
+	if retry, e := c.Save(ctx, workflowDraft); e != nil || retry.DefinitionEventUID != workflowDef.DefinitionEventUID {
 		t.Fatalf("accepted create retry changed identity %+v %v", retry, e)
 	}
 	jobUID, _ := NewUID()
-	body := json.RawMessage(`{"version":1,"kind":"job","enabled":false,"trigger":{"kind":"manual"},"action":{"kind":"execute","flow_uid":"` + flowUID + `"},"issue":{"kind":"existing","uid":"` + created.Issue.UID + `"},"overlap":"forbid","catchup":"all","options":{"counter":9007199254740993}}`)
+	body := json.RawMessage(`{"version":1,"kind":"job","enabled":false,"trigger":{"kind":"manual"},"action":{"kind":"execute","workflow_uid":"` + workflowUID + `"},"issue":{"kind":"existing","uid":"` + created.Issue.UID + `"},"overlap":"forbid","catchup":"all","options":{"counter":9007199254740993}}`)
 	jobDraft, _ := NewDraft("job", jobUID, "Inspect", body, "")
 	job, e := c.Save(ctx, jobDraft)
 	if e != nil {
@@ -161,7 +161,7 @@ func TestBranchNativeCLIIntegration(t *testing.T) {
 	if _, e := other.Definition(ctx, "job", jobUID); e == nil {
 		t.Fatal("foreign project resolved native job UID")
 	}
-	update, _ := NewDraft("flow", flowUID, "Updated", flowDef.Definition, flowDef.DefinitionEventUID)
+	update, _ := NewDraft("workflow", workflowUID, "Updated", workflowDef.Definition, workflowDef.DefinitionEventUID)
 	updated, e := c.Save(ctx, update)
 	if e != nil {
 		integrationFailure(t, e)
@@ -169,7 +169,7 @@ func TestBranchNativeCLIIntegration(t *testing.T) {
 	if _, e := c.Save(ctx, update); e == nil {
 		t.Fatal("stale winner accepted")
 	}
-	if _, e := c.DefinitionAction(ctx, "flow", "delete", flowUID, updated.DefinitionEventUID); e != nil {
+	if _, e := c.DefinitionAction(ctx, "workflow", "delete", workflowUID, updated.DefinitionEventUID); e != nil {
 		integrationFailure(t, e)
 	}
 	t.Logf("isolated actual CLI: CRUD/CAS/create-readback, exact numbers, issue/comment/notify/inbox and explicit cross-project routing passed")

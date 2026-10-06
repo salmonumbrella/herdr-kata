@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 // watcher is a fake agent that also answers as the overwatch: the decisions
@@ -32,14 +32,14 @@ func newWatcher(results map[string]Result, decisions ...Decision) *watcher {
 }
 
 func (w *watcher) launch(ctx context.Context, job Job, runID, dir string) (*Run, error) {
-	if job.Env["HERDR_KATA_STEP_ID"] != flow.OverwatchStepID {
+	if job.Env["HERDR_KATA_STEP_ID"] != workflow.OverwatchStepID {
 		return w.fakeAgent.launch(ctx, job, runID, dir)
 	}
 	w.consults++
 	// Recorded like any other launch, so a test can assert where in the
 	// sequence the consult happened rather than only that it did.
 	w.fakeAgent.calls = append(w.fakeAgent.calls,
-		agentCall{stepID: flow.OverwatchStepID, runID: runID, dir: dir, job: job})
+		agentCall{stepID: workflow.OverwatchStepID, runID: runID, dir: dir, job: job})
 	switch {
 	case len(w.raw) > 0:
 		body := w.raw[0]
@@ -66,9 +66,9 @@ func (w *watcher) launch(ctx context.Context, job Job, runID, dir string) (*Run,
 	return &Run{JobID: job.ID, RunID: runID, RunDir: dir, Outcome: OutcomeDone, Result: res}, nil
 }
 
-// agentFlow is a flow of agent steps, so it is overseen without declaring
+// agentWorkflow is a workflow of agent steps, so it is overseen without declaring
 // anything -- which is the whole of "mandatory".
-func agentFlow(steps ...store.Step) flow.Flow { return flowDef(steps...) }
+func agentWorkflow(steps ...store.Step) workflow.Workflow { return workflowDef(steps...) }
 
 // The case the feature exists for: a step failed, the harness would have parked
 // and waited for a person, and the one reader that can see the whole run says
@@ -77,11 +77,11 @@ func TestTheOverwatchIsAskedWhereTheRunWouldHaveParked(t *testing.T) {
 	dir := t.TempDir()
 	agent := newWatcher(map[string]Result{
 		"build": {Status: "error", Note: "the test binary was not there"},
-	}, Decision{Decision: flow.DecidePark, Why: "the build never produced a binary; a person should look"})
-	w := &Flow{Launch: agent.launch}
+	}, Decision{Decision: workflow.DecidePark, Why: "the build never produced a binary; a person should look"})
+	w := &Workflow{Launch: agent.launch}
 
-	wr, _ := w.Execute(context.Background(), flowJob(t),
-		agentFlow(store.Step{ID: "build", Agent: "build it"}, store.Step{ID: "ship", Agent: "ship it"}),
+	wr, _ := w.Execute(context.Background(), workflowJob(t),
+		agentWorkflow(store.Step{ID: "build", Agent: "build it"}, store.Step{ID: "ship", Agent: "ship it"}),
 		"", "run1", dir)
 
 	if agent.consults != 1 {
@@ -90,7 +90,7 @@ func TestTheOverwatchIsAskedWhereTheRunWouldHaveParked(t *testing.T) {
 	if wr.Outcome != OutcomeParked || wr.StoppedAt != "build" {
 		t.Errorf("run = %s at %q, want parked at build", wr.Outcome, wr.StoppedAt)
 	}
-	if len(wr.Decisions) != 1 || wr.Decisions[0].Decision != flow.DecidePark {
+	if len(wr.Decisions) != 1 || wr.Decisions[0].Decision != workflow.DecidePark {
 		t.Fatalf("decisions = %+v", wr.Decisions)
 	}
 	if !strings.Contains(wr.Decisions[0].Why, "never produced a binary") {
@@ -109,12 +109,12 @@ func TestRetryRunsTheSameStepAgain(t *testing.T) {
 		fakeAgent: &fakeAgent{scripted: map[string][]Result{
 			"fetch": {{Status: "error", Note: "connection reset"}, ok("got it")},
 		}, results: map[string]Result{"use": ok("used it")}},
-		decisions: []Decision{{Decision: flow.DecideRetry, Why: "a reset connection is transient"}},
+		decisions: []Decision{{Decision: workflow.DecideRetry, Why: "a reset connection is transient"}},
 	}
-	w := &Flow{Launch: agent.launch}
+	w := &Workflow{Launch: agent.launch}
 
-	wr, err := w.Execute(context.Background(), flowJob(t),
-		agentFlow(store.Step{ID: "fetch", Agent: "fetch"}, store.Step{ID: "use", Agent: "use"}),
+	wr, err := w.Execute(context.Background(), workflowJob(t),
+		agentWorkflow(store.Step{ID: "fetch", Agent: "fetch"}, store.Step{ID: "use", Agent: "use"}),
 		"", "run1", dir)
 	if err != nil {
 		t.Fatal(err)
@@ -139,12 +139,12 @@ func TestGotoSendsTheRunBackAndReRunsTheStepsBetween(t *testing.T) {
 			"write":  {ok("v1"), ok("v2")},
 			"verify": {{Status: "error", Note: "the fixture is wrong, not the code"}, ok("passes")},
 		}},
-		decisions: []Decision{{Decision: flow.DecideGoto, Step: "write", Why: "the fault is in what write produced"}},
+		decisions: []Decision{{Decision: workflow.DecideGoto, Step: "write", Why: "the fault is in what write produced"}},
 	}
-	w := &Flow{Launch: agent.launch}
+	w := &Workflow{Launch: agent.launch}
 
-	wr, err := w.Execute(context.Background(), flowJob(t),
-		agentFlow(store.Step{ID: "write", Agent: "write"}, store.Step{ID: "verify", Agent: "verify"}),
+	wr, err := w.Execute(context.Background(), workflowJob(t),
+		agentWorkflow(store.Step{ID: "write", Agent: "write"}, store.Step{ID: "verify", Agent: "verify"}),
 		"", "run1", dir)
 	if err != nil {
 		t.Fatal(err)
@@ -163,19 +163,19 @@ func TestGotoSendsTheRunBackAndReRunsTheStepsBetween(t *testing.T) {
 	}
 }
 
-// The whole guarantee of a flow is that B does not run on A's unverified
-// claim. An agent able to wave a step through would end it, so a flow has to
+// The whole guarantee of a workflow is that B does not run on A's unverified
+// claim. An agent able to wave a step through would end it, so a workflow has to
 // say so in the file before that decision is even offered.
-func TestSkipIsRefusedUnlessTheFlowAllowsIt(t *testing.T) {
-	def := agentFlow(
+func TestSkipIsRefusedUnlessTheWorkflowAllowsIt(t *testing.T) {
+	def := agentWorkflow(
 		store.Step{ID: "check", Agent: "check"},
 		store.Step{ID: "ship", Agent: "ship"},
 	)
 	results := map[string]Result{"check": {Status: "error", Note: "two tests fail"}, "ship": ok("shipped")}
 
 	dir := t.TempDir()
-	agent := newWatcher(results, Decision{Decision: flow.DecideSkip, Why: "they are flaky"})
-	wr, _ := (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+	agent := newWatcher(results, Decision{Decision: workflow.DecideSkip, Why: "they are flaky"})
+	wr, _ := (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 	if wr.Outcome != OutcomeParked {
 		t.Fatalf("run = %s, want parked: skip is not allowed by default", wr.Outcome)
 	}
@@ -186,14 +186,14 @@ func TestSkipIsRefusedUnlessTheFlowAllowsIt(t *testing.T) {
 		t.Errorf("the record does not say why the decision was refused: %+v", wr.Decisions[0])
 	}
 
-	// The same decision, in a flow that declared it.
+	// The same decision, in a workflow that declared it.
 	dir = t.TempDir()
 	allowed := def
-	allowed.Overwatch = &flow.Overwatch{Allow: []string{flow.DecideSkip}}
-	agent = newWatcher(results, Decision{Decision: flow.DecideSkip, Why: "they are flaky and tracked"})
-	wr, _ = (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t), allowed, "", "run2", dir)
+	allowed.Overwatch = &workflow.Overwatch{Allow: []string{workflow.DecideSkip}}
+	agent = newWatcher(results, Decision{Decision: workflow.DecideSkip, Why: "they are flaky and tracked"})
+	wr, _ = (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t), allowed, "", "run2", dir)
 	if wr.Outcome != OutcomeDone {
-		t.Fatalf("run = %s/%s, want done: the flow allowed skip", wr.Outcome, wr.ParkReason)
+		t.Fatalf("run = %s/%s, want done: the workflow allowed skip", wr.Outcome, wr.ParkReason)
 	}
 	if got := strings.Join(agent.started(), ","); got != "check,overwatch,ship" {
 		t.Errorf("agents started for %q, want the run carried past the failed check", got)
@@ -222,8 +222,8 @@ func TestAnUnusableAnswerParksAndSaysWhy(t *testing.T) {
 				fakeAgent: &fakeAgent{results: map[string]Result{"check": {Status: "error", Note: "no"}}},
 				raw:       []string{c.raw},
 			}
-			wr, _ := (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t),
-				agentFlow(store.Step{ID: "check", Agent: "check"}, store.Step{ID: "ship", Agent: "ship"}),
+			wr, _ := (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t),
+				agentWorkflow(store.Step{ID: "check", Agent: "check"}, store.Step{ID: "ship", Agent: "ship"}),
 				"", "run1", dir)
 
 			if wr.Outcome != OutcomeParked {
@@ -245,14 +245,14 @@ func TestTheOverwatchBudgetBoundsOneRun(t *testing.T) {
 	agent := &watcher{
 		fakeAgent: &fakeAgent{results: map[string]Result{"flaky": {Status: "error", Note: "still failing"}}},
 		decisions: []Decision{
-			{Decision: flow.DecideRetry}, {Decision: flow.DecideRetry},
-			{Decision: flow.DecideRetry}, {Decision: flow.DecideRetry},
+			{Decision: workflow.DecideRetry}, {Decision: workflow.DecideRetry},
+			{Decision: workflow.DecideRetry}, {Decision: workflow.DecideRetry},
 		},
 	}
-	def := agentFlow(store.Step{ID: "flaky", Agent: "try"})
-	def.Overwatch = &flow.Overwatch{Budget: 2}
+	def := agentWorkflow(store.Step{ID: "flaky", Agent: "try"})
+	def.Overwatch = &workflow.Overwatch{Budget: 2}
 
-	wr, _ := (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+	wr, _ := (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 	if wr.Outcome != OutcomeParked {
 		t.Fatalf("run = %s, want parked once the budget ran out", wr.Outcome)
 	}
@@ -269,20 +269,20 @@ func TestTheOverwatchBudgetBoundsOneRun(t *testing.T) {
 // resumes a parked run is not always a human deciding it is worth another go.
 func TestTheBudgetSurvivesAResume(t *testing.T) {
 	dir := t.TempDir()
-	def := agentFlow(store.Step{ID: "flaky", Agent: "try"})
-	def.Overwatch = &flow.Overwatch{Budget: 1}
+	def := agentWorkflow(store.Step{ID: "flaky", Agent: "try"})
+	def.Overwatch = &workflow.Overwatch{Budget: 1}
 	fail := map[string]Result{"flaky": {Status: "error", Note: "still failing"}}
 
 	first := &watcher{fakeAgent: &fakeAgent{results: fail},
-		decisions: []Decision{{Decision: flow.DecideRetry}}}
-	(&Flow{Launch: first.launch}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+		decisions: []Decision{{Decision: workflow.DecideRetry}}}
+	(&Workflow{Launch: first.launch}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 	if first.consults != 1 {
 		t.Fatalf("the first attempt consulted %d times, want 1", first.consults)
 	}
 
 	second := &watcher{fakeAgent: &fakeAgent{results: fail},
-		decisions: []Decision{{Decision: flow.DecideRetry}}}
-	wr, _ := (&Flow{Launch: second.launch}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+		decisions: []Decision{{Decision: workflow.DecideRetry}}}
+	wr, _ := (&Workflow{Launch: second.launch}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 	if second.consults != 0 {
 		t.Errorf("the resume consulted the overwatch %d time(s) on a spent budget", second.consults)
 	}
@@ -301,13 +301,13 @@ func TestADeclaredEdgeIsTakenBeforeTheOverwatchIsAsked(t *testing.T) {
 			"write":  {ok("v1"), ok("v2")},
 			"verify": {{Status: "error", Note: "wrong"}, ok("right")},
 		}},
-		decisions: []Decision{{Decision: flow.DecidePark}},
+		decisions: []Decision{{Decision: workflow.DecidePark}},
 	}
-	def := agentFlow(
+	def := agentWorkflow(
 		store.Step{ID: "write", Agent: "write"},
 		store.Step{ID: "verify", Agent: "verify", OnFail: &store.OnFail{Goto: "write", MaxLoops: 2}},
 	)
-	wr, _ := (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+	wr, _ := (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 
 	if agent.consults != 0 {
 		t.Errorf("the overwatch was consulted %d time(s) while a declared edge still had loops", agent.consults)
@@ -327,13 +327,13 @@ func TestTheOverwatchIsAskedWhenADeclaredEdgeRunsOut(t *testing.T) {
 			"write":  {ok("v1"), ok("v2")},
 			"verify": {{Status: "error", Note: "wrong"}, {Status: "error", Note: "still wrong"}},
 		}},
-		decisions: []Decision{{Decision: flow.DecidePark, Why: "the verifier is checking the wrong artifact"}},
+		decisions: []Decision{{Decision: workflow.DecidePark, Why: "the verifier is checking the wrong artifact"}},
 	}
-	def := agentFlow(
+	def := agentWorkflow(
 		store.Step{ID: "write", Agent: "write"},
 		store.Step{ID: "verify", Agent: "verify", OnFail: &store.OnFail{Goto: "write", MaxLoops: 1}},
 	)
-	wr, _ := (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+	wr, _ := (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 
 	if agent.consults != 1 {
 		t.Fatalf("the overwatch was consulted %d time(s) when the edge ran out, want once", agent.consults)
@@ -347,15 +347,15 @@ func TestTheOverwatchIsAskedWhenADeclaredEdgeRunsOut(t *testing.T) {
 }
 
 // every_step buys a reader on every result and costs an agent call per step,
-// which is why a flow declares it rather than inheriting it.
+// which is why a workflow declares it rather than inheriting it.
 func TestEveryStepConsultsOnSuccessAndCarriesOn(t *testing.T) {
 	dir := t.TempDir()
 	agent := newWatcher(map[string]Result{"one": ok("did one"), "two": ok("did two")},
-		Decision{Decision: flow.DecideContinue}, Decision{Decision: flow.DecideContinue})
-	def := agentFlow(store.Step{ID: "one", Agent: "a"}, store.Step{ID: "two", Agent: "b"})
-	def.Overwatch = &flow.Overwatch{Watch: flow.WatchEveryStep}
+		Decision{Decision: workflow.DecideContinue}, Decision{Decision: workflow.DecideContinue})
+	def := agentWorkflow(store.Step{ID: "one", Agent: "a"}, store.Step{ID: "two", Agent: "b"})
+	def.Overwatch = &workflow.Overwatch{Watch: workflow.WatchEveryStep}
 
-	wr, err := (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+	wr, err := (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,8 +372,8 @@ func TestEveryStepConsultsOnSuccessAndCarriesOn(t *testing.T) {
 func TestTheDefaultCadenceCostsNothingOnACleanRun(t *testing.T) {
 	dir := t.TempDir()
 	agent := newWatcher(map[string]Result{"one": ok("did one"), "two": ok("did two")})
-	wr, err := (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t),
-		agentFlow(store.Step{ID: "one", Agent: "a"}, store.Step{ID: "two", Agent: "b"}),
+	wr, err := (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t),
+		agentWorkflow(store.Step{ID: "one", Agent: "a"}, store.Step{ID: "two", Agent: "b"}),
 		"", "run1", dir)
 	if err != nil {
 		t.Fatal(err)
@@ -386,45 +386,45 @@ func TestTheDefaultCadenceCostsNothingOnACleanRun(t *testing.T) {
 	}
 }
 
-// A flow of shell steps has exit codes, not prose, and summoning a model to
+// A workflow of shell steps has exit codes, not prose, and summoning a model to
 // read `test -f gate` spends an agent on a boolean -- while making a
-// deliberately deterministic flow depend on one. Before this rule, a run that
+// deliberately deterministic workflow depend on one. Before this rule, a run that
 // used to park in milliseconds sat for ten minutes waiting on an agent.
-func TestAShellOnlyFlowIsNotGivenAnAgentItNeverAskedFor(t *testing.T) {
+func TestAShellOnlyWorkflowIsNotGivenAnAgentItNeverAskedFor(t *testing.T) {
 	dir := t.TempDir()
-	agent := newWatcher(nil, Decision{Decision: flow.DecideRetry})
-	def := flowDef(store.Step{ID: "gate", Run: "exit 3"})
+	agent := newWatcher(nil, Decision{Decision: workflow.DecideRetry})
+	def := workflowDef(store.Step{ID: "gate", Run: "exit 3"})
 
-	wr, _ := (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+	wr, _ := (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 	if agent.consults != 0 {
-		t.Errorf("a shell-only flow started %d overwatch agent(s)", agent.consults)
+		t.Errorf("a shell-only workflow started %d overwatch agent(s)", agent.consults)
 	}
 	if wr.Outcome != OutcomeParked || wr.ParkReason != ParkStepFailed {
 		t.Errorf("run = %s/%s, want the park it would have taken anyway", wr.Outcome, wr.ParkReason)
 	}
 
-	// Declaring one puts it back: a shell flow that wants a reader has said so.
+	// Declaring one puts it back: a shell workflow that wants a reader has said so.
 	dir = t.TempDir()
-	agent = newWatcher(nil, Decision{Decision: flow.DecidePark, Why: "the gate file is genuinely missing"})
-	def.Overwatch = &flow.Overwatch{}
-	if _, _ = (&Flow{Launch: agent.launch}).Execute(context.Background(), flowJob(t), def, "", "run2", dir); agent.consults != 1 {
-		t.Errorf("a shell flow that declared an overwatch was consulted %d time(s), want once", agent.consults)
+	agent = newWatcher(nil, Decision{Decision: workflow.DecidePark, Why: "the gate file is genuinely missing"})
+	def.Overwatch = &workflow.Overwatch{}
+	if _, _ = (&Workflow{Launch: agent.launch}).Execute(context.Background(), workflowJob(t), def, "", "run2", dir); agent.consults != 1 {
+		t.Errorf("a shell workflow that declared an overwatch was consulted %d time(s), want once", agent.consults)
 	}
 }
 
 // A supervisor that can hang the run it supervises is worse than no
 // supervisor, and a job's timeout defaults to waiting for ever.
 func TestAConsultIsBoundedEvenWhenTheJobIsNot(t *testing.T) {
-	if got := (flow.Overwatch{}).Wait(); got != flow.DefaultTimeout {
-		t.Errorf("Wait = %s, want the default %s", got, flow.DefaultTimeout)
+	if got := (workflow.Overwatch{}).Wait(); got != workflow.DefaultTimeout {
+		t.Errorf("Wait = %s, want the default %s", got, workflow.DefaultTimeout)
 	}
-	if got := (flow.Overwatch{Timeout: "90s"}).Wait(); got != 90*time.Second {
+	if got := (workflow.Overwatch{Timeout: "90s"}).Wait(); got != 90*time.Second {
 		t.Errorf("Wait = %s, want 90s", got)
 	}
 
 	dir := t.TempDir()
 	blocked := func(ctx context.Context, job Job, runID, d string) (*Run, error) {
-		if job.Env["HERDR_KATA_STEP_ID"] != flow.OverwatchStepID {
+		if job.Env["HERDR_KATA_STEP_ID"] != workflow.OverwatchStepID {
 			if err := writeResult(d, Result{Status: "error", Note: "nope"}); err != nil {
 				return nil, err
 			}
@@ -434,12 +434,12 @@ func TestAConsultIsBoundedEvenWhenTheJobIsNot(t *testing.T) {
 		<-ctx.Done() // an overwatch that never answers
 		return nil, ctx.Err()
 	}
-	def := agentFlow(store.Step{ID: "check", Agent: "check"})
-	def.Overwatch = &flow.Overwatch{Timeout: "50ms"}
+	def := agentWorkflow(store.Step{ID: "check", Agent: "check"})
+	def.Overwatch = &workflow.Overwatch{Timeout: "50ms"}
 
-	done := make(chan *FlowRun, 1)
+	done := make(chan *WorkflowRun, 1)
 	go func() {
-		wr, _ := (&Flow{Launch: blocked}).Execute(context.Background(), flowJob(t), def, "", "run1", dir)
+		wr, _ := (&Workflow{Launch: blocked}).Execute(context.Background(), workflowJob(t), def, "", "run1", dir)
 		done <- wr
 	}()
 	select {
