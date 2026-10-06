@@ -31,9 +31,9 @@ type NativeRepository struct {
 	Binding  NativeBinding
 }
 type NativeSnapshot struct {
-	Jobs, Flows []katacli.Definition
-	Offline     bool
-	Problem     string
+	Jobs, Workflows []katacli.Definition
+	Offline         bool
+	Problem         string
 }
 
 func (s NativeSnapshot) Label() string {

@@ -12,24 +12,24 @@ import (
 // ReportedRun is ordinary shared evidence, never a local execution or handle.
 // Read rows intentionally have no expected_revision or raw runtime snapshot.
 type ReportedRun struct {
-	UID                    string     `json:"uid"`
-	ProjectID              int64      `json:"project_id"`
-	JobUID                 string     `json:"job_uid"`
-	DefinitionEventUID     string     `json:"definition_event_uid"`
-	FlowUID                string     `json:"flow_uid"`
-	FlowDefinitionEventUID string     `json:"flow_definition_event_uid"`
-	OccurrenceKey          string     `json:"occurrence_key"`
-	IssueUID               string     `json:"issue_uid"`
-	Actor                  string     `json:"actor"`
-	Teammate               string     `json:"teammate"`
-	ExecutorLabel          string     `json:"executor_label"`
-	Status                 string     `json:"status"`
-	Summary                RunSummary `json:"summary"`
-	Revision               int64      `json:"revision"`
-	CreatedAt              time.Time  `json:"created_at"`
-	UpdatedAt              time.Time  `json:"updated_at"`
-	StartedAt              *time.Time `json:"started_at"`
-	EndedAt                *time.Time `json:"ended_at"`
+	UID                        string     `json:"uid"`
+	ProjectID                  int64      `json:"project_id"`
+	JobUID                     string     `json:"job_uid"`
+	DefinitionEventUID         string     `json:"definition_event_uid"`
+	WorkflowUID                string     `json:"workflow_uid"`
+	WorkflowDefinitionEventUID string     `json:"workflow_definition_event_uid"`
+	OccurrenceKey              string     `json:"occurrence_key"`
+	IssueUID                   string     `json:"issue_uid"`
+	Actor                      string     `json:"actor"`
+	Teammate                   string     `json:"teammate"`
+	ExecutorLabel              string     `json:"executor_label"`
+	Status                     string     `json:"status"`
+	Summary                    RunSummary `json:"summary"`
+	Revision                   int64      `json:"revision"`
+	CreatedAt                  time.Time  `json:"created_at"`
+	UpdatedAt                  time.Time  `json:"updated_at"`
+	StartedAt                  *time.Time `json:"started_at"`
+	EndedAt                    *time.Time `json:"ended_at"`
 }
 type RunSummary struct {
 	Version      int    `json:"version"`
@@ -79,7 +79,7 @@ func (c *Client) RunHistory(ctx context.Context, projectUID, before string) (Run
 			return page, fmt.Errorf("invalid shared history row: %w", err)
 		}
 		invalid := func(why string) (RunPage, error) { return RunPage{}, fmt.Errorf("shared run %s: %s", r.UID, why) }
-		for _, id := range []string{r.UID, r.JobUID, r.DefinitionEventUID, r.FlowUID, r.FlowDefinitionEventUID, r.IssueUID} {
+		for _, id := range []string{r.UID, r.JobUID, r.DefinitionEventUID, r.WorkflowUID, r.WorkflowDefinitionEventUID, r.IssueUID} {
 			if id != "" {
 				if norm, err := NormalizeUID(id); err != nil || norm != id {
 					return invalid("invalid identity")
@@ -89,7 +89,7 @@ func (c *Client) RunHistory(ctx context.Context, projectUID, before string) (Run
 		if r.UID == "" || r.ProjectID != projectID || seen[r.UID] {
 			return invalid("duplicate, missing or foreign project identity")
 		}
-		if (r.JobUID == "") != (r.DefinitionEventUID == "") || (r.FlowUID == "") != (r.FlowDefinitionEventUID == "") || (r.JobUID == "" && r.FlowUID == "") {
+		if (r.JobUID == "") != (r.DefinitionEventUID == "") || (r.WorkflowUID == "") != (r.WorkflowDefinitionEventUID == "") || (r.JobUID == "" && r.WorkflowUID == "") {
 			return invalid("missing definition revision pair")
 		}
 		switch r.Status {

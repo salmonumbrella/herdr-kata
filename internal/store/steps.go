@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-// Flows: a job whose steps are declared rather than remembered.
+// Workflows: a job whose steps are declared rather than remembered.
 //
 // A single-prompt job carries every stage of multi-step work inside one agent's
 // head — pull first, verify after, hand the output on. It usually does four of
-// the five. A flow moves the sequence out of the prompt and into the
+// the five. A workflow moves the sequence out of the prompt and into the
 // harness, which does not forget: the steps are stored here, run in series by
 // the runner, and a step that cannot show it finished stops the ones after it.
 //
@@ -22,7 +22,7 @@ import (
 // is no query that wants one step of one job — and a column keeps the job a
 // single row, so saving a job cannot half-succeed.
 
-// Step is one declared unit of a flow.
+// Step is one declared unit of a workflow.
 //
 // Exactly one of Agent and Run is set. An Agent step is a prompt and gets its
 // own process; a Run step is a shell command and has no agent at all, which is
@@ -30,7 +30,7 @@ import (
 // are a command a model was asked to remember instead of a step the harness
 // executes.
 type Step struct {
-	// ID is unique within the flow. It names the step's directory and its
+	// ID is unique within the workflow. It names the step's directory and its
 	// agent, and it is how resume and the board refer to it.
 	ID string `json:"id"`
 
@@ -50,18 +50,18 @@ type Step struct {
 	// SkipPermissions takes the permission bypass back for one step.
 	//
 	// A pointer because there are three answers, not two: unset means "whatever
-	// the flow said", and a plain bool could not tell that apart from an explicit
-	// false. Nil is the common case — flow steps run unattended, so the bypass is
+	// the workflow said", and a plain bool could not tell that apart from an explicit
+	// false. Nil is the common case — workflow steps run unattended, so the bypass is
 	// on by default and a step only names this to opt out.
 	SkipPermissions *bool `json:"skip_permissions,omitempty" yaml:"skip_permissions,omitempty"`
 
-	// OnFail sends the flow back to an earlier step instead of parking here.
+	// OnFail sends the workflow back to an earlier step instead of parking here.
 	// Nil — the common case — parks, which is what every step did before this
 	// existed.
 	OnFail *OnFail `json:"on_fail,omitempty" yaml:"on_fail,omitempty"`
 }
 
-// OnFail is a backward edge: this step reported failure, and the flow goes back
+// OnFail is a backward edge: this step reported failure, and the workflow goes back
 // to an earlier one rather than stopping.
 //
 // It is on the step that *detects* the problem and it names the step that
@@ -71,10 +71,10 @@ type Step struct {
 // again is the one that produced what it checked.
 type OnFail struct {
 	// Goto is the id of the step to go back to. It must be declared before the
-	// step that names it: a flow is a series, and an edge that pointed forward
+	// step that names it: a workflow is a series, and an edge that pointed forward
 	// would be a branch.
 	Goto string `json:"goto" yaml:"goto"`
-	// MaxLoops bounds how many times this step may send the flow back. Unset is
+	// MaxLoops bounds how many times this step may send the workflow back. Unset is
 	// one — a self-heal that gets a second try and then wants a human, which is
 	// the conservative reading of a field somebody left out.
 	MaxLoops int `json:"max_loops,omitempty" yaml:"max_loops,omitempty"`
@@ -91,7 +91,7 @@ func (o *OnFail) Loops() int {
 	return o.MaxLoops
 }
 
-// maxLoopsCeiling is the largest max_loops a flow may declare. A loop that has
+// maxLoopsCeiling is the largest max_loops a workflow may declare. A loop that has
 // not converged in eight attempts is not going to on the ninth, and the failure
 // mode this bounds is an overnight heal loop that rewrites the same code until
 // somebody notices the token bill.
@@ -108,9 +108,9 @@ func (s Step) Label() string {
 	return "run"
 }
 
-// IsFlow reports whether this job is a declared sequence rather than one
+// IsWorkflow reports whether this job is a declared sequence rather than one
 // prompt.
-func (j Job) IsFlow() bool { return strings.TrimSpace(j.Flow) != "" }
+func (j Job) IsWorkflow() bool { return strings.TrimSpace(j.Workflow) != "" }
 
 // EffectiveModel is the model a step actually runs on: its own if it names one,
 // otherwise the job's.
@@ -124,14 +124,14 @@ func (j Job) EffectiveModel(s Step) string {
 	return DefaultModel
 }
 
-// ValidateSteps checks a flow before anything can be written or run.
+// ValidateSteps checks a workflow before anything can be written or run.
 //
 // defaultModel is the job's model, because a step that names none inherits it —
 // validating only what the step spells out would let a job-level haiku through
 // the one rule that exists to stop it.
 func ValidateSteps(steps []Step, defaultModel string) error {
 	if len(steps) == 0 {
-		return nil // not a flow; a single-prompt job is the normal case
+		return nil // not a workflow; a single-prompt job is the normal case
 	}
 	// The index each id was declared at, which on_fail needs: an edge may only
 	// point at a step that has already been seen by the time this one is read.
@@ -150,7 +150,7 @@ func ValidateSteps(steps []Step, defaultModel string) error {
 		// the first had already run it.
 		key := strings.ToLower(id)
 		if _, dup := seen[key]; dup {
-			return fmt.Errorf("step id %q is used twice: ids must be unique within a flow", id)
+			return fmt.Errorf("step id %q is used twice: ids must be unique within a workflow", id)
 		}
 		seen[key] = i
 
@@ -191,7 +191,7 @@ func ValidateSteps(steps []Step, defaultModel string) error {
 			model = strings.TrimSpace(defaultModel)
 		}
 		if isHaiku(model) {
-			return fmt.Errorf("step %q would run on %q: the floor is sonnet, and a flow is exactly where a cheap model quietly does four of five steps", id, model)
+			return fmt.Errorf("step %q would run on %q: the floor is sonnet, and a workflow is exactly where a cheap model quietly does four of five steps", id, model)
 		}
 	}
 	return nil
@@ -224,7 +224,7 @@ func checkStepID(id string) error {
 //
 // seen holds the id of every step read so far, so an edge that names something
 // further down the file — or nothing at all — is refused here rather than
-// discovered by a flow that has already spent an hour reaching it.
+// discovered by a workflow that has already spent an hour reaching it.
 func checkOnFail(id string, of *OnFail, seen map[string]int) error {
 	if of == nil {
 		return nil
@@ -241,11 +241,11 @@ func checkOnFail(id string, of *OnFail, seen map[string]int) error {
 	}
 	if _, ok := seen[strings.ToLower(target)]; !ok {
 		return fmt.Errorf("step %q sends on_fail to %q, which is not declared before it: "+
-			"a flow is a series, and an edge pointing forward would be a branch", id, target)
+			"a workflow is a series, and an edge pointing forward would be a branch", id, target)
 	}
 	if of.MaxLoops < 0 {
 		return fmt.Errorf("step %q sets max_loops to %d: it is how many times this step may "+
-			"send the flow back, so it cannot be negative", id, of.MaxLoops)
+			"send the workflow back, so it cannot be negative", id, of.MaxLoops)
 	}
 	if of.MaxLoops > maxLoopsCeiling {
 		return fmt.Errorf("step %q sets max_loops to %d, above the ceiling of %d: a loop that "+
@@ -293,7 +293,7 @@ func decodeSteps(raw string) ([]Step, error) {
 	return steps, nil
 }
 
-// Step outcomes. They are the run outcomes plus "pending", because a flow
+// Step outcomes. They are the run outcomes plus "pending", because a workflow
 // declares its steps before it runs any of them: a step nobody has started yet
 // is a real state, and the board says how many there are.
 const (
@@ -304,7 +304,7 @@ const (
 	StepParked  = "parked"
 )
 
-// RunStep is one step of one flow run: what it was, how it went, and where
+// RunStep is one step of one workflow run: what it was, how it went, and where
 // its output is.
 //
 // The rows exist from the moment the run starts, all of them pending, so the
@@ -364,7 +364,7 @@ func (s *Store) PutRunStep(ctx context.Context, rs RunStep) error {
 	return err
 }
 
-// SeedRunSteps records a flow's steps as pending, without touching any that
+// SeedRunSteps records a workflow's steps as pending, without touching any that
 // are already there.
 //
 // Resume depends on the "without touching" part: the completed steps of an

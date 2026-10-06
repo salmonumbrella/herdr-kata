@@ -116,11 +116,11 @@ func TestTask9LoggingFailureBeforeExecutionDoesNotBlockProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := runner.NativeExecutionContext{Version: 1, RunUID: uid, Target: target, ProjectUID: s.Native.Binding.ProjectUID, Job: &def, Runtime: j, IssueUID: policyIssueUID}
-	fd, err := s.Native.Client.Definition(t.Context(), "flow", j.Flow)
+	fd, err := s.Native.Client.Definition(t.Context(), "workflow", j.Workflow)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.Flow = &fd
+	c.Workflow = &fd
 	dir := runDirFor(uid)
 	if err := c.Save(dir); err != nil {
 		t.Fatal(err)
@@ -130,7 +130,7 @@ func TestTask9LoggingFailureBeforeExecutionDoesNotBlockProcess(t *testing.T) {
 		t.Fatal(err)
 	} // owned disk fault at buffer path
 	rec := store.Run{ID: uid, JobID: j.ID, RunDir: dir, Trigger: "manual"}
-	run, err := runNativeContext(t.Context(), s, c, rec, flowOpts{})
+	run, err := runNativeContext(t.Context(), s, c, rec, workflowOpts{})
 	if err != nil || run == nil || run.Outcome != runner.OutcomeDone {
 		t.Fatalf("log buffer failure prohibited execution: %+v %v", run, err)
 	}

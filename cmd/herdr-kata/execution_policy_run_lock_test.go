@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 	"github.com/salmonumbrella/herdr-kata/internal/runner"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 func TestExecutionPolicySameSavedUIDCannotRunConcurrently(t *testing.T) {
@@ -20,7 +20,7 @@ func TestExecutionPolicySameSavedUIDCannotRunConcurrently(t *testing.T) {
 		t.Skip("requires sh")
 	}
 	s, _, _ := policyProduct(t)
-	draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> same-count; touch started; while test ! -f release; do sleep 0.01; done"}}}, "", "")
+	draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> same-count; touch started; while test ! -f release; do sleep 0.01; done"}}}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,8 +33,8 @@ func TestExecutionPolicySameSavedUIDCannotRunConcurrently(t *testing.T) {
 		t.Fatal(err)
 	}
 	cwd := s.Native.Binding.Checkouts["primary"]
-	j := store.Job{ID: fd.UID, Flow: fd.UID, CWD: cwd}
-	rec := store.Run{ID: uid, JobID: fd.UID, Flow: fd.UID, Trigger: "manual", RunDir: runDirFor(uid)}
+	j := store.Job{ID: fd.UID, Workflow: fd.UID, CWD: cwd}
+	rec := store.Run{ID: uid, JobID: fd.UID, Workflow: fd.UID, Trigger: "manual", RunDir: runDirFor(uid)}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	type result struct {
@@ -42,7 +42,7 @@ func TestExecutionPolicySameSavedUIDCannotRunConcurrently(t *testing.T) {
 		err error
 	}
 	done := make(chan result, 1)
-	go func() { run, err := runFlow(ctx, s, j, rec, flowOpts{}); done <- result{run, err} }()
+	go func() { run, err := runWorkflow(ctx, s, j, rec, workflowOpts{}); done <- result{run, err} }()
 	defer func() { os.WriteFile(filepath.Join(cwd, "release"), nil, 0600); cancel(); <-done }()
 	started := false
 	for until := time.Now().Add(5 * time.Second); time.Now().Before(until); {
@@ -61,7 +61,7 @@ func TestExecutionPolicySameSavedUIDCannotRunConcurrently(t *testing.T) {
 	}
 	retryCtx, retryCancel := context.WithTimeout(t.Context(), time.Second)
 	defer retryCancel()
-	if _, err := runFlow(retryCtx, s, j, *active, flowOpts{}); err == nil || !strings.Contains(err.Error(), "already running") {
+	if _, err := runWorkflow(retryCtx, s, j, *active, workflowOpts{}); err == nil || !strings.Contains(err.Error(), "already running") {
 		t.Errorf("same saved UID did not return already-running: %v", err)
 	}
 	raw, err := os.ReadFile(filepath.Join(cwd, "same-count"))
@@ -80,8 +80,8 @@ func TestExecutionPolicySameSavedUIDCannotRunConcurrently(t *testing.T) {
 	}
 	otherJob := j
 	otherJob.CWD = otherCWD
-	otherRec := store.Run{ID: otherUID, JobID: fd.UID, Flow: fd.UID, Trigger: "manual", RunDir: runDirFor(otherUID)}
-	run, err := runFlow(t.Context(), s, otherJob, otherRec, flowOpts{})
+	otherRec := store.Run{ID: otherUID, JobID: fd.UID, Workflow: fd.UID, Trigger: "manual", RunDir: runDirFor(otherUID)}
+	run, err := runWorkflow(t.Context(), s, otherJob, otherRec, workflowOpts{})
 	if err != nil || run == nil || run.Outcome != runner.OutcomeDone {
 		t.Fatalf("distinct UID was excluded: %+v %v", run, err)
 	}

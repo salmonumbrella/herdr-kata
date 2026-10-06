@@ -1,0 +1,399 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"github.com/salmonumbrella/herdr-kata/internal/herdrcli"
+	"github.com/salmonumbrella/herdr-kata/internal/katacli"
+	"github.com/salmonumbrella/herdr-kata/internal/runner"
+	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
+	"os"
+	"strings"
+	"text/tabwriter"
+	"time"
+)
+
+// The workflow verbs. A workflow is a job with steps instead of a prompt, so it
+// is run, inspected, and resumed by run id like any other run — these commands
+// exist because a parked workflow needs one thing an ordinary run does not: a
+// way to start again at the step that stopped it, without redoing the ones that
+// already cost money.
+
+func workflowCmd(argv []string) error {
+	if len(argv) == 0 {
+		return errors.New("usage: herdr-kata workflow <new|list|show|edit|rm|run|status|resume>")
+	}
+	switch argv[0] {
+	case "new":
+		return workflowNew(argv[1:])
+	case "save":
+		return workflowSave(argv[1:])
+	case "list":
+		return workflowList(argv[1:])
+	case "show", "cat":
+		return workflowShow(argv[1:])
+	case "edit":
+		return workflowEdit(argv[1:])
+	case "rm":
+		return workflowRemove(argv[1:])
+	case "run":
+		return workflowRun(argv[1:])
+	case "status":
+		return workflowStatus(argv[1:])
+	case "resume":
+		return workflowResume(argv[1:])
+	default:
+		return fmt.Errorf("unknown workflow subcommand %q", argv[0])
+	}
+}
+
+// workflowRun calls a workflow with an input.
+//
+// This is the whole point of a workflow being its own thing: one command, called
+// the same way by a person typing it and by an agent shelling out. There is no
+// agent-only path and no human-only path, so anything an agent can start, a
+// human can start identically, and both land in the same run list.
+func workflowRun(argv []string) error {
+	fs := flag.NewFlagSet("workflow run", flag.ExitOnError)
+	input := fs.String("input", "", "the x this workflow is called with")
+	cwd := fs.String("cwd", "", "working directory for every step (default: here)")
+	model := fs.String("model", "", "model for agent steps that do not name one")
+	kind := fs.String("kind", "", "herdr agent kind")
+	ref := fs.String("ref", "", "external issue, ticket or URL")
+	if len(argv) == 0 || strings.HasPrefix(argv[0], "-") {
+		return errors.New("usage: herdr-kata workflow run <workflow> [--input ...] [--ref <value>] [--cwd ...] [--model ...]")
+	}
+	id := argv[0]
+	if err := fs.Parse(argv[1:]); err != nil {
+		return err
+	}
+	if err := store.ValidateRef(*ref); err != nil {
+		return err
+	}
+
+	s, err := openStore()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	var def workflow.Workflow
+	if s.Native != nil {
+		def, err = nativeWorkflowDefinition(context.Background(), s, id)
+	} else {
+		def, err = workflow.Load(workflowDir(), id)
+	}
+	if err != nil {
+		return err
+	}
+
+	// A workflow that declares an input and is called without one is refused rather
+	// than run with a blank. Every prompt saying {{input}} would otherwise get a
+	// hole where its subject should be, and an agent handed that will invent
+	// something to fill it.
+	if def.TakesInput() && strings.TrimSpace(*input) == "" {
+		return fmt.Errorf("workflow %s needs an input: %s\n  herdr-kata workflow run %s --input '...'",
+			def.ID, def.Input, def.ID)
+	}
+	if !def.TakesInput() && strings.TrimSpace(*input) != "" {
+		// Accepted, not refused — but said out loud, because a workflow whose steps
+		// never mention {{input}} will silently ignore it.
+		fmt.Fprintf(os.Stderr, "herdr-kata: workflow %s declares no input, so --input is only "+
+			"visible to run steps as $HERDR_KATA_INPUT\n", def.ID)
+	}
+
+	dir := *cwd
+	if strings.TrimSpace(dir) == "" {
+		if here, err := os.Getwd(); err == nil {
+			dir = here
+		}
+	}
+
+	ctx := context.Background()
+	j := workflowJob(def, dir, *model, *kind)
+	runID := newRunID(def.ID)
+	if s.Native != nil {
+		runID, err = katacli.NewUID()
+		if err != nil {
+			return err
+		}
+	}
+	rec := store.Run{
+		ID: runID, JobID: def.ID, Trigger: "manual",
+		Outcome: "running", StartedAt: time.Now(),
+		Workflow: def.ID, Input: *input, Ref: *ref,
+	}
+	run, execErr := runWorkflow(ctx, s, j, rec, workflowOpts{})
+	if run != nil {
+		printRun(run)
+	}
+	if execErr != nil {
+		return execErr
+	}
+	exitUnlessDone(run)
+	return nil
+}
+
+// exitUnlessDone makes a workflow that did not finish visible to whatever ran
+// it. A parked workflow is not an error — it is the harness doing its job — but
+// a script that treats it as success is back to proceeding on an unfinished
+// sequence.
+func exitUnlessDone(run *runner.Run) {
+	if run != nil && run.Outcome != runner.OutcomeDone {
+		os.Exit(1)
+	}
+}
+
+func workflowResume(argv []string) error {
+	fs := flag.NewFlagSet("workflow resume", flag.ExitOnError)
+	// A resume continues the run, including what its backward edges have already
+	// spent — that is what makes max_loops a bound rather than a bound per
+	// attempt. This is for the human who fixed the thing the loop kept failing
+	// on and wants the allowance back, said out loud rather than granted
+	// silently to anything that calls resume on a schedule.
+	resetLoops := fs.Bool("reset-loops", false,
+		"give this run's on_fail edges their full max_loops again")
+	ref := fs.String("ref", "", "replace this run's external reference")
+	if len(argv) == 0 || strings.HasPrefix(argv[0], "-") {
+		return errors.New("usage: herdr-kata workflow resume <run> [--ref <value>] [--reset-loops]")
+	}
+	runID := argv[0]
+	if err := fs.Parse(argv[1:]); err != nil {
+		return err
+	}
+	if err := store.ValidateRef(*ref); err != nil {
+		return err
+	}
+	s, err := openStore()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	ctx := context.Background()
+	rec, err := s.Run(ctx, runID)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(rec.Workflow) == "" {
+		return fmt.Errorf("run %s is not a workflow run; there is nothing to resume", rec.ID)
+	}
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "ref" {
+			rec.Ref = *ref
+		}
+	})
+	// The job is optional. A workflow called directly has no job at all, and one
+	// called by a job may outlive it — but the run itself records which workflow ran
+	// and what it was called with, so neither case needs the job to still exist.
+	//
+	// Built through workflowJob rather than by hand, so the defaults an unattended
+	// run needs live in exactly one place. The hand-rolled job this replaced set
+	// the model and the kind and forgot SkipPermissions, which meant a resumed
+	// workflow ran its agent steps with permission prompts enabled and parked at
+	// `blocked` eight seconds in — the same failure as the one directly-called
+	// workflows had, reintroduced by the sibling path written to fix it.
+	j := workflowJob(workflow.Workflow{ID: rec.Workflow}, "", "", "")
+	j.ID = rec.JobID
+	if s.Native == nil {
+		if stored, err := s.Job(ctx, rec.JobID); err == nil {
+			j = *stored
+		}
+	}
+	j.Ref = rec.Ref
+	run, execErr := runWorkflow(ctx, s, j, *rec, workflowOpts{ResetLoops: *resetLoops})
+	if run != nil {
+		printRun(run)
+	}
+	if execErr != nil {
+		return execErr
+	}
+	exitUnlessDone(run)
+	return nil
+}
+
+// workflowStatus prints one run step by step: what each was, how it went, and
+// how long it took.
+func workflowStatus(argv []string) error {
+	if len(argv) == 0 {
+		return errors.New("usage: herdr-kata workflow status <run>")
+	}
+	s, err := openStore()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+
+	ctx := context.Background()
+	rec, err := s.Run(ctx, argv[0])
+	if err != nil {
+		return err
+	}
+	steps, err := s.RunSteps(ctx, rec.ID)
+	if err != nil {
+		return err
+	}
+	if len(steps) == 0 {
+		return fmt.Errorf("run %s has no steps; it is not a workflow run", rec.ID)
+	}
+
+	done := 0
+	for _, st := range steps {
+		if st.Outcome == store.StepDone {
+			done++
+		}
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "run\t%s\njob\t%s\noutcome\t%s\n", rec.ID, rec.JobID, rec.Outcome)
+	if rec.ParkReason != "" {
+		fmt.Fprintf(w, "park reason\t%s\n", rec.ParkReason)
+	}
+	fmt.Fprintf(w, "progress\t%d/%d steps\nstarted\t%s\n", done, len(steps),
+		rec.StartedAt.Format(time.RFC3339))
+
+	// The page this run was ticking off, for a human who came to the run from
+	// the board and wants the enclosing piece of work rather than this one
+	// sequence of it.
+
+	// The room, for a run that left one open. A parked workflow keeps its space so a
+	// human can look at it, and closing that space is how they say they have —
+	// which is impossible to act on if nothing names the space.
+	if sp := strings.TrimSpace(rec.Space); sp != "" && rec.Outcome == "parked" {
+		fmt.Fprintf(w, "space\t%s (close it to acknowledge this run)\n", sp)
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	fmt.Println()
+	sw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(sw, "STEP\tKIND\tOUTCOME\tREASON\tDURATION\tNOTE")
+	for _, st := range steps {
+		dur := ""
+		if st.EndedAt != nil {
+			// Blank means "has not run": a step that finished shows a duration
+			// even when it was under a second.
+			dur = st.Duration().Round(time.Second).String()
+		}
+		fmt.Fprintf(sw, "%s\t%s\t%s\t%s\t%s\t%s\n", st.StepID, st.Kind,
+			st.Outcome, st.ParkReason, dur, st.Note)
+	}
+	if err := sw.Flush(); err != nil {
+		return err
+	}
+	if rec.Outcome == "parked" || rec.Outcome == "failed" {
+		fmt.Printf("\nresume with: herdr-kata workflow resume %s\n", rec.ID)
+	}
+
+	return nil
+}
+
+// runWorkflow executes a job's steps into an existing run row.
+//
+// The same call serves a first run and a resume: the run row and the run
+// directory are reused, so completed steps are found where the earlier attempt
+// left them and are not run again.
+// workflowOpts are the knobs a caller turns that are not part of the run itself.
+// A struct rather than a bare boolean at five call sites, where `false` would
+// say nothing about what is being declined.
+type workflowOpts struct {
+	// ResetLoops hands a run's backward edges their full max_loops again.
+	ResetLoops bool
+	// OnlyIssuePreparation rejects a stale public resume after preparation ended.
+	OnlyIssuePreparation bool
+}
+
+func runWorkflow(ctx context.Context, s *store.Store, j store.Job, rec store.Run, opts workflowOpts) (*runner.Run, error) {
+	if s.Native != nil {
+		return runNativeWorkflow(ctx, s, j, rec, opts)
+	}
+	j.Ref = rec.Ref
+	if rec.RunDir == "" {
+		rec.RunDir = runDirFor(rec.ID)
+	}
+	// Read at the moment it runs, never earlier. The file is edited by people and
+	// by agents between one run and the next, so the only definition worth acting
+	// on is the one on disk right now.
+	def, err := workflow.Load(workflowDir(), firstNonEmpty(rec.Workflow, j.Workflow))
+	if err != nil {
+		return nil, err
+	}
+	// Declare every step before any of them runs, so a workflow that dies at
+	// step one still says it had four.
+	if err := s.SeedRunSteps(ctx, rec.ID, def.Steps); err != nil {
+		return nil, fmt.Errorf("record steps: %w", err)
+	}
+	space := openWorkflowSpace(ctx, s, def, &rec, j.CWD)
+	rec.Outcome, rec.ParkReason, rec.EndedAt = "running", "", nil
+	if err := s.PutRun(ctx, rec); err != nil {
+		return nil, fmt.Errorf("record run start: %w", err)
+	}
+
+	r := &runner.Runner{Herdr: herdrcli.New(), StateDir: stateDir()}
+	w := &runner.Workflow{
+		Launch: r.ExecuteIn,
+		Space:  space,
+		// Persisted as each step starts and settles, so a workflow that is
+		// three hours into its second step says so on the board rather than
+		// looking untouched until the end.
+		Report: func(sr runner.StepRun) {
+			persistStep(ctx, s, rec.ID, sr)
+		},
+		ResetLoops: opts.ResetLoops,
+	}
+	wr, execErr := w.Execute(ctx, j, def, rec.Input, rec.ID, rec.RunDir)
+
+	rec.Outcome, rec.ParkReason, rec.Note = string(wr.Outcome), string(wr.ParkReason), wr.Note()
+	ended := wr.EndedAt
+	rec.EndedAt = &ended
+	if err := s.PutRun(ctx, rec); err != nil {
+		fmt.Fprintln(os.Stderr, "herdr-kata: persist workflow run:", err)
+	}
+	// A finished workflow gives its space back, the way a finished run gives its tab
+	// back; a parked one leaves both open, because a human has to look at it.
+	closeWorkflowSpace(ctx, s, space, def, rec, wr)
+
+	// A workflow is reported as a run, because that is what every caller — the
+	// daemon, the board, `run list` — already knows how to read.
+	status := "ok"
+	if wr.Outcome != runner.OutcomeDone {
+		status = "error"
+	}
+	return &runner.Run{
+		JobID: j.ID, RunID: rec.ID, RunDir: rec.RunDir,
+		Outcome: wr.Outcome, ParkReason: wr.ParkReason,
+		Result:    &runner.Result{Status: status, Note: wr.Note()},
+		StartedAt: wr.StartedAt, EndedAt: wr.EndedAt, Err: wr.Err,
+	}, execErr
+}
+
+func persistStep(ctx context.Context, s *store.Store, runID string, sr runner.StepRun) {
+	rec := store.RunStep{
+		RunID: runID, Index: sr.Index, StepID: sr.ID, Kind: sr.Kind,
+		Outcome: string(sr.Outcome), ParkReason: string(sr.ParkReason),
+		Note: sr.Note, StepDir: sr.Dir, AgentName: sr.AgentName,
+		StartedAt: sr.StartedAt,
+	}
+	if rec.Note == "" && sr.Err != nil {
+		rec.Note = sr.Err.Error()
+	}
+	if sr.Attempt > 1 {
+		// One row per step, so a step a backward edge ran three times overwrites
+		// itself twice. Without this the status table shows the last attempt as
+		// though it were the only one, and a workflow that spent forty minutes
+		// healing reads as one that worked first time.
+		rec.Note = fmt.Sprintf("attempt %d: %s", sr.Attempt, rec.Note)
+	}
+	if !sr.EndedAt.IsZero() {
+		t := sr.EndedAt
+		rec.EndedAt = &t
+	}
+	if err := s.PutRunStep(ctx, rec); err != nil {
+		// Bookkeeping: the step itself already happened, and result.json on
+		// disk is what resume reads, so a failed write here must not stop the
+		// workflow.
+		fmt.Fprintln(os.Stderr, "herdr-kata: persist step:", err)
+	}
+}

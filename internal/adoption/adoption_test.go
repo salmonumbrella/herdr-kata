@@ -25,7 +25,7 @@ func TestStableIdentityAcrossFullText(t *testing.T) {
 		}
 	})
 }
-func TestBuildFlowsWithoutSourcePointers(t *testing.T) {
+func TestBuildWorkflowsWithoutSourcePointers(t *testing.T) {
 	dir := t.TempDir()
 	os.Mkdir(filepath.Join(dir, "flows"), 0700)
 	os.WriteFile(filepath.Join(dir, "flows", "inspect.yml"), []byte("steps:\n - id: inspect\n   run: git status\n"), 0600)
@@ -34,8 +34,8 @@ func TestBuildFlowsWithoutSourcePointers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Drafts) != 1 || plan.Drafts[0].Resource != "flow" || strings.Contains(string(plan.Drafts[0].Definition), dir) {
-		t.Fatalf("bad flow plan %+v", plan)
+	if len(plan.Drafts) != 1 || plan.Drafts[0].Resource != "workflow" || strings.Contains(string(plan.Drafts[0].Definition), dir) {
+		t.Fatalf("bad workflow plan %+v", plan)
 	}
 }
 

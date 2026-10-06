@@ -104,12 +104,12 @@ func boardCmd(argv []string) error {
 			_, err := Execute(context.Background(), s, j, trigger)
 			return err
 		},
-		RunFlow:    func(flowID, input string) error { return startFlowFromBoard(s, flowID, input) },
-		ResumeFlow: func(runID string) error { return resumeFlowRun(s, runID) },
-		// The one directory this installation keeps flows in, resolved once
+		RunWorkflow:    func(workflowID, input string) error { return startWorkflowFromBoard(s, workflowID, input) },
+		ResumeWorkflow: func(runID string) error { return resumeWorkflowRun(s, runID) },
+		// The one directory this installation keeps workflows in, resolved once
 		// here: a board that worked it out for itself could end up listing a
-		// flow the command layer would not find.
-		FlowDir:       flowDir(),
+		// workflow the command layer would not find.
+		WorkflowDir:   workflowDir(),
 		DaemonRunning: Running,
 		EnsureDaemon:  EnsureRunning,
 	})
@@ -257,10 +257,10 @@ func runShow(argv []string) error {
 	}
 	fmt.Fprintf(w, "prompt\t%s/prompt.md\ntranscript\t%s/transcript.txt\nresult\t%s/result.json\n",
 		r.RunDir, r.RunDir, r.RunDir)
-	// A flow run's artifacts are one directory per step under that dir, and
+	// A workflow run's artifacts are one directory per step under that dir, and
 	// its per-step record is a different command.
 	if steps, err := s.RunSteps(context.Background(), r.ID); err == nil && len(steps) > 0 {
-		fmt.Fprintf(w, "steps\t%d (herdr-kata flow status %s)\n", len(steps), r.ID)
+		fmt.Fprintf(w, "steps\t%d (herdr-kata workflow status %s)\n", len(steps), r.ID)
 	}
 	return w.Flush()
 }

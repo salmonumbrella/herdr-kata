@@ -107,7 +107,7 @@ and the daemon holds the database open, so recent rows are in `herdr-kata.db-wal
 
 `demo/e2e.Dockerfile` starts from a bare Ubuntu with Go, git and herdr on it and
 nothing else, installs Herdr Kata **from GitHub the way the README says to**, and
-then uses it: jobs, a flow that really runs, a failing step that parks, the
+then uses it: jobs, a workflow that really runs, a failing step that parks, the
 resource leases, the scheduler and its off switch, the board's refusal to
 draw with no terminal, and an uninstall that leaves the store behind.
 
@@ -159,7 +159,7 @@ the container, and the parked one actually failed.
 ## The skill
 
 `skills/herdr-kata/` is an [Agent Skill](https://agentskills.io) — what an agent
-should read before it takes a resource lease or calls a flow.
+should read before it takes a resource lease or calls a workflow.
 
 ```bash
 npx skills add salmonumbrella/herdr-kata
@@ -224,7 +224,7 @@ check. The real fixture creates an isolated Kata home, workspace and SQLite
 database, starts its own loopback foreground daemon and retains credentials only
 there. The Herdr smoke builds the current plugin binary, passes the actual
 manifest to Herdr's TOML parser, links it disabled in a short-lived named test
-session, runs a native shell-step flow through the real workspace lifecycle,
+session, runs a native shell-step workflow through the real workspace lifecycle,
 unlinks the plugin and stops only its owned session. Local mappings survive
 unlink. Disabled linking does not invoke the detached scheduler startup hook.
 Children inherit an explicit OS/toolchain allowlist; user daemon targets, proxies,

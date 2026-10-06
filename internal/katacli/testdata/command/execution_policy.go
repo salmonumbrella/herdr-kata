@@ -57,7 +57,7 @@ func fixtureExecutionPolicy(dir string, body []byte) {
 		fmt.Print(`{"project_uid":"01ARZ3NDEKTSV4RRFFQ69G5FAV","event_features":["cron_v1"]}`)
 		return
 	}
-	if len(args) > 0 && (args[0] == "job" || args[0] == "flow") {
+	if len(args) > 0 && (args[0] == "job" || args[0] == "workflow") {
 		fixtureStore(dir, body)
 		return
 	}

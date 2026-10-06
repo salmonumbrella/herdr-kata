@@ -23,7 +23,7 @@ func TestBoardRetainsExecutionTabsAndShowsLeases(t *testing.T) {
 	m.Update(m.load()())
 	m.width = 100
 	m.height = 30
-	for i, label := range []string{"JOBS", "RUNS", "FLOWS", "LEASES"} {
+	for i, label := range []string{"JOBS", "RUNS", "WORKFLOWS", "LEASES"} {
 		m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{rune('1' + i)}})
 		view := m.View()
 		if !strings.Contains(view, label) {

@@ -61,10 +61,10 @@ or the saved execution context.
 
 This executor supports portable `overlap: "forbid"`, zero/omitted
 `grace_seconds` (the scheduler's two-minute first-fire grace), and zero/omitted
-flow-step `retries`. Other values remain in the raw native definition but cause a
+workflow-step `retries`. Other values remain in the raw native definition but cause a
 named projection, activation or launch error. Overlap suppression is local to
 this installation; independently started runs on other installations remain
-independent. Flow steps execute in dependency order. Herdr-specific step and
+independent. Workflow steps execute in dependency order. Herdr-specific step and
 overwatch recovery options remain separate from portable retry counts.
 
 An `issue.kind: "per-run"` job creates an ordinary attributed Kata issue before
@@ -74,7 +74,7 @@ frozen before sending, and the returned issue UID is bound immutably beside that
 context. A lost reply or a future scheduled date leaves a parked local run.
 Use `herdr-kata run list --state parked` and `herdr-kata run show <run-uid>` to
 inspect it, then `herdr-kata run resume <run-uid>` to retry preparation for that
-same prompt or flow run. This command accepts only runs still awaiting issue
+same prompt or workflow run. This command accepts only runs still awaiting issue
 preparation; it does not restart completed work. Preparation-only rows stay local
 until the child can start.
 Older ordinary saved per-run contexts that lack frozen issue-creation intent
@@ -99,14 +99,14 @@ The daemon runs locally active jobs only after a current ordinary refresh; offli
 cache does not start new work. An explicit manual execution is opt-in for that run. Native raw definitions
 can be saved using `native job save --uid <retained-ulid> --name <name> --file
 portable-definition.json`; use `--expected-event-uid <winner>` to replace an
-existing definition. The equivalent `native flow` command accepts flow documents.
+existing definition. The equivalent `native workflow` command accepts workflow documents.
 All bodies retain exact JSON numbers and opaque options. A successful create retry
 is recovered only by exact live name and whole-document readback at that same UID.
 A stale update or tombstone requires refreshing and reviewing the winner.
 
-`flow new <draft-id>` and `flow edit <native-uid>` create local unsaved YAML drafts.
-`flow save <draft-id>` retains its native UID and expected winner in a local
-sidecar before the request; failures keep them for retry. `flow show <native-uid>`
+`workflow new <draft-id>` and `workflow edit <native-uid>` create local unsaved YAML drafts.
+`workflow save <draft-id>` retains its native UID and expected winner in a local
+sidecar before the request; failures keep them for retry. `workflow show <native-uid>`
 prints canonical JSON. Legacy SQLite/YAML remains adoption input rather than
 another editable definition authority.
 
@@ -125,16 +125,16 @@ observations contain revision references and reported status, never local paths,
 raw snapshots, logs, handles or credentials. Delivery failure keeps a local
 pending write and unsent tail; it cannot block launching or the next prompt.
 Authority-era journals remain unsupported for automatic recovery and are retained
-for explicit operator inspection. Native direct-flow execution and resume use the saved local snapshot, including
+for explicit operator inspection. Native direct-workflow execution and resume use the saved local snapshot, including
 after shared edits or deletion. Resume keeps the original input/reference; start
 a new run to change them. For a managed job, the actual linked issue UID is the
 frozen runtime and run-row reference even when the original executor option was
-empty or different. Saved job-flow recovery follows that immutable issue UID;
+empty or different. Saved job-workflow recovery follows that immutable issue UID;
 it does not rewrite the snapshot or consult a later shared definition. A direct
-flow keeps its supplied frozen reference. Actual reference/input overrides still
+workflow keeps its supplied frozen reference. Actual reference/input overrides still
 require a new run. Ad-hoc prompt-only `run-once` writes a fresh canonical
 local run/history/snapshot and has no shared cron observation without an
-actual job/flow revision pair. Local cron/interval/once/manual behavior follows
+actual job/workflow revision pair. Local cron/interval/once/manual behavior follows
 the existing scheduler. Cron/interval first runs use the server definition's
 creation time, after any existing local-run anchor. A missing creation timestamp
 holds the first scheduled run with a named diagnostic; malformed timestamps make
@@ -144,7 +144,7 @@ blocking, recurrence and daemon timezone behavior. Deadline alone never gates
 readiness. Native issue-date execution uses the ordinary planning-date projection
 described below. Custom notifications use the ordinary delivery bridge.
 
-Older ordinary version1 job-flow snapshots may retain the raw executor reference
+Older ordinary version1 job-workflow snapshots may retain the raw executor reference
 in both context and run row. Resume verifies the supplied row against the stored
 row and frozen input/reference, then records its already-frozen linked issue in
 the local row without rewriting the context. Explicit overrides still require a
@@ -174,7 +174,7 @@ After correcting the local configuration, Save retries activation without creati
 another definition revision. The enabled intent stays in the form until satisfied.
 Concurrent execution/resume of the same saved run UID returns already-running via
 its local `execution.lock`; independently allocated run UIDs remain independent.
-Native flows retain the existing dedicated workspace, parked artifact tab and
+Native workflows retain the existing dedicated workspace, parked artifact tab and
 saved-workspace resume/cleanup behavior. Any actual one-shot outcome deactivates
 only local scheduling; explicit manual execution remains available.
 
@@ -208,7 +208,7 @@ this client cannot distinguish that case using the current scoped public read.
 A native row with executor options this plugin cannot project is named by UID
 with a diagnostic. Supported rows and the board's other tabs remain available;
 the raw whole documents stay in the cache. Inspect an unprojectable job with
-`native job show <uid>` or a flow with `flow show <uid>`.
+`native job show <uid>` or a workflow with `workflow show <uid>`.
 The daemon also names local activation read failures and holds affected jobs;
 healthy jobs continue scheduling. Repair the local activation file before
 retrying an activation that reports a file or version error.
@@ -263,7 +263,7 @@ First make a stopped, checkpointed backup of the source installation. Keep the
 original SQLite database and `flows/*.yml` together in a separate snapshot
 directory without renaming them. Multiple recognized databases in one snapshot
 are rejected; select one complete stopped backup rather than merging them.
-Flow-only snapshots are supported when neither database is present and valid flow
+Workflow-only snapshots are supported when neither database is present and valid workflow
 YAML exists; an empty directory or unrecognized source fails instead of reporting success.
 A nonempty SQLite WAL is rejected: take a SQLite backup or checkpoint the stopped
 source instead of dropping the WAL. The importer opens SQLite with read-only,
@@ -278,8 +278,8 @@ herdr-kata native import --source /path/to/upstream-snapshot \
 
 Retain `source-id` on every retry and after moving the snapshot. It identifies the
 installation, not its pathname or file contents. The namespace, resource kind
-and original job/flow ID produce stable native ULIDs. The importer validates the
-whole snapshot before saving flows followed by jobs through ordinary native CRUD.
+and original job/workflow ID produce stable native ULIDs. The importer validates the
+whole snapshot before saving workflows followed by jobs through ordinary native CRUD.
 If interrupted after one save, retrying creates the remaining definitions and
 reads back already accepted identical definitions without updating their winners.
 Changed content or tombstones conflict at the retained UID; inspect the current
@@ -297,11 +297,11 @@ Prompts and shell commands remain literal data; recognized obsolete issue/forum/
 memory command references receive review warnings, not automatic rewrites. Those
 warnings are a convenience, not a complete prompt audit.
 
-The importer reads only job definitions and flow YAML. It does not read or adopt
+The importer reads only job definitions and workflow YAML. It does not read or adopt
 obsolete issue/forum/memory records, run history, resource leases, PIDs, tabs,
 sessions, credentials, or execution journals. Arbitrary paths or secrets embedded
 inside prompt text are not scrubbed: review the source before sharing definitions.
-Flows become native documents with embedded portable steps and no source-file
+Workflows become native documents with embedded portable steps and no source-file
 pointer. No source file is used as an execution authority afterward.
 
 ## Results, attention and exact inboxes
@@ -350,3 +350,24 @@ writes, using SQLite backup facilities or stopped writers for local databases.
 A shared backup does not contain these local runtime artifacts or make another
 installation active. Federation and backup retain ordinary project, actor,
 credential-origin and role protections; cron evidence adds no authority.
+
+
+## Workflow naming compatibility
+
+The canonical command is `herdr-kata workflow`. Jobs use `--workflow`, draft
+files live in `drafts/workflows`, native definitions use `kata cron workflow`,
+and job/run references use `workflow_uid` and `workflow_definition_event_uid`.
+The retired `flow` command and flag have no compatibility aliases.
+
+Local SQLite job and run columns are `workflow_id` and `workflow_input`.
+An installation with the older `flow_id` or `flow_input` columns is refused
+before replacement columns are added. Retain that installation and its matching
+binary; select a fresh `HERDR_KATA_HOME` for this version. Explicit upstream
+snapshot import still reads historical `flows/*.yml` files and old database
+columns, preserving deterministic imported identities. It imports definitions,
+not execution history, lease state, or resumable runtime snapshots.
+
+JSON/YAML workflow keys, hook payloads, runner snapshots, and generated workspace
+labels use the new spelling too. Older runtime files and pending hook payloads
+are not converted automatically. Resource leases keep their existing
+`lease claim`, `renew`, `release`, and `list` commands and holder/expiry rules.

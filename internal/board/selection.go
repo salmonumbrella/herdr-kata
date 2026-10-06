@@ -66,8 +66,8 @@ func (m *Model) clampCursor() {
 		n = len(m.detailRuns)
 	case m.focus == focusRuns:
 		n = len(m.visibleRuns())
-	case m.focus == focusFlows:
-		n = len(m.visibleFlows())
+	case m.focus == focusWorkflows:
+		n = len(m.visibleWorkflows())
 	case m.focus == focusLeases:
 		n = 0
 	}

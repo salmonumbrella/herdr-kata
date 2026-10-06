@@ -42,57 +42,57 @@ func TestWrapKeepsTextThatFits(t *testing.T) {
 	}
 }
 
-// A job that starts a flow must be distinguishable from one that sends a
+// A job that starts a workflow must be distinguishable from one that sends a
 // prompt. They behave nothing alike, and before this the board drew them
 // identically — the difference was visible in `herdr-kata job list` and nowhere
 // on screen.
-func TestAFlowJobIsIdentifiableOnTheJobsTab(t *testing.T) {
+func TestAWorkflowJobIsIdentifiableOnTheJobsTab(t *testing.T) {
 	m := newTestModel(t)
 	m.jobs = append(m.jobs, store.Job{ID: "nightly", Name: "Nightly", Enabled: true,
-		Model: "sonnet", Flow: "triage", Input: "anything filed since yesterday",
+		Model: "sonnet", Workflow: "triage", Input: "anything filed since yesterday",
 		Schedule: store.ScheduleManual})
 	m.width, m.height = 200, 40
 	m.focus = focusJobs
 	m.cursor = len(m.jobs) - 1
 
 	out := m.View()
-	if !strings.Contains(out, "FLOW") {
-		t.Fatalf("no FLOW column at 200 columns:\n%s", out)
+	if !strings.Contains(out, "WORKFLOW") {
+		t.Fatalf("no WORKFLOW column at 200 columns:\n%s", out)
 	}
 	if !strings.Contains(out, "triage") {
-		t.Errorf("the flow a job starts is not shown:\n%s", out)
+		t.Errorf("the workflow a job starts is not shown:\n%s", out)
 	}
 	// The input is the argument nothing else on the screen reveals, and a
-	// scheduled flow is called with a fixed one.
+	// scheduled workflow is called with a fixed one.
 	if !strings.Contains(out, "anything filed since yesterday") {
-		t.Errorf("the scheduled flow's input is not shown:\n%s", out)
+		t.Errorf("the scheduled workflow's input is not shown:\n%s", out)
 	}
 }
 
 // A prompt-only job says so rather than leaving a blank, which in a table reads
 // as missing data instead of as an answer.
-func TestAPromptJobShowsADashInTheFlowColumn(t *testing.T) {
+func TestAPromptJobShowsADashInTheWorkflowColumn(t *testing.T) {
 	m := newTestModel(t)
 	m.width, m.height = 200, 40
 	m.focus = focusJobs
 	if !strings.Contains(m.View(), "—") {
-		t.Errorf("a prompt-only job leaves the FLOW cell blank:\n%s", m.View())
+		t.Errorf("a prompt-only job leaves the WORKFLOW cell blank:\n%s", m.View())
 	}
 }
 
 // The optional columns are filled by name, so NEXT's value cannot land under
-// FLOW at the one terminal width where both appear.
+// WORKFLOW at the one terminal width where both appear.
 func TestOptionalJobColumnsLineUpWithTheirHeadings(t *testing.T) {
 	m := newTestModel(t)
 	m.jobs = []store.Job{{ID: "nightly", Name: "Nightly", Enabled: true,
-		Model: "sonnet", Flow: "triage", Schedule: store.ScheduleManual}}
+		Model: "sonnet", Workflow: "triage", Schedule: store.ScheduleManual}}
 	m.width, m.height = 220, 40
 	m.focus = focusJobs
 
 	lines := strings.Split(m.View(), "\n")
 	var header, row string
 	for i, l := range lines {
-		if strings.Contains(l, "FLOW") && strings.Contains(l, "SCHEDULE") {
+		if strings.Contains(l, "WORKFLOW") && strings.Contains(l, "SCHEDULE") {
 			header, row = l, lines[i+1]
 			break
 		}
@@ -100,7 +100,7 @@ func TestOptionalJobColumnsLineUpWithTheirHeadings(t *testing.T) {
 	if header == "" {
 		t.Fatalf("no header with both optional columns:\n%s", m.View())
 	}
-	if strings.Index(row, "triage") < strings.Index(header, "FLOW") {
-		t.Errorf("the flow id starts before the FLOW heading:\nheader %q\nrow    %q", header, row)
+	if strings.Index(row, "triage") < strings.Index(header, "WORKFLOW") {
+		t.Errorf("the workflow id starts before the WORKFLOW heading:\nheader %q\nrow    %q", header, row)
 	}
 }

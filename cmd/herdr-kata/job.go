@@ -20,15 +20,15 @@ import (
 // jobFlags is the full editable surface of a job, shared by add and edit so
 // the two cannot drift apart.
 type jobFlags struct {
-	name        *string
-	description *string
-	tags        *string
-	ref         *string
-	prompt      *string
-	flowID      *string
-	flowInput   *string
-	cwd         *string
-	kind        *string
+	name          *string
+	description   *string
+	tags          *string
+	ref           *string
+	prompt        *string
+	workflowID    *string
+	workflowInput *string
+	cwd           *string
+	kind          *string
 
 	model           *string
 	permissionMode  *string
@@ -56,15 +56,15 @@ type jobFlags struct {
 
 func registerJobFlags(fs *flag.FlagSet) *jobFlags {
 	return &jobFlags{
-		name:        fs.String("name", "", "human-readable name"),
-		description: fs.String("description", "", "what this job does and why"),
-		tags:        fs.String("tags", "", "comma-delimited tags, e.g. marketing,daily"),
-		ref:         fs.String("ref", "", "external issue, ticket or URL (up to 512 bytes)"),
-		prompt:      fs.String("prompt", "", "instruction for the agent"),
-		flowID:      fs.String("flow", "", "id of a flow this job starts, instead of --prompt"),
-		flowInput:   fs.String("input", "", "the input passed to that flow on every fire"),
-		cwd:         fs.String("cwd", "", "working directory (default: current dir)"),
-		kind:        fs.String("kind", store.DefaultKind, "herdr agent kind"),
+		name:          fs.String("name", "", "human-readable name"),
+		description:   fs.String("description", "", "what this job does and why"),
+		tags:          fs.String("tags", "", "comma-delimited tags, e.g. marketing,daily"),
+		ref:           fs.String("ref", "", "external issue, ticket or URL (up to 512 bytes)"),
+		prompt:        fs.String("prompt", "", "instruction for the agent"),
+		workflowID:    fs.String("workflow", "", "id of a workflow this job starts, instead of --prompt"),
+		workflowInput: fs.String("input", "", "the input passed to that workflow on every fire"),
+		cwd:           fs.String("cwd", "", "working directory (default: current dir)"),
+		kind:          fs.String("kind", store.DefaultKind, "herdr agent kind"),
 
 		model:           fs.String("model", store.DefaultModel, "agent model, e.g. sonnet or opus"),
 		permissionMode:  fs.String("permission-mode", defaultPermissionMode, "agent permission mode"),
@@ -112,8 +112,8 @@ func (f *jobFlags) apply(fs *flag.FlagSet, j *store.Job) error {
 	}
 	assign("prompt", func() { j.Prompt = *f.prompt })
 	assign("cwd", func() { j.CWD = *f.cwd })
-	assign("flow", func() { j.Flow = *f.flowID })
-	assign("input", func() { j.Input = *f.flowInput })
+	assign("workflow", func() { j.Workflow = *f.workflowID })
+	assign("input", func() { j.Input = *f.workflowInput })
 	assign("kind", func() { j.Kind = *f.kind })
 	assign("model", func() {
 		// An explicit empty value still resolves to the stated default rather
@@ -204,15 +204,15 @@ func (f *jobFlags) apply(fs *flag.FlagSet, j *store.Job) error {
 		return fmt.Errorf("--catchup must be latest, all, or skip")
 	}
 
-	// A job is one prompt or a list of steps, never both: a flow's steps
+	// A job is one prompt or a list of steps, never both: a workflow's steps
 	// carry their own prompts, so a job-level one would be text nothing ever
 	// sends.
-	if j.IsFlow() && strings.TrimSpace(j.Prompt) != "" {
-		return errors.New("a job has either --prompt or --flow, not both")
+	if j.IsWorkflow() && strings.TrimSpace(j.Prompt) != "" {
+		return errors.New("a job has either --prompt or --workflow, not both")
 	}
-	// The flow itself is not validated here. It is a file that anything can edit
+	// The workflow itself is not validated here. It is a file that anything can edit
 	// after this job is written, so the only check that means anything happens
-	// when the flow is read to run it.
+	// when the workflow is read to run it.
 	return nil
 }
 
@@ -235,8 +235,8 @@ func jobAdd(argv []string) error {
 	if err := f.apply(fs, &j); err != nil {
 		return err
 	}
-	if j.Prompt == "" && !j.IsFlow() {
-		return errors.New("--prompt is required (or --flow to start a flow)")
+	if j.Prompt == "" && !j.IsWorkflow() {
+		return errors.New("--prompt is required (or --workflow to start a workflow)")
 	}
 	if j.CWD == "" {
 		wd, err := os.Getwd()
@@ -396,14 +396,14 @@ func jobShow(argv []string) error {
 		return err
 	}
 
-	if j.IsFlow() {
-		// Inspect the selected native flow, preserving its target/project scope.
-		def, label, err := nativeFlowSnapshot(ctx, j.Flow)
+	if j.IsWorkflow() {
+		// Inspect the selected native workflow, preserving its target/project scope.
+		def, label, err := nativeWorkflowSnapshot(ctx, j.Workflow)
 		if err != nil {
-			fmt.Printf("\nflow %s: %v\n", j.Flow, err)
+			fmt.Printf("\nworkflow %s: %v\n", j.Workflow, err)
 			return nil
 		}
-		fmt.Printf("\nflow %s (%s)\n", def.ID, label)
+		fmt.Printf("\nworkflow %s (%s)\n", def.ID, label)
 		if def.TakesInput() {
 			fmt.Printf("input\t%s\n", def.Input)
 		}
@@ -519,7 +519,7 @@ func listJobs(ctx context.Context, s *store.Store, out io.Writer, tag string, al
 		return nil
 	}
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	// STEPS says which jobs are flows and how long they are. A one-prompt
+	// STEPS says which jobs are workflows and how long they are. A one-prompt
 	// job shows a dash rather than a blank, so an empty column reads as "one
 	// prompt" instead of as missing data.
 	fmt.Fprintln(w, "ID\tNAME\tTAGS\tSTEPS\tSCHEDULE\tENABLED\tLAST")
@@ -709,22 +709,22 @@ func jobRun(argv []string) error {
 	}
 	// A run that parked or failed is not an error — nothing went wrong with the
 	// command — but it is not success either, and a script driving `job run`
-	// has no other way to tell. `run-once` and `flow run` have always
+	// has no other way to tell. `run-once` and `workflow run` have always
 	// exited 1 here; this one exited 0 because a failed run leaves execErr nil.
 	exitUnlessDone(run)
 	return nil
 }
 
-// stepsLabel says which flow a job starts, or "-" when it is a plain prompt.
+// stepsLabel says which workflow a job starts, or "-" when it is a plain prompt.
 //
-// The flow id rather than a step count: the count lives in a file this column
+// The workflow id rather than a step count: the count lives in a file this column
 // would have to open to know, and the id is the more useful answer anyway --
-// it is what `herdr-kata flow show <id>` takes.
+// it is what `herdr-kata workflow show <id>` takes.
 func stepsLabel(j store.Job) string {
-	if !j.IsFlow() {
+	if !j.IsWorkflow() {
 		return "-"
 	}
-	return j.Flow
+	return j.Workflow
 }
 
 // firstLine is a prompt reduced to what fits in a table cell.
@@ -743,29 +743,29 @@ func firstLine(s string) string {
 
 // Execute runs a stored job and persists the result.
 //
-// A flow takes a different path: its steps are run in series, each in its
+// A workflow takes a different path: its steps are run in series, each in its
 // own process, and the run row it produces is the sequence's, not one agent's.
 // Everything that launches a job — the daemon, the board, `job run` — arrives
-// here, so a flow cannot be started by accident as a single empty prompt.
+// here, so a workflow cannot be started by accident as a single empty prompt.
 func Execute(ctx context.Context, s *store.Store, j store.Job, trigger string) (*runner.Run, error) {
 	if s.Native != nil {
 		run, err := executeNative(ctx, s, j, trigger)
 		disableOneShot(ctx, s, j, run)
 		return run, err
 	}
-	if j.IsFlow() {
+	if j.IsWorkflow() {
 		runID := newRunID(j.ID)
-		// Flow and Input go on the run, not just on the job. Resume reads them
+		// Workflow and Input go on the run, not just on the job. Resume reads them
 		// back from the run row, so a run that does not carry them cannot be
-		// resumed at all — and every scheduled flow run arrives here, which made
-		// that every flow run a job ever started. The park message printed by
-		// the same binary says "resume with: herdr-kata flow resume <run>"; without
-		// this it answered "is not a flow run; there is nothing to resume".
-		run, err := runFlow(ctx, s, j, store.Run{
+		// resumed at all — and every scheduled workflow run arrives here, which made
+		// that every workflow run a job ever started. The park message printed by
+		// the same binary says "resume with: herdr-kata workflow resume <run>"; without
+		// this it answered "is not a workflow run; there is nothing to resume".
+		run, err := runWorkflow(ctx, s, j, store.Run{
 			ID: runID, JobID: j.ID, Trigger: trigger, RunDir: runDirFor(runID),
 			Outcome: "running", StartedAt: time.Now(),
-			Flow: j.Flow, Input: j.Input, Ref: j.Ref,
-		}, flowOpts{})
+			Workflow: j.Workflow, Input: j.Input, Ref: j.Ref,
+		}, workflowOpts{})
 		disableOneShot(ctx, s, j, run)
 		return run, err
 	}

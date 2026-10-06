@@ -16,7 +16,7 @@ import (
 
 func nativeCmd(argv []string) error {
 	if len(argv) == 0 {
-		return errors.New("usage: herdr-kata native <configure|import|checkout|secret|activate|deactivate|refresh|tui|job|flow>")
+		return errors.New("usage: herdr-kata native <configure|import|checkout|secret|activate|deactivate|refresh|tui|job|workflow>")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -110,7 +110,7 @@ func nativeCmd(argv []string) error {
 		if e != nil {
 			return e
 		}
-		fmt.Printf("%s · %d jobs · %d flows\n", snapshot.Label(), len(snapshot.Jobs), len(snapshot.Flows))
+		fmt.Printf("%s · %d jobs · %d workflows\n", snapshot.Label(), len(snapshot.Jobs), len(snapshot.Workflows))
 		if snapshot.Offline {
 			return errors.New(snapshot.Problem)
 		}
@@ -133,14 +133,14 @@ func nativeCmd(argv []string) error {
 		}
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 		return cmd.Run()
-	case "job", "flow":
+	case "job", "workflow":
 		return nativeDefinitionCmd(ctx, argv[0], argv[1:])
 	}
 	return errors.New("unknown native command")
 }
 func nativeDefinitionCmd(ctx context.Context, resource string, argv []string) error {
 	if len(argv) == 0 {
-		return errors.New("usage: native job|flow <save|list|show|delete|restore>")
+		return errors.New("usage: native job|workflow <save|list|show|delete|restore>")
 	}
 	s, e := openStore()
 	if e != nil {
@@ -183,8 +183,8 @@ func nativeDefinitionCmd(ctx context.Context, resource string, argv []string) er
 		}
 		fmt.Fprintln(os.Stderr, snapshot.Label())
 		defs := snapshot.Jobs
-		if resource == "flow" {
-			defs = snapshot.Flows
+		if resource == "workflow" {
+			defs = snapshot.Workflows
 		}
 		return json.NewEncoder(os.Stdout).Encode(defs)
 	case "show":

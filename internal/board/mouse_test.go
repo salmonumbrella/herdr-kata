@@ -127,23 +127,23 @@ func TestSecondClickOpensTheSelectedJob(t *testing.T) {
 	}
 }
 
-// The runs list injects step lines under an expanded flow, so the nth row of
+// The runs list injects step lines under an expanded workflow, so the nth row of
 // the table is not the nth line of the body. This is the case the hit map
 // exists for: arithmetic off the row index selects a run several places from
 // the one under the pointer.
-func TestClickPastAnExpandedFlowSelectsTheRightRun(t *testing.T) {
+func TestClickPastAnExpandedWorkflowSelectsTheRightRun(t *testing.T) {
 	m := newTestModel(t)
-	seedFlowRun(t, m)
+	seedWorkflowRun(t, m)
 	m.selectTab(focusRuns)
 
 	runs := m.visibleRuns()
 	if len(runs) != 3 || runs[0].ID != "wf1" || runs[2].ID != "r2" {
 		t.Fatalf("unexpected runs list: %v", runs)
 	}
-	// Expand the flow at the top, which pushes everything under it down.
+	// Expand the workflow at the top, which pushes everything under it down.
 	m.press(t, " ")
 	if !m.expanded["wf1"] {
-		t.Fatal("space did not expand the flow run")
+		t.Fatal("space did not expand the workflow run")
 	}
 
 	frame, y := frameRow(t, m, "waiting: blocked") // the last run, r2
@@ -164,7 +164,7 @@ func TestClickPastAnExpandedFlowSelectsTheRightRun(t *testing.T) {
 // A step line belongs to the run above it and is not a row of its own.
 func TestClickingAnExpandedStepSelectsNothing(t *testing.T) {
 	m := newTestModel(t)
-	seedFlowRun(t, m)
+	seedWorkflowRun(t, m)
 	m.selectTab(focusRuns)
 	m.press(t, " ")
 	m.cursor = 0
@@ -186,7 +186,7 @@ func TestClickOnAFolderTabSwitchesLists(t *testing.T) {
 		want  focus
 	}{
 		{"RUNS", focusRuns},
-		{"FLOWS", focusFlows},
+		{"WORKFLOWS", focusWorkflows},
 		{"LEASES", focusLeases},
 		{"JOBS", focusJobs},
 	} {
@@ -236,14 +236,14 @@ func TestClickInTheInspectorLeavesTheSelectionAlone(t *testing.T) {
 }
 
 // A box being typed into owns the input: a click that moved the selection under
-// it would launch a flow the reader had not been looking at.
-func TestClickIsIgnoredWhileAFlowInputIsOpen(t *testing.T) {
-	fb := newFlowBoard(t, map[string]string{
-		"triage.yml": flowWithInput, "sweep.yml": flowWithoutInput})
-	fb.selectFlow(t, "triage")
+// it would launch a workflow the reader had not been looking at.
+func TestClickIsIgnoredWhileAWorkflowInputIsOpen(t *testing.T) {
+	fb := newWorkflowBoard(t, map[string]string{
+		"triage.yml": workflowWithInput, "sweep.yml": workflowWithoutInput})
+	fb.selectWorkflow(t, "triage")
 	fb.pressSpecial(t, tea.KeyEnter)
-	if fb.flowInput == nil {
-		t.Fatal("enter on a flow that takes an input should ask for it")
+	if fb.workflowInput == nil {
+		t.Fatal("enter on a workflow that takes an input should ask for it")
 	}
 	before := fb.cursor
 

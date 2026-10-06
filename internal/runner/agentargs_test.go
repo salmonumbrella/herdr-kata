@@ -196,7 +196,7 @@ func TestAStepOverridesOnlyWhatItNames(t *testing.T) {
 	// The override is for this step only; the job is a value and must not be
 	// edited through, or every later step inherits the last one's model.
 	if job.Model != "sonnet" {
-		t.Errorf("the job's model became %q: a step wrote through to its flow", job.Model)
+		t.Errorf("the job's model became %q: a step wrote through to its workflow", job.Model)
 	}
 }
 
@@ -241,7 +241,7 @@ func TestAStepThatSwitchesKindGetsNoClaudeFlags(t *testing.T) {
 	}
 }
 
-// StepJob is what actually runs a step. Its id has to name both the flow and
+// StepJob is what actually runs a step. Its id has to name both the workflow and
 // the step — the run directory and the agent are named from it — and it must
 // never be persistent: a persistent step would reuse the previous step's live
 // agent, handing the reviewer the writer's context under a different charter.
@@ -261,7 +261,7 @@ func TestStepJobNamesTheStepAndIsNeverPersistent(t *testing.T) {
 		t.Errorf("Prompt = %q, want the step's agent prompt %q", got.Prompt, step.Agent)
 	}
 	if got.CWD != job.CWD {
-		t.Errorf("CWD = %q, want the flow's %q", got.CWD, job.CWD)
+		t.Errorf("CWD = %q, want the workflow's %q", got.CWD, job.CWD)
 	}
 	if got.Persistent {
 		t.Error("a step came back persistent: it would inherit the previous step's agent")
@@ -271,10 +271,10 @@ func TestStepJobNamesTheStepAndIsNeverPersistent(t *testing.T) {
 	}
 }
 
-// The step's kind wins when it names one, and the flow's stands when it does
-// not. A step silently falling back to claude on a codex flow builds a command
+// The step's kind wins when it names one, and the workflow's stands when it does
+// not. A step silently falling back to claude on a codex workflow builds a command
 // line for the wrong binary.
-func TestStepKindFallsBackToTheFlowsOwn(t *testing.T) {
+func TestStepKindFallsBackToTheWorkflowsOwn(t *testing.T) {
 	cases := []struct {
 		name     string
 		jobKind  string

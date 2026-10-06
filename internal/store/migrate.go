@@ -86,3 +86,26 @@ func connHasColumn(ctx context.Context, conn *sql.Conn, table, column string) (b
 	}
 	return false, rows.Err()
 }
+
+// rejectLegacyWorkflowColumns prevents a naming change from silently adding empty
+// replacement columns beside existing execution history. Import old snapshots
+// explicitly into a fresh installation instead.
+func rejectLegacyWorkflowColumns(db *sql.DB) error {
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	for _, table := range []string{"jobs", "runs"} {
+		for _, column := range []string{"flow_id", "flow_input"} {
+			found, err := connHasColumn(context.Background(), conn, table, column)
+			if err != nil {
+				return err
+			}
+			if found {
+				return fmt.Errorf("legacy flow columns in %s: retain this database with its matching older binary; use a fresh installation for workflows and import a stopped snapshot explicitly", table)
+			}
+		}
+	}
+	return nil
+}

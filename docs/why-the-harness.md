@@ -78,7 +78,7 @@ step that gets dropped moves around; the dropping stays.
 
 ## What the harness changes
 
-A [flow](flows.md) is the same five steps as data instead of prose:
+A [workflow](workflows.md) is the same five steps as data instead of prose:
 
 ```yaml
 about: bump a dependency safely
@@ -108,7 +108,7 @@ Now the three failure modes are answered structurally, not behaviourally:
   pass" is an exit code, not a claim.
 
 - **Failure has a defined shape.** A step that fails stops everything after it
-  and keeps everything before it; `herdr-kata flow resume` picks up at the failed
+  and keeps everything before it; `herdr-kata workflow resume` picks up at the failed
   step without re-paying for the ones that passed. A reviewer step that would
   rather bounce the work than fail says so — `on_fail: {goto: patch,
   max_loops: 2}` — bounded, and the re-run is told why.
@@ -119,7 +119,7 @@ it loses is the bookkeeping it was never reliable at. That is the whole trade.
 
 ## When you do not need this
 
-Honesty about scope: a single-step task does not need a flow, and an agent
+Honesty about scope: a single-step task does not need a workflow, and an agent
 that does five things *interactively, with you watching*, is already
 supervised — you are the harness. Sequences belong in the harness when nobody
 is watching: scheduled work, long chains, anything where the report is all you

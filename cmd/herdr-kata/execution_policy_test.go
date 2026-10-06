@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/herdrcli"
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 	"github.com/salmonumbrella/herdr-kata/internal/lockfile"
 	"github.com/salmonumbrella/herdr-kata/internal/runner"
 	"github.com/salmonumbrella/herdr-kata/internal/statefs"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 const policyProjectUID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
@@ -262,10 +262,10 @@ func TestExecutionPolicyNativePersistentReusesLiveConversation(t *testing.T) {
 // exclusion. Explicit invocations share a once time/issue but execute twice.
 func TestExecutionPolicySameOccurrenceRunsWithoutLogAcknowledgment(t *testing.T) {
 	if _, e := exec.LookPath("sh"); e != nil {
-		t.Skip("shell flow needs installed sh")
+		t.Skip("shell workflow needs installed sh")
 	}
 	s, kataDir, _ := policyProduct(t)
-	draft, e := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> launch-count"}}}, "", "")
+	draft, e := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> launch-count"}}}, "", "")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -274,7 +274,7 @@ func TestExecutionPolicySameOccurrenceRunsWithoutLogAcknowledgment(t *testing.T)
 		t.Fatal(e)
 	}
 	at := time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
-	j := policyJob(t, s, store.Job{Name: "Inspect", Kind: "codex", Model: "example-model", CWD: s.Native.Binding.Checkouts["primary"], Flow: fd.UID, Schedule: store.ScheduleOnce, RunAt: &at, Ref: policyIssueUID})
+	j := policyJob(t, s, store.Job{Name: "Inspect", Kind: "codex", Model: "example-model", CWD: s.Native.Binding.Checkouts["primary"], Workflow: fd.UID, Schedule: store.ScheduleOnce, RunAt: &at, Ref: policyIssueUID})
 	var ids []string
 	for i := 0; i < 2; i++ {
 		run, err := Execute(t.Context(), s, j, "scheduled")
@@ -331,7 +331,7 @@ func TestExecutionPolicyDaemonRequiresLocalActivation(t *testing.T) {
 		t.Skip("shell requires sh")
 	}
 	s, kataDir, _ := policyProduct(t)
-	draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> activation-count"}}}, "", "")
+	draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> activation-count"}}}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,7 +340,7 @@ func TestExecutionPolicyDaemonRequiresLocalActivation(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := time.Now().Add(-time.Hour)
-	j := policyJob(t, s, store.Job{Name: "Inspect", Flow: fd.UID, CWD: s.Native.Binding.Checkouts["primary"], Enabled: true, Schedule: store.ScheduleOnce, RunAt: &at})
+	j := policyJob(t, s, store.Job{Name: "Inspect", Workflow: fd.UID, CWD: s.Native.Binding.Checkouts["primary"], Enabled: true, Schedule: store.ScheduleOnce, RunAt: &at})
 	var shared map[string]json.RawMessage
 	if err := json.Unmarshal(j.NativeDefinition, &shared); err != nil {
 		t.Fatal(err)
@@ -391,12 +391,12 @@ func TestExecutionPolicyDaemonRequiresLocalActivation(t *testing.T) {
 	policyAssertNoHandshake(t, policyCalls(t, kataDir))
 }
 
-func TestExecutionPolicyDirectFlowAndSavedResume(t *testing.T) {
+func TestExecutionPolicyDirectWorkflowAndSavedResume(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("shell requires sh")
 	}
 	s, kataDir, _ := policyProduct(t)
-	draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "first", Run: "printf x >> resume-count"}, {ID: "second", Run: "test -f ready"}}}, "", "")
+	draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "first", Run: "printf x >> resume-count"}, {ID: "second", Run: "test -f ready"}}}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,13 +409,13 @@ func TestExecutionPolicyDirectFlowAndSavedResume(t *testing.T) {
 		t.Fatal(err)
 	}
 	cwd := s.Native.Binding.Checkouts["primary"]
-	j := store.Job{ID: fd.UID, Flow: fd.UID, CWD: cwd}
-	rec := store.Run{ID: uid, JobID: fd.UID, Flow: fd.UID, Trigger: "manual", RunDir: runDirFor(uid), Input: "retained direct input", Ref: policyIssueUID}
-	run, err := runFlow(t.Context(), s, j, rec, flowOpts{})
+	j := store.Job{ID: fd.UID, Workflow: fd.UID, CWD: cwd}
+	rec := store.Run{ID: uid, JobID: fd.UID, Workflow: fd.UID, Trigger: "manual", RunDir: runDirFor(uid), Input: "retained direct input", Ref: policyIssueUID}
+	run, err := runWorkflow(t.Context(), s, j, rec, workflowOpts{})
 	if err != nil || run == nil || run.Outcome == runner.OutcomeDone {
-		t.Fatalf("native direct flow must execute first step before local failed result: %+v %v", run, err)
+		t.Fatalf("native direct workflow must execute first step before local failed result: %+v %v", run, err)
 	}
-	if err := s.Native.Delete(t.Context(), "flow", fd); err != nil {
+	if err := s.Native.Delete(t.Context(), "workflow", fd); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(cwd, "ready"), nil, 0600); err != nil {
@@ -428,12 +428,12 @@ func TestExecutionPolicyDirectFlowAndSavedResume(t *testing.T) {
 		} else {
 			bad.Input = "changed direct input"
 		}
-		if _, err := runFlow(t.Context(), s, j, bad, flowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
+		if _, err := runWorkflow(t.Context(), s, j, bad, workflowOpts{}); err == nil || !strings.Contains(err.Error(), "immutable") {
 			t.Fatalf("direct saved %s change accepted: %v", field, err)
 		}
 	}
-	if err := resumeFlowRun(s, uid); err != nil {
-		t.Fatalf("saved flow snapshot did not resume after shared deletion: %v", err)
+	if err := resumeWorkflowRun(s, uid); err != nil {
+		t.Fatalf("saved workflow snapshot did not resume after shared deletion: %v", err)
 	}
 	got, err := s.Run(t.Context(), uid)
 	if err != nil || got.Outcome != "done" || got.Ref != rec.Ref || got.Input != rec.Input {
@@ -447,8 +447,8 @@ func TestExecutionPolicyDirectFlowAndSavedResume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Job != nil || c.Flow == nil || c.Flow.DefinitionEventUID != fd.DefinitionEventUID {
-		t.Fatalf("direct flow fabricated job or lost winner: %+v", c)
+	if c.Job != nil || c.Workflow == nil || c.Workflow.DefinitionEventUID != fd.DefinitionEventUID {
+		t.Fatalf("direct workflow fabricated job or lost winner: %+v", c)
 	}
 	policyAssertNoHandshake(t, policyCalls(t, kataDir))
 }
@@ -478,7 +478,7 @@ func TestExecutionPolicyAdHocRunOnceHasLocalHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ad-hoc local snapshot missing: %v", err)
 	}
-	if c.Job != nil || c.Flow != nil || c.Runtime.Prompt != "Inspect workspace" {
+	if c.Job != nil || c.Workflow != nil || c.Runtime.Prompt != "Inspect workspace" {
 		t.Fatalf("ad-hoc snapshot fabricated shared reference: %+v", c)
 	}
 	state := policyHerdr(t, herdrDir)
@@ -495,12 +495,12 @@ func TestExecutionPolicyAdHocRunOnceHasLocalHistory(t *testing.T) {
 	policyAssertNoHandshake(t, policyCalls(t, kataDir))
 }
 
-func TestExecutionPolicyFlowCLIAndBoardUseNativeFlow(t *testing.T) {
+func TestExecutionPolicyWorkflowCLIAndBoardUseNativeWorkflow(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("shell requires sh")
 	}
 	s, kataDir, herdrDir := policyProduct(t)
-	draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> route-count"}}}, "", "")
+	draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "printf x >> route-count"}}}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -509,12 +509,12 @@ func TestExecutionPolicyFlowCLIAndBoardUseNativeFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	cwd := s.Native.Binding.Checkouts["primary"]
-	if _, err := captureStdout(t, func() error { return flowRun([]string{fd.UID, "--cwd", cwd}) }); err != nil {
-		t.Fatalf("native CLI flow did not execute: %v", err)
+	if _, err := captureStdout(t, func() error { return workflowRun([]string{fd.UID, "--cwd", cwd}) }); err != nil {
+		t.Fatalf("native CLI workflow did not execute: %v", err)
 	}
 	t.Chdir(cwd)
-	if err := startFlowFromBoard(s, fd.UID, ""); err != nil {
-		t.Fatalf("native board flow did not execute: %v", err)
+	if err := startWorkflowFromBoard(s, fd.UID, ""); err != nil {
+		t.Fatalf("native board workflow did not execute: %v", err)
 	}
 	raw, err := os.ReadFile(filepath.Join(cwd, "route-count"))
 	if err != nil || string(raw) != "xx" {
@@ -530,7 +530,7 @@ func TestExecutionPolicyFlowCLIAndBoardUseNativeFlow(t *testing.T) {
 	state := policyHerdr(t, herdrDir)
 	for _, rec := range runs {
 		if rec.Space == "" {
-			t.Fatal("CLI/board native flow omitted space")
+			t.Fatal("CLI/board native workflow omitted space")
 		}
 		if _, ok := state.Workspaces[rec.Space]; ok {
 			t.Fatal("completed CLI/board workspace remained open")
@@ -774,7 +774,7 @@ func TestNativeDeliveryStoreCloseCancelsAndJoinsWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.Remove(pause)
-	draft, err := flow.NativeDraft(flow.Flow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "true"}}}, "", "")
+	draft, err := workflow.NativeDraft(workflow.Workflow{NativeName: "Inspect", Steps: []store.Step{{ID: "inspect", Run: "true"}}}, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -782,7 +782,7 @@ func TestNativeDeliveryStoreCloseCancelsAndJoinsWriter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	j := policyJob(t, s, store.Job{Name: "Inspect", Flow: fd.UID, CWD: s.Native.Binding.Checkouts["primary"]})
+	j := policyJob(t, s, store.Job{Name: "Inspect", Workflow: fd.UID, CWD: s.Native.Binding.Checkouts["primary"]})
 	run, err := executeNative(t.Context(), s, j, "manual")
 	if err != nil {
 		t.Fatal(err)

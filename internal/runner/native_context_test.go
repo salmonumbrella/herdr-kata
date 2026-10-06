@@ -54,7 +54,7 @@ func FuzzNativeContextLocalInputRoundTrip(f *testing.F) {
 	f.Add("Inspect workspace", uint8(0))
 	f.Add("Inspect workspace", uint8(1))
 	f.Add("line one\nline two λ", uint8(2))
-	f.Add("inspect with flow", uint8(3))
+	f.Add("inspect with workflow", uint8(3))
 	f.Fuzz(func(t *testing.T, prompt string, variant uint8) {
 		// Snapshot strings are JSON Unicode text. Materialize arbitrary fuzz bytes
 		// as Unicode; empty, NUL and all valid text remain in the domain.
@@ -66,10 +66,10 @@ func FuzzNativeContextLocalInputRoundTrip(f *testing.F) {
 		case 1:
 			c.Job = &definition
 		case 2:
-			c.Flow = &definition
+			c.Workflow = &definition
 		case 3:
 			c.Job = &definition
-			c.Flow = &definition
+			c.Workflow = &definition
 		}
 
 		raw, _ := json.Marshal(c)

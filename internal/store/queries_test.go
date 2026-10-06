@@ -122,7 +122,7 @@ func TestJobsRoundTripsFields(t *testing.T) {
 		Schedule: ScheduleOnce, IntervalSeconds: 90, CronExpr: "0 9 * * *",
 		RunAt: &at, Catchup: CatchupAll, Timeout: 30 * time.Minute,
 		Enabled: true, Favorite: true, Persistent: true, KeepContext: true,
-		Flow: "nightly", Input: "x",
+		Workflow: "nightly", Input: "x",
 		CreatedAt: time.Unix(1_700_000_000, 0),
 	})
 
@@ -159,7 +159,7 @@ func TestJobsRoundTripsFields(t *testing.T) {
 		{"Favorite", g.Favorite, true},
 		{"Persistent", g.Persistent, true},
 		{"KeepContext", g.KeepContext, true},
-		{"Flow", g.Flow, "nightly"},
+		{"Workflow", g.Workflow, "nightly"},
 		{"Input", g.Input, "x"},
 	}
 	for _, c := range checks {
@@ -376,7 +376,7 @@ func TestPutJobRoundTripChangesNothing(t *testing.T) {
 		MaxBudgetUSD: "5.00", Schedule: ScheduleOnce, IntervalSeconds: 90,
 		CronExpr: "0 9 * * *", RunAt: &at, Catchup: CatchupAll,
 		Timeout: 30 * time.Minute, Enabled: true, Favorite: true, Persistent: true,
-		Flow: "nightly", Input: "x", CreatedAt: time.Unix(1_600_000_000, 0),
+		Workflow: "nightly", Input: "x", CreatedAt: time.Unix(1_600_000_000, 0),
 	})
 
 	before, err := s.Job(ctx, "j")
@@ -590,8 +590,8 @@ func TestLastRuns(t *testing.T) {
 		putRun(t, s, ctx, Run{ID: "busy-" + string(rune('a'+i)), JobID: "busy",
 			Outcome: "failed", StartedAt: base.Add(time.Duration(i+1) * time.Hour)})
 	}
-	// A flow called directly has no job, so there is nothing to key it under.
-	putRun(t, s, ctx, Run{ID: "loose", Outcome: OutcomeDone, Flow: "adhoc",
+	// A workflow called directly has no job, so there is nothing to key it under.
+	putRun(t, s, ctx, Run{ID: "loose", Outcome: OutcomeDone, Workflow: "adhoc",
 		StartedAt: base.Add(100 * time.Hour)})
 
 	last, err := s.LastRuns(ctx)
@@ -615,7 +615,7 @@ func TestLastRuns(t *testing.T) {
 // Runs carry the token counts the usage report bills from, and scanRun reads
 // four same-typed counters in a row: swapped, every run still scans and the
 // cheap column is billed as the expensive one.
-func TestRunRoundTripsUsageAndFlow(t *testing.T) {
+func TestRunRoundTripsUsageAndWorkflow(t *testing.T) {
 	s, ctx := openStore(t)
 	started := time.Unix(1_700_000_000, 0)
 	ended := started.Add(90 * time.Second)
@@ -625,7 +625,7 @@ func TestRunRoundTripsUsageAndFlow(t *testing.T) {
 		RunDir: "/runs/r", TabID: "t1", AgentName: "herdr-kata-r",
 		StartedAt: started, EndedAt: &ended,
 		InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3, CacheCreationTokens: 4,
-		Model: "opus", Flow: "nightly", Input: "x",
+		Model: "opus", Workflow: "nightly", Input: "x",
 		Space: "ws-7",
 	})
 
@@ -650,7 +650,7 @@ func TestRunRoundTripsUsageAndFlow(t *testing.T) {
 		{"CacheReadTokens", got.CacheReadTokens, int64(3)},
 		{"CacheCreationTokens", got.CacheCreationTokens, int64(4)},
 		{"Model", got.Model, "opus"},
-		{"Flow", got.Flow, "nightly"},
+		{"Workflow", got.Workflow, "nightly"},
 		{"Input", got.Input, "x"},
 		// A resume reads these back to land in the space and the thread the first
 		// attempt used. Lost, the second half of one run holds its conversation
@@ -671,7 +671,7 @@ func TestRunRoundTripsUsageAndFlow(t *testing.T) {
 }
 
 // A run written with no trigger is a manual one. The daemon always names its
-// trigger; a run created from the board or a flow does not, and an empty
+// trigger; a run created from the board or a workflow does not, and an empty
 // trigger in the column would make the usage split by trigger silently wrong.
 func TestPutRunDefaultsTriggerToManual(t *testing.T) {
 	s, ctx := openStore(t)

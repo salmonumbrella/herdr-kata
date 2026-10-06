@@ -113,7 +113,7 @@ func recoverMissingObservations(ctx context.Context, s *store.Store) error {
 			if readErr != nil {
 				err = errors.Join(err, fmt.Errorf("load saved context %s: %w", uid, readErr))
 			}
-			if readErr == nil && c.Job == nil && c.Flow == nil {
+			if readErr == nil && c.Job == nil && c.Workflow == nil {
 				if checkErr := c.Check(s.Native); checkErr != nil {
 					problems = append(problems, checkErr)
 				} else if c.RunUID != uid {
@@ -198,7 +198,7 @@ func recoverOneObservation(ctx context.Context, s *store.Store, rec store.Run) e
 	if c.RunUID != rec.ID {
 		return nativeRecoveryIdentityFailure{errors.New("local observation context identity mismatch")}
 	}
-	if c.Job == nil && c.Flow == nil {
+	if c.Job == nil && c.Workflow == nil {
 		return nil
 	}
 	// Preparing the ordinary issue has not started a run. Publishing this local

@@ -9,19 +9,19 @@ import (
 // RunObservation is the planned ordinary data-write DTO. It carries evidence,
 // never execution context, permission or a process/session handle.
 type RunObservation struct {
-	JobUID                 string          `json:"job_uid,omitempty"`
-	DefinitionEventUID     string          `json:"definition_event_uid,omitempty"`
-	FlowUID                string          `json:"flow_uid,omitempty"`
-	FlowDefinitionEventUID string          `json:"flow_definition_event_uid,omitempty"`
-	OccurrenceKey          string          `json:"occurrence_key,omitempty"`
-	IssueUID               string          `json:"issue_uid,omitempty"`
-	Teammate               string          `json:"teammate,omitempty"`
-	ExecutorLabel          string          `json:"executor_label,omitempty"`
-	Status                 string          `json:"status"`
-	Summary                json.RawMessage `json:"summary"`
-	StartedAt              string          `json:"started_at,omitempty"`
-	EndedAt                string          `json:"ended_at,omitempty"`
-	ExpectedRevision       int64           `json:"expected_revision"`
+	JobUID                     string          `json:"job_uid,omitempty"`
+	DefinitionEventUID         string          `json:"definition_event_uid,omitempty"`
+	WorkflowUID                string          `json:"workflow_uid,omitempty"`
+	WorkflowDefinitionEventUID string          `json:"workflow_definition_event_uid,omitempty"`
+	OccurrenceKey              string          `json:"occurrence_key,omitempty"`
+	IssueUID                   string          `json:"issue_uid,omitempty"`
+	Teammate                   string          `json:"teammate,omitempty"`
+	ExecutorLabel              string          `json:"executor_label,omitempty"`
+	Status                     string          `json:"status"`
+	Summary                    json.RawMessage `json:"summary"`
+	StartedAt                  string          `json:"started_at,omitempty"`
+	EndedAt                    string          `json:"ended_at,omitempty"`
+	ExpectedRevision           int64           `json:"expected_revision"`
 }
 type RunObservationResult struct {
 	Run struct {

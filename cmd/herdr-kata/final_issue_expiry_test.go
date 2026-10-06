@@ -22,7 +22,7 @@ func TestExpiredPerRunPreparationRequiresInspectionWithoutRetryHint(t *testing.T
 	if err := c.Save(runDirFor(uid)); err != nil {
 		t.Fatal(err)
 	}
-	_, err = runNativeContext(t.Context(), s, c, store.Run{ID: uid, JobID: j.ID, Input: j.Input, RunDir: runDirFor(uid)}, flowOpts{})
+	_, err = runNativeContext(t.Context(), s, c, store.Run{ID: uid, JobID: j.ID, Input: j.Input, RunDir: runDirFor(uid)}, workflowOpts{})
 	if err == nil || !strings.Contains(err.Error(), "replay window expired") || !strings.Contains(err.Error(), "inspect") {
 		t.Fatalf("expiry diagnostic: %v", err)
 	}

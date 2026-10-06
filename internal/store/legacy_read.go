@@ -62,6 +62,11 @@ func ReadLegacyJobs(ctx context.Context, path string) ([]Job, error) {
 	defaults := map[string]string{"kind": "'claude'", "model": "'sonnet'", "schedule_type": "'manual'", "catchup": "'latest'", "on_context_loss": "'fresh'", "run_at": "NULL"}
 	for _, column := range strings.Split(jobColumns, ",") {
 		column = strings.TrimSpace(column)
+		// Upstream snapshots retain their historical column names.
+		if legacy := map[string]string{"workflow_id": "flow_id", "workflow_input": "flow_input"}[column]; legacy != "" && columns[legacy] && !columns[column] {
+			selectColumns = append(selectColumns, legacy)
+			continue
+		}
 		if columns[column] {
 			selectColumns = append(selectColumns, column)
 			continue

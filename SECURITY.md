@@ -26,9 +26,9 @@ the record of everything your agents were told and everything they said back.
 
 ## What it is not
 
-Herdr Kata runs the commands you give it. Flow steps and job prompts execute what you wrote, with your
+Herdr Kata runs the commands you give it. Workflow steps and job prompts execute what you wrote, with your
 permissions, and there is no sandbox between them and your machine. Treat a
-flow file the way you treat a shell script: something whose author you trust.
+workflow file the way you treat a shell script: something whose author you trust.
 
 Agent results and artifacts are observations produced by agents; the harness
 stores them but does not validate their factual claims.

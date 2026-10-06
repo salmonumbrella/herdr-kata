@@ -89,3 +89,26 @@ func TestReadLegacyJobsEscapedSnapshotFilename(t *testing.T) {
 		t.Fatalf("escaped source created sidecars: %v %v", entries, err)
 	}
 }
+
+func TestReadLegacyJobsPreservesHistoricalWorkflowReference(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "upstream.db")
+	source, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = source.Exec(`CREATE TABLE jobs (id TEXT PRIMARY KEY, prompt TEXT, flow_id TEXT, flow_input TEXT);
+ INSERT INTO jobs VALUES ('daily', '', 'inspect', 'review workspace')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = source.Close(); err != nil {
+		t.Fatal(err)
+	}
+	jobs, err := ReadLegacyJobs(t.Context(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs) != 1 || jobs[0].Workflow != "inspect" || jobs[0].Input != "review workspace" {
+		t.Fatalf("legacy workflow reference lost: %+v", jobs)
+	}
+}

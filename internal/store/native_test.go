@@ -48,9 +48,9 @@ func nativeDef(name string) json.RawMessage {
 }
 func TestNativeRefreshImportsPeerDefinitionsAndLabelsOffline(t *testing.T) {
 	r, respond := nativeFixture(t)
-	respond(map[string]json.RawMessage{"job list": json.RawMessage(`{"body":{"jobs":[` + string(nativeDef("Peer")) + `]}}`), "flow list": json.RawMessage(`{"body":{"flows":[` + string(nativeDef("Peer flow")) + `]}}`)})
+	respond(map[string]json.RawMessage{"job list": json.RawMessage(`{"body":{"jobs":[` + string(nativeDef("Peer")) + `]}}`), "workflow list": json.RawMessage(`{"body":{"workflows":[` + string(nativeDef("Peer workflow")) + `]}}`)})
 	snapshot, e := r.Refresh(t.Context())
-	if e != nil || snapshot.Offline || len(snapshot.Jobs) != 1 || len(snapshot.Flows) != 1 {
+	if e != nil || snapshot.Offline || len(snapshot.Jobs) != 1 || len(snapshot.Workflows) != 1 {
 		t.Fatalf("peer refresh %+v %v", snapshot, e)
 	}
 	r.Client.Executable = filepath.Join(t.TempDir(), "missing")
@@ -65,7 +65,7 @@ func TestNativeRefreshImportsPeerDefinitionsAndLabelsOffline(t *testing.T) {
 func TestNativeSaveFailureRetainsCacheAndDraft(t *testing.T) {
 	r, respond := nativeFixture(t)
 	def := nativeDef("Saved")
-	respond(map[string]json.RawMessage{"job list": json.RawMessage(`{"body":{"jobs":[` + string(def) + `]}}`), "flow list": json.RawMessage(`{"body":{"flows":[]}}`)})
+	respond(map[string]json.RawMessage{"job list": json.RawMessage(`{"body":{"jobs":[` + string(def) + `]}}`), "workflow list": json.RawMessage(`{"body":{"workflows":[]}}`)})
 	if _, e := r.Refresh(t.Context()); e != nil {
 		t.Fatal(e)
 	}
@@ -92,7 +92,7 @@ func TestNativeSaveFailureRetainsCacheAndDraft(t *testing.T) {
 }
 func TestNativeCacheScopeDoesNotCrossTargets(t *testing.T) {
 	r, respond := nativeFixture(t)
-	respond(map[string]json.RawMessage{"job list": json.RawMessage(`{"body":{"jobs":[` + string(nativeDef("Peer")) + `]}}`), "flow list": json.RawMessage(`{"body":{"flows":[]}}`)})
+	respond(map[string]json.RawMessage{"job list": json.RawMessage(`{"body":{"jobs":[` + string(nativeDef("Peer")) + `]}}`), "workflow list": json.RawMessage(`{"body":{"workflows":[]}}`)})
 	if _, e := r.Refresh(t.Context()); e != nil {
 		t.Fatal(e)
 	}
@@ -182,7 +182,7 @@ func TestNativeJobEditorPreservesFutureOwnedOptionsExactly(t *testing.T) {
 
 func TestNativeRefreshDeadlineKeepsOfflineCacheAndCancellation(t *testing.T) {
 	r, respond := nativeFixture(t)
-	respond(map[string]json.RawMessage{"job list": json.RawMessage(`{"body":{"jobs":[` + string(nativeDef("Cached")) + `]}}`), "flow list": json.RawMessage(`{"body":{"flows":[]}}`)})
+	respond(map[string]json.RawMessage{"job list": json.RawMessage(`{"body":{"jobs":[` + string(nativeDef("Cached")) + `]}}`), "workflow list": json.RawMessage(`{"body":{"workflows":[]}}`)})
 	if _, e := r.Refresh(t.Context()); e != nil {
 		t.Fatal(e)
 	}

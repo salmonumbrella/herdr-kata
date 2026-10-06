@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 type Plan struct {
@@ -68,11 +68,11 @@ func Build(ctx context.Context, dir, source, checkout, zone string, r *store.Nat
 	if !info.IsDir() {
 		return plan, errors.New("source must be an offline snapshot directory")
 	}
-	flows, bad := flow.List(filepath.Join(dir, "flows"))
+	workflows, bad := workflow.List(filepath.Join(dir, "flows"))
 	if err := errors.Join(bad...); err != nil {
 		return plan, err
 	}
-	flowUIDs := map[string]string{}
+	workflowUIDs := map[string]string{}
 	warn := func(label, text string) {
 		lower := strings.ToLower(text)
 		for _, marker := range []string{"bermuda issue", "bermuda forum", "bermuda memory", "herdr-kata issue", "herdr-kata forum", "herdr-kata memory"} {
@@ -82,15 +82,15 @@ func Build(ctx context.Context, dir, source, checkout, zone string, r *store.Nat
 			}
 		}
 	}
-	for _, f := range flows {
+	for _, f := range workflows {
 		uid := StableUID(source, "flow", f.ID)
-		flowUIDs[f.ID] = uid
+		workflowUIDs[f.ID] = uid
 		f.NativeName = f.ID
-		draft, err := flow.NativeDraft(f, uid, "")
+		draft, err := workflow.NativeDraft(f, uid, "")
 		if err != nil {
 			return plan, err
 		}
-		// Kata omits empty optional flow text from canonical responses. Emit the
+		// Kata omits empty optional workflow text from canonical responses. Emit the
 		// same portable shape so retained create readback stays exact.
 		var body map[string]json.RawMessage
 		if err := katacli.Decode(draft.Definition, &body); err != nil {
@@ -107,9 +107,9 @@ func Build(ctx context.Context, dir, source, checkout, zone string, r *store.Nat
 			return plan, err
 		}
 		plan.Drafts = append(plan.Drafts, draft)
-		warn("flow "+f.ID, f.About)
+		warn("workflow "+f.ID, f.About)
 		for _, step := range f.Steps {
-			warn("flow "+f.ID+" step "+step.ID, step.Agent+"\n"+step.Run)
+			warn("workflow "+f.ID+" step "+step.ID, step.Agent+"\n"+step.Run)
 		}
 	}
 	database, err := sourceDatabase(dir)
@@ -122,8 +122,8 @@ func Build(ctx context.Context, dir, source, checkout, zone string, r *store.Nat
 		if err != nil {
 			return plan, err
 		}
-	} else if len(flows) == 0 {
-		return plan, errors.New("source has no recognized bermuda.db/herdr-kata.db or flow YAML")
+	} else if len(workflows) == 0 {
+		return plan, errors.New("source has no recognized bermuda.db/herdr-kata.db or workflow YAML")
 	}
 	for _, j := range jobs {
 		oldID := j.ID
@@ -148,12 +148,12 @@ func Build(ctx context.Context, dir, source, checkout, zone string, r *store.Nat
 		}
 		j.CWD = ""
 		j.CheckoutKey = checkout
-		if j.Flow != "" {
-			uid, ok := flowUIDs[j.Flow]
+		if j.Workflow != "" {
+			uid, ok := workflowUIDs[j.Workflow]
 			if !ok {
-				return plan, fmt.Errorf("job %s references missing upstream flow %s", oldID, j.Flow)
+				return plan, fmt.Errorf("job %s references missing upstream workflow %s", oldID, j.Workflow)
 			}
-			j.Flow = uid
+			j.Workflow = uid
 		}
 		draft, err := r.JobDraft(j)
 		if err != nil {
@@ -178,7 +178,7 @@ func Build(ctx context.Context, dir, source, checkout, zone string, r *store.Nat
 
 // Both names are recognized explicitly: original upstream and the renamed fork.
 // Lstat retains broken/missing-target symlinks as errors in the reader instead of
-// silently interpreting a recognized source as a flow-only snapshot.
+// silently interpreting a recognized source as a workflow-only snapshot.
 func sourceDatabase(dir string) (string, error) {
 	var selected string
 	for _, name := range []string{"bermuda.db", "herdr-kata.db"} {

@@ -56,7 +56,7 @@ func (r *NativeRepository) Cached(ctx context.Context) (NativeSnapshot, error) {
 		if resource == "job" {
 			snapshot.Jobs = append(snapshot.Jobs, def)
 		} else {
-			snapshot.Flows = append(snapshot.Flows, def)
+			snapshot.Workflows = append(snapshot.Workflows, def)
 		}
 	}
 	return snapshot, rows.Err()
@@ -80,7 +80,7 @@ func (r *NativeRepository) Refresh(ctx context.Context) (NativeSnapshot, error) 
 		snapshot.Jobs, e = r.Client.Definitions(ctx, "job", true)
 	}
 	if e == nil {
-		snapshot.Flows, e = r.Client.Definitions(ctx, "flow", true)
+		snapshot.Workflows, e = r.Client.Definitions(ctx, "workflow", true)
 	}
 	if e == nil {
 		e = r.replace(ctx, snapshot)
@@ -106,15 +106,15 @@ func (r *NativeRepository) Refresh(ctx context.Context) (NativeSnapshot, error) 
 			live.Jobs = append(live.Jobs, d)
 		}
 	}
-	for _, d := range snapshot.Flows {
+	for _, d := range snapshot.Workflows {
 		if d.DeletedAt == nil {
-			live.Flows = append(live.Flows, d)
+			live.Workflows = append(live.Workflows, d)
 		}
 	}
 	return live, nil
 }
 func (r *NativeRepository) replace(ctx context.Context, snapshot NativeSnapshot) error {
-	for _, defs := range [][]katacli.Definition{snapshot.Jobs, snapshot.Flows} {
+	for _, defs := range [][]katacli.Definition{snapshot.Jobs, snapshot.Workflows} {
 		for _, def := range defs {
 			if e := validateCachedDefinition(def); e != nil {
 				return e
@@ -129,7 +129,7 @@ func (r *NativeRepository) replace(ctx context.Context, snapshot NativeSnapshot)
 	if _, e = tx.ExecContext(ctx, `DELETE FROM native_definitions WHERE target_key=? AND project_uid=?`, r.targetKey(), r.Binding.ProjectUID); e != nil {
 		return e
 	}
-	for resource, defs := range map[string][]katacli.Definition{"job": snapshot.Jobs, "flow": snapshot.Flows} {
+	for resource, defs := range map[string][]katacli.Definition{"job": snapshot.Jobs, "workflow": snapshot.Workflows} {
 		for _, d := range defs {
 			raw, e := json.Marshal(d)
 			if e != nil {

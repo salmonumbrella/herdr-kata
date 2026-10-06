@@ -77,7 +77,7 @@ func TestSettlementPayloadMatchesTheVersionOneWireContract(t *testing.T) {
 	defer s.Close()
 	start := time.Date(2026, 9, 30, 7, 0, 0, 0, time.UTC)
 	end := start.Add(2 * time.Minute)
-	r := Run{ID: "example-run", JobID: "example-job", Flow: "", Trigger: "scheduled", Outcome: "done", Note: "published", Ref: "Ticket: 42", StartedAt: start, EndedAt: &end, Model: "opus", InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3, CacheCreationTokens: 4}
+	r := Run{ID: "example-run", JobID: "example-job", Workflow: "", Trigger: "scheduled", Outcome: "done", Note: "published", Ref: "Ticket: 42", StartedAt: start, EndedAt: &end, Model: "opus", InputTokens: 1, OutputTokens: 2, CacheReadTokens: 3, CacheCreationTokens: 4}
 	if err := s.PutRun(context.Background(), r); err != nil {
 		t.Fatal(err)
 	}

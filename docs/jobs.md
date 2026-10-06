@@ -179,7 +179,7 @@ reuses live agents, but cannot save their conversations for later resume.
 Enable the harness's Herdr integration where required. A first run after
 enabling context starts fresh when there is no live agent or saved session;
 if a later context-enabled run loses its agent without a captured session,
-it reports `lost`. Non-context jobs and flow steps do not capture or resume.
+it reports `lost`. Non-context jobs and workflow steps do not capture or resume.
 
 The jobs tab fills the space to the right of the table with an inspector for
 the selected job: state, schedule, when it next fires, model, timeout, tags,
@@ -206,7 +206,7 @@ visible while you scroll through the run history.
 | `D` | delete the job (run history is kept) |
 | `l` `→` `enter` | descend: jobs → job → agent, or runs → run → its job |
 | `h` `←` `esc` | ascend one level |
-| `tab` | cycle the JOBS / RUNS / FLOWS / LEASES tabs |
+| `tab` | cycle the JOBS / RUNS / WORKFLOWS / LEASES tabs |
 | `space` | toggle a yes/no field |
 | `ctrl+s` | save the whole job, including the field being typed |
 | `tab` / `shift+tab` in the form | commit the field and move forwards / backwards |

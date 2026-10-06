@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/herdrcli"
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 	"github.com/salmonumbrella/herdr-kata/internal/lockfile"
 	"github.com/salmonumbrella/herdr-kata/internal/runner"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 type nativeFireTime struct{}
@@ -58,12 +58,12 @@ func executeNative(ctx context.Context, s *store.Store, j store.Job, trigger str
 		return nil, err
 	}
 	c.Job = &katacli.Definition{UID: j.ID, Name: j.Name, DefinitionEventUID: j.NativeEventUID, Definition: append(json.RawMessage(nil), j.NativeDefinition...)}
-	if j.Flow != "" {
-		fd, e := s.Native.Client.Definition(ctx, "flow", j.Flow)
+	if j.Workflow != "" {
+		fd, e := s.Native.Client.Definition(ctx, "workflow", j.Workflow)
 		if e != nil {
 			return nil, e
 		}
-		c.Flow = &fd
+		c.Workflow = &fd
 	}
 	if trigger != "manual" {
 		if source, ok := ctx.Value(nativeSourceKey{}).(string); ok && source != "" {
@@ -118,7 +118,7 @@ func executeNative(ctx context.Context, s *store.Store, j store.Job, trigger str
 	if err = c.Save(runDirFor(uid)); err != nil {
 		return nil, err
 	}
-	return runNativeContext(ctx, s, c, store.Run{ID: uid, JobID: j.ID, Trigger: trigger, RunDir: runDirFor(uid), Flow: j.Flow, Input: j.Input, Ref: c.Runtime.Ref}, flowOpts{})
+	return runNativeContext(ctx, s, c, store.Run{ID: uid, JobID: j.ID, Trigger: trigger, RunDir: runDirFor(uid), Workflow: j.Workflow, Input: j.Input, Ref: c.Runtime.Ref}, workflowOpts{})
 }
 
 func nativeIssueReady(ctx context.Context, s *store.Store, uid string) error {
@@ -160,7 +160,7 @@ func nativeIssueReady(ctx context.Context, s *store.Store, uid string) error {
 	return errors.New("linked issue is not in the selected project's ordinary ready list under local readiness policy")
 }
 
-func runNativeContext(ctx context.Context, s *store.Store, c runner.NativeExecutionContext, rec store.Run, opts flowOpts) (*runner.Run, error) {
+func runNativeContext(ctx context.Context, s *store.Store, c runner.NativeExecutionContext, rec store.Run, opts workflowOpts) (*runner.Run, error) {
 	if rec.ID != c.RunUID {
 		return nil, errors.New("saved local run identity does not match requested run")
 	}
@@ -196,8 +196,8 @@ func runNativeContext(ctx context.Context, s *store.Store, c runner.NativeExecut
 			return nil, err
 		}
 	}
-	if c.Flow != nil {
-		if _, err := flow.FromNative(*c.Flow); err != nil {
+	if c.Workflow != nil {
+		if _, err := workflow.FromNative(*c.Workflow); err != nil {
 			return nil, err
 		}
 	}
@@ -229,7 +229,7 @@ func runNativeContext(ctx context.Context, s *store.Store, c runner.NativeExecut
 	}
 	j := c.Runtime
 	var provenance *store.Run
-	if j.Persistent && c.Flow == nil {
+	if j.Persistent && c.Workflow == nil {
 		var err error
 		provenance, err = nativePersistentProvenance(ctx, s, c)
 		if err != nil {
@@ -258,7 +258,7 @@ func runNativeContext(ctx context.Context, s *store.Store, c runner.NativeExecut
 		env[name] = value
 	}
 	r := &runner.Runner{Herdr: herdrcli.New(), StateDir: stateDir(), Store: s, Env: env}
-	if j.Persistent && c.Flow == nil {
+	if j.Persistent && c.Workflow == nil {
 		r.BeforeReuse = func(ctx context.Context, _ runner.Job, ag *herdrcli.Agent, how string) error {
 			if len(secrets) != 0 && (how == "kept" || how == "adopted") {
 				return errors.New("mapped secrets require a fresh agent process; inspect the existing live conversation before restarting it")
@@ -268,32 +268,32 @@ func runNativeContext(ctx context.Context, s *store.Store, c runner.NativeExecut
 	}
 	var run *runner.Run
 	var execErr error
-	var space *runner.FlowSpace
-	var savedFlow flow.Flow
-	var flowRun *runner.FlowRun
-	if c.Flow == nil {
+	var space *runner.WorkflowSpace
+	var savedWorkflow workflow.Workflow
+	var workflowRun *runner.WorkflowRun
+	if c.Workflow == nil {
 		job := runner.FromStore(j)
 		job.Prompt += nativePromptInstructions(c.Target)
 		run, execErr = r.ExecuteIn(ctx, job, c.RunUID, rec.RunDir)
 	} else {
-		def, err := flow.FromNative(*c.Flow)
+		def, err := workflow.FromNative(*c.Workflow)
 		if err != nil {
 			return nil, err
 		}
 		if err = s.SeedRunSteps(ctx, rec.ID, def.Steps); err != nil {
 			return nil, err
 		}
-		savedFlow = def
-		space = openFlowSpace(ctx, s, def, &rec, j.CWD)
+		savedWorkflow = def
+		space = openWorkflowSpace(ctx, s, def, &rec, j.CWD)
 		if err = s.PutRun(ctx, rec); err != nil {
 			return nil, err
 		}
-		w := runner.Flow{Space: space, Launch: func(ctx context.Context, job runner.Job, uid, dir string) (*runner.Run, error) {
+		w := runner.Workflow{Space: space, Launch: func(ctx context.Context, job runner.Job, uid, dir string) (*runner.Run, error) {
 			job.Prompt += nativePromptInstructions(c.Target)
 			return r.ExecuteIn(ctx, job, uid, dir)
 		}, ProcessEnv: func(v []string) []string { return nativeEnvironmentWithSecrets(c.Environment(s.Native, v), secrets) }, Report: func(sr runner.StepRun) { persistStep(ctx, s, rec.ID, sr) }, ResetLoops: opts.ResetLoops}
 		wr, e := w.Execute(ctx, j, def, rec.Input, rec.ID, rec.RunDir)
-		flowRun = wr
+		workflowRun = wr
 		execErr = e
 		status := "ok"
 		if wr.Outcome != runner.OutcomeDone {
@@ -309,13 +309,13 @@ func runNativeContext(ctx context.Context, s *store.Store, c runner.NativeExecut
 	rec.Context, rec.ContextSession, rec.ContextNote = run.Context, run.ContextSession, run.ContextNote
 	rec.EndedAt = &run.EndedAt
 	if err := s.PutRun(ctx, rec); err != nil {
-		if c.Flow != nil {
-			closeFlowSpace(ctx, s, space, savedFlow, rec, flowRun)
+		if c.Workflow != nil {
+			closeWorkflowSpace(ctx, s, space, savedWorkflow, rec, workflowRun)
 		}
 		return run, err
 	}
-	if c.Flow != nil {
-		closeFlowSpace(ctx, s, space, savedFlow, rec, flowRun)
+	if c.Workflow != nil {
+		closeWorkflowSpace(ctx, s, space, savedWorkflow, rec, workflowRun)
 	}
 	if err := queueRunAttention(s, c, rec); err != nil {
 		fmt.Fprintln(os.Stderr, "herdr-kata: attention buffer:", err)
@@ -346,9 +346,9 @@ func nativeObservation(c runner.NativeExecutionContext, status string, start, en
 		dto.JobUID = c.Job.UID
 		dto.DefinitionEventUID = c.Job.DefinitionEventUID
 	}
-	if c.Flow != nil {
-		dto.FlowUID = c.Flow.UID
-		dto.FlowDefinitionEventUID = c.Flow.DefinitionEventUID
+	if c.Workflow != nil {
+		dto.WorkflowUID = c.Workflow.UID
+		dto.WorkflowDefinitionEventUID = c.Workflow.DefinitionEventUID
 	}
 	if !end.IsZero() {
 		dto.EndedAt = end.UTC().Format(time.RFC3339Nano)

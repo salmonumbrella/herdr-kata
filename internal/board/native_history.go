@@ -21,7 +21,7 @@ func mergeReportedRuns(local []store.Run, shared map[string]katacli.ReportedRun,
 		if r.StartedAt != nil {
 			start = *r.StartedAt
 		}
-		rows[uid] = store.Run{ID: uid, JobID: r.JobUID, Flow: r.FlowUID, Ref: r.IssueUID, Trigger: "reported", Outcome: r.Status, Note: r.Summary.Message, InputTokens: r.Summary.InputTokens, OutputTokens: r.Summary.OutputTokens, StartedAt: start, EndedAt: r.EndedAt}
+		rows[uid] = store.Run{ID: uid, JobID: r.JobUID, Workflow: r.WorkflowUID, Ref: r.IssueUID, Trigger: "reported", Outcome: r.Status, Note: r.Summary.Message, InputTokens: r.Summary.InputTokens, OutputTokens: r.Summary.OutputTokens, StartedAt: start, EndedAt: r.EndedAt}
 	}
 	out := []store.Run{}
 	for _, r := range rows {

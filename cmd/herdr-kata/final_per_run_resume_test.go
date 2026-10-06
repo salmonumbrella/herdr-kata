@@ -49,7 +49,7 @@ func TestPerRunPromptResumesThroughPublicCommandOnlyWhilePreparationPending(t *t
 	}
 	// A caller which fetched the old row before the first resume must also be
 	// rejected by the fresh check under this run's execution lock.
-	if _, err := runNativeContext(t.Context(), s, c, rec, flowOpts{OnlyIssuePreparation: true}); err == nil {
+	if _, err := runNativeContext(t.Context(), s, c, rec, workflowOpts{OnlyIssuePreparation: true}); err == nil {
 		t.Fatal("stale preparation row launched again")
 	}
 	after := policyHerdr(t, herdrDir)

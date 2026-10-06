@@ -1,6 +1,6 @@
 ---
 name: herdr-kata
-description: Use when operating Herdr Kata native cron jobs, flows, local activation, parked runs, persistent recovery, buffered results, exact inboxes, hooks, or scoped resource leases.
+description: Use when operating Herdr Kata native cron jobs, workflows, local activation, parked runs, persistent recovery, buffered results, exact inboxes, hooks, or scoped resource leases.
 ---
 
 # Herdr Kata execution
@@ -36,16 +36,16 @@ herdr-kata job run <retained-ulid>
 
 Retain create UIDs across failures. Definition edits/deletion use the displayed
 winning event UID; conflict requires refreshing and reviewing that winner.
-`native job|flow save --uid ... --file ... --expected-event-uid ...` accepts portable
+`native job|workflow save --uid ... --file ... --expected-event-uid ...` accepts portable
 JSON. Native issue readiness defers future `scheduled_on`, `someday` and blocked
 work; deadlines never gate execute jobs. Cron honors its trigger timezone; native
 issue dates use Kata's timezone/DST projection. Default reached-date notifications
 belong to Kata's sweeper. Custom offsets/recipients use ordinary notifications.
 
-## Flows and recovery
+## Workflows and recovery
 
-Use a flow for a sequence the harness must enforce. `flow new <draft-id>` writes
-unsaved YAML under `~/.herdr-kata/drafts/flows/`; editing alone does not save it.
+Use a workflow for a sequence the harness must enforce. `workflow new <draft-id>` writes
+unsaved YAML under `~/.herdr-kata/drafts/workflows/`; editing alone does not save it.
 
 ```yaml
 steps:
@@ -56,13 +56,13 @@ steps:
 ```
 
 ```bash
-herdr-kata flow new inspect --about 'Inspect and verify'
+herdr-kata workflow new inspect --about 'Inspect and verify'
 # Edit the unsaved YAML, then save explicitly.
-herdr-kata flow save inspect
-herdr-kata flow list
-herdr-kata flow run <native-flow-uid> --input 'example-workspace'
-herdr-kata flow status <run-uid>
-herdr-kata flow resume <run-uid>
+herdr-kata workflow save inspect
+herdr-kata workflow list
+herdr-kata workflow run <native-workflow-uid> --input 'example-workspace'
+herdr-kata workflow status <run-uid>
+herdr-kata workflow resume <run-uid>
 ```
 
 Each step has exactly one `agent` or `run`; unknown YAML keys, malformed steps and

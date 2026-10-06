@@ -89,12 +89,12 @@ func TestRealTask10ReadonlyInactiveAdoption(t *testing.T) {
 	if err != nil || len(jobs) != 1 || jobs[0].ID != uid || jobs[0].NativeEventUID != event {
 		t.Fatalf("repeat changed identity/revision: %+v %v", jobs, err)
 	}
-	flows, err := c.Definitions(t.Context(), "flow", false)
-	if err != nil || len(flows) != 1 {
-		t.Fatalf("flow=%+v %v", flows, err)
+	workflows, err := c.Definitions(t.Context(), "workflow", false)
+	if err != nil || len(workflows) != 1 {
+		t.Fatalf("workflow=%+v %v", workflows, err)
 	}
-	if bytes.Contains(flows[0].Definition, []byte(source)) {
-		t.Fatal("native flow retains source path")
+	if bytes.Contains(workflows[0].Definition, []byte(source)) {
+		t.Fatal("native workflow retains source path")
 	}
 	runs, err := s.Runs(context.Background(), "", 100)
 	if err != nil || len(runs) != 0 {
@@ -159,9 +159,9 @@ func TestRealTask10InterruptedImportAndChangedSourceConflict(t *testing.T) {
 	if _, err := captureStdout(t, func() error { return nativeCmd(argv) }); err != nil {
 		realNativeFailure(t, err)
 	}
-	current, err := c.Definition(t.Context(), "flow", first.UID)
+	current, err := c.Definition(t.Context(), "workflow", first.UID)
 	if err != nil || current.DefinitionEventUID != first.DefinitionEventUID {
-		t.Fatalf("partial import rewrote accepted flow: %+v %v", current, err)
+		t.Fatalf("partial import rewrote accepted workflow: %+v %v", current, err)
 	}
 	jobs, err := s.Jobs(t.Context())
 	if err != nil || len(jobs) != 1 || jobs[0].Enabled {
@@ -188,7 +188,7 @@ func TestRealTask10InterruptedImportAndChangedSourceConflict(t *testing.T) {
 	if _, err := captureStdout(t, func() error { return nativeCmd(argv) }); err == nil {
 		t.Fatal("changed source overwrote an accepted definition")
 	}
-	current, err = c.Definition(t.Context(), "flow", first.UID)
+	current, err = c.Definition(t.Context(), "workflow", first.UID)
 	if err != nil || current.DefinitionEventUID != first.DefinitionEventUID {
 		t.Fatal("conflict changed native winner")
 	}
@@ -207,14 +207,14 @@ func TestTask10ImportRefusesInstallationInsideSource(t *testing.T) {
 	}
 }
 
-func TestRealTask10FlowReferenceAndExplicitCronTimezone(t *testing.T) {
+func TestRealTask10WorkflowReferenceAndExplicitCronTimezone(t *testing.T) {
 	c, s := realNativeProduct(t)
 	source := adoptionSource(t)
 	old, err := store.Open(source)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := old.PutJob(t.Context(), store.Job{ID: "nightly", Name: "Nightly", Flow: "inspect", Input: "example-input", CWD: "/old/local/checkout", Enabled: true, Schedule: store.ScheduleCron, CronExpr: "0 7 * * *", Persistent: true, KeepContext: true}); err != nil {
+	if err := old.PutJob(t.Context(), store.Job{ID: "nightly", Name: "Nightly", Workflow: "inspect", Input: "example-input", CWD: "/old/local/checkout", Enabled: true, Schedule: store.ScheduleCron, CronExpr: "0 7 * * *", Persistent: true, KeepContext: true}); err != nil {
 		t.Fatal(err)
 	}
 	old.Close()
@@ -222,9 +222,9 @@ func TestRealTask10FlowReferenceAndExplicitCronTimezone(t *testing.T) {
 	if _, err := captureStdout(t, func() error { return nativeCmd(argv) }); err == nil || !strings.Contains(err.Error(), "cron-timezone") {
 		t.Fatalf("implicit source timezone accepted: %v", err)
 	}
-	flows, err := c.Definitions(t.Context(), "flow", false)
-	if err != nil || len(flows) != 0 {
-		t.Fatalf("invalid plan saved partial flow: %+v %v", flows, err)
+	workflows, err := c.Definitions(t.Context(), "workflow", false)
+	if err != nil || len(workflows) != 0 {
+		t.Fatalf("invalid plan saved partial workflow: %+v %v", workflows, err)
 	}
 	argv = append(argv, "--cron-timezone", "Europe/London")
 	if _, err := captureStdout(t, func() error { return nativeCmd(argv) }); err != nil {
@@ -232,11 +232,11 @@ func TestRealTask10FlowReferenceAndExplicitCronTimezone(t *testing.T) {
 	}
 	jobs, err := s.Jobs(t.Context())
 	if err != nil || len(jobs) != 1 || jobs[0].Enabled || !jobs[0].Persistent || !jobs[0].KeepContext || jobs[0].Input != "example-input" {
-		t.Fatalf("flow job projection: %+v %v", jobs, err)
+		t.Fatalf("workflow job projection: %+v %v", jobs, err)
 	}
-	flows, err = c.Definitions(t.Context(), "flow", false)
-	if err != nil || len(flows) != 1 || jobs[0].Flow != flows[0].UID {
-		t.Fatalf("flow reference identity mismatch: %+v %v", flows, err)
+	workflows, err = c.Definitions(t.Context(), "workflow", false)
+	if err != nil || len(workflows) != 1 || jobs[0].Workflow != workflows[0].UID {
+		t.Fatalf("workflow reference identity mismatch: %+v %v", workflows, err)
 	}
 	var body struct {
 		Trigger struct{ Kind, Cron, Timezone string }

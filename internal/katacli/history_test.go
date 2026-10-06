@@ -13,7 +13,7 @@ func TestRunHistoryUsesPublicPageAndExactSummary(t *testing.T) {
 	project := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 	cursor := "01ARZ3NDEKTSV4RRFFQ69G5FAW"
 	path := filepath.Join(filepath.Dir(fixture), "history.json")
-	raw := []byte(`{"runs":[{"uid":"01ARZ3NDEKTSV4RRFFQ69G5FAX","project_id":73,"flow_uid":"01ARZ3NDEKTSV4RRFFQ69G5FAY","flow_definition_event_uid":"01ARZ3NDEKTSV4RRFFQ69G5FAZ","actor":"worker","status":"unknown","summary":{"version":1,"message":"Pending report","input_tokens":9007199254740993,"output_tokens":9223372036854775807},"revision":1,"created_at":"2026-10-05T00:00:00Z","updated_at":"2026-10-05T00:00:00Z"}],"next_before_uid":"` + cursor + `"}`)
+	raw := []byte(`{"runs":[{"uid":"01ARZ3NDEKTSV4RRFFQ69G5FAX","project_id":73,"workflow_uid":"01ARZ3NDEKTSV4RRFFQ69G5FAY","workflow_definition_event_uid":"01ARZ3NDEKTSV4RRFFQ69G5FAZ","actor":"worker","status":"unknown","summary":{"version":1,"message":"Pending report","input_tokens":9007199254740993,"output_tokens":9223372036854775807},"revision":1,"created_at":"2026-10-05T00:00:00Z","updated_at":"2026-10-05T00:00:00Z"}],"next_before_uid":"` + cursor + `"}`)
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestRunHistoryUsesPublicPageAndExactSummary(t *testing.T) {
 		t.Fatalf("public page lost: %+v %v", page, err)
 	}
 	row := page.Runs[0]
-	if row.Summary.InputTokens != 9007199254740993 || row.Summary.OutputTokens != 9223372036854775807 || row.JobUID != "" || row.FlowUID == "" {
+	if row.Summary.InputTokens != 9007199254740993 || row.Summary.OutputTokens != 9223372036854775807 || row.JobUID != "" || row.WorkflowUID == "" {
 		t.Fatalf("flat reduced row rounded or lost nullable references: %+v", row)
 	}
 	// The independent executable records actual routed argv. Cursor remains the

@@ -61,7 +61,7 @@ func TestKataKeyUsesPublicNativeLauncher(t *testing.T) {
 	}
 }
 
-func nativeBoardFixture(t *testing.T, m *Model, jobs, flows []katacli.Definition) string {
+func nativeBoardFixture(t *testing.T, m *Model, jobs, workflows []katacli.Definition) string {
 	t.Helper()
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "kata")
@@ -72,7 +72,7 @@ func nativeBoardFixture(t *testing.T, m *Model, jobs, flows []katacli.Definition
 		t.Fatalf("fixture %v %s", e, out)
 	}
 	uid := "01ARZ3NDEKTSV4RRFFQ69G5FAD"
-	responses := map[string]any{"projects show": map[string]any{"body": map[string]any{"project": map[string]any{"id": 73, "uid": uid}}}, "run list": map[string]any{"body": map[string]any{"runs": []any{}}}, "capabilities show": map[string]any{"body": map[string]any{"project_uid": uid, "event_features": []string{"cron_v1"}}}, "job list": map[string]any{"body": map[string]any{"jobs": jobs}}, "flow list": map[string]any{"body": map[string]any{"flows": flows}}}
+	responses := map[string]any{"projects show": map[string]any{"body": map[string]any{"project": map[string]any{"id": 73, "uid": uid}}}, "run list": map[string]any{"body": map[string]any{"runs": []any{}}}, "capabilities show": map[string]any{"body": map[string]any{"project_uid": uid, "event_features": []string{"cron_v1"}}}, "job list": map[string]any{"body": map[string]any{"jobs": jobs}}, "workflow list": map[string]any{"body": map[string]any{"workflows": workflows}}}
 	raw, _ := json.Marshal(responses)
 	os.WriteFile(filepath.Join(dir, "responses.json"), raw, 0600)
 	os.WriteFile(filepath.Join(dir, "mode"), []byte("responses"), 0600)
@@ -104,19 +104,19 @@ func TestNativeBoardIsolatesProjectionFailures(t *testing.T) {
 	bad.UID = "01ARZ3NDEKTSV4RRFFQ69G5FAF"
 	bad.Definition = json.RawMessage(`{"version":1,"kind":"job","enabled":false,"trigger":{"kind":"manual"},"action":{"kind":"execute","prompt":"Inspect"},"options":{"herdr":{"Tags":"daily"}}}`)
 	prompt := katacli.Definition{UID: "01ARZ3NDEKTSV4RRFFQ69G5FAG", Name: "Prompt", DefinitionEventUID: "01ARZ3NDEKTSV4RRFFQ69G5FAE", Definition: json.RawMessage(`{"version":1,"steps":[{"key":"inspect","kind":"prompt","prompt":"Inspect workspace"}]}`)}
-	badFlow := prompt
-	badFlow.UID = "01ARZ3NDEKTSV4RRFFQ69G5FAH"
-	badFlow.Definition = json.RawMessage(`{"version":1,"options":{"herdr":{"SkipPermissions":"unknown"}},"steps":[{"key":"inspect","kind":"prompt","prompt":"Inspect workspace"}]}`)
-	nativeBoardFixture(t, m, []katacli.Definition{bad, good}, []katacli.Definition{badFlow, prompt})
+	badWorkflow := prompt
+	badWorkflow.UID = "01ARZ3NDEKTSV4RRFFQ69G5FAH"
+	badWorkflow.Definition = json.RawMessage(`{"version":1,"options":{"herdr":{"SkipPermissions":"unknown"}},"steps":[{"key":"inspect","kind":"prompt","prompt":"Inspect workspace"}]}`)
+	nativeBoardFixture(t, m, []katacli.Definition{bad, good}, []katacli.Definition{badWorkflow, prompt})
 	m.Update(m.load()())
-	if len(m.jobs) != 1 || m.jobs[0].ID != good.UID || len(m.flows) != 1 || len(m.runs) != 2 || len(m.flowErrs) != 1 {
-		t.Fatalf("bad peer hides board jobs=%+v flows=%+v runs=%d flowErrors=%v err=%v", m.jobs, m.flows, len(m.runs), m.flowErrs, m.err)
+	if len(m.jobs) != 1 || m.jobs[0].ID != good.UID || len(m.workflows) != 1 || len(m.runs) != 2 || len(m.workflowErrs) != 1 {
+		t.Fatalf("bad peer hides board jobs=%+v workflows=%+v runs=%d workflowErrors=%v err=%v", m.jobs, m.workflows, len(m.runs), m.workflowErrs, m.err)
 	}
-	if m.err == nil || !strings.Contains(m.err.Error(), bad.UID) || !strings.Contains(m.flowErrs[0].Error(), badFlow.UID) {
-		t.Fatalf("projection diagnostic missing uid: %v %v", m.err, m.flowErrs)
+	if m.err == nil || !strings.Contains(m.err.Error(), bad.UID) || !strings.Contains(m.workflowErrs[0].Error(), badWorkflow.UID) {
+		t.Fatalf("projection diagnostic missing uid: %v %v", m.err, m.workflowErrs)
 	}
 	cached, e := m.store.Native.Cached(t.Context())
-	if e != nil || len(cached.Jobs) != 2 || len(cached.Flows) != 2 {
+	if e != nil || len(cached.Jobs) != 2 || len(cached.Workflows) != 2 {
 		t.Fatalf("raw cache lost %+v %v", cached, e)
 	}
 }

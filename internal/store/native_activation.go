@@ -117,12 +117,12 @@ func (s *Store) setNativeEnabled(ctx context.Context, id string, enabled bool) e
 		if !info.IsDir() {
 			return errors.New("local checkout is not a directory")
 		}
-		if j.Flow != "" {
-			flow, err := s.Native.Client.Definition(ctx, "flow", j.Flow)
+		if j.Workflow != "" {
+			workflow, err := s.Native.Client.Definition(ctx, "workflow", j.Workflow)
 			if err != nil {
 				return err
 			}
-			if err := ValidateNativeFlowPolicy(flow.Definition); err != nil {
+			if err := ValidateNativeWorkflowPolicy(workflow.Definition); err != nil {
 				return err
 			}
 		}

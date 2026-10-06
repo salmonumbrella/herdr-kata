@@ -1,6 +1,6 @@
 # Run-settled hooks
 
-A run can finish in the daemon, on the board, in `job run`, in `flow run`, or
+A run can finish in the daemon, on the board, in `job run`, in `workflow run`, or
 while an old run is being reconciled. None of those callers is a good place to
 wait for somebody else's program. They all write the same run row, so Herdr Kata
 records a `run.settled` event beside that row in one SQLite transaction. The
@@ -20,7 +20,7 @@ variables: `HERDR_KATA_EVENT_ID`, `HERDR_KATA_RUN_ID`, `HERDR_KATA_JOB_ID`,
 `HERDR_KATA_RUN_OUTCOME`, `HERDR_KATA_PARK_REASON`, `HERDR_KATA_REF`, and
 `HERDR_KATA_RUN_DIR`. The object includes the run, its settlement number, the
 previous *settled* outcome, and the parsed root `result.json` when one was
-readable. A flow normally has `result: null`: its authoritative results are in
+readable. A workflow normally has `result: null`: its authoritative results are in
 step directories. Herdr Kata never judges an outcome from the transcript.
 
 The optional root result snapshot is read before the SQLite write transaction.

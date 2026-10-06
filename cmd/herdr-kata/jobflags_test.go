@@ -329,28 +329,28 @@ func TestApplyRejectsUnknownCatchup(t *testing.T) {
 	}
 }
 
-// A job is one prompt or one flow. A flow's steps carry their own prompts, so
-// a job-level prompt alongside a flow is text nothing would ever send -- the
+// A job is one prompt or one workflow. A workflow's steps carry their own prompts, so
+// a job-level prompt alongside a workflow is text nothing would ever send -- the
 // caller has to be told rather than have one half quietly ignored.
-func TestApplyRejectsPromptAndFlowTogether(t *testing.T) {
+func TestApplyRejectsPromptAndWorkflowTogether(t *testing.T) {
 	j := store.Job{Catchup: store.CatchupLatest}
-	err := applyArgs(t, &j, "-prompt", "do it", "-flow", "nightly")
+	err := applyArgs(t, &j, "-prompt", "do it", "-workflow", "nightly")
 	if err == nil {
-		t.Fatal("apply accepted both --prompt and --flow")
+		t.Fatal("apply accepted both --prompt and --workflow")
 	}
-	if !strings.Contains(err.Error(), "--flow") {
+	if !strings.Contains(err.Error(), "--workflow") {
 		t.Errorf("error %q does not name the conflict", err)
 	}
 
-	// Converting an existing prompt job to a flow means clearing the prompt in
+	// Converting an existing prompt job to a workflow means clearing the prompt in
 	// the same edit; that has to be allowed.
 	j = storedJob()
 	j.Schedule = store.ScheduleManual
-	if err := applyArgs(t, &j, "-flow", "nightly", "-prompt", ""); err != nil {
-		t.Fatalf("clearing the prompt while setting a flow: %v", err)
+	if err := applyArgs(t, &j, "-workflow", "nightly", "-prompt", ""); err != nil {
+		t.Fatalf("clearing the prompt while setting a workflow: %v", err)
 	}
-	if j.Flow != "nightly" || j.Prompt != "" {
-		t.Errorf("flow = %q prompt = %q, want nightly and empty", j.Flow, j.Prompt)
+	if j.Workflow != "nightly" || j.Prompt != "" {
+		t.Errorf("workflow = %q prompt = %q, want nightly and empty", j.Workflow, j.Prompt)
 	}
 }
 
@@ -410,12 +410,12 @@ func TestSplitListDropsBlanksAndTrims(t *testing.T) {
 	}
 }
 
-func TestStepsLabelNamesTheFlowOrNothing(t *testing.T) {
+func TestStepsLabelNamesTheWorkflowOrNothing(t *testing.T) {
 	if got := stepsLabel(store.Job{Prompt: "p"}); got != "-" {
 		t.Errorf("a prompt job labelled %q, want -", got)
 	}
-	if got := stepsLabel(store.Job{Flow: "nightly"}); got != "nightly" {
-		t.Errorf("a flow job labelled %q, want nightly", got)
+	if got := stepsLabel(store.Job{Workflow: "nightly"}); got != "nightly" {
+		t.Errorf("a workflow job labelled %q, want nightly", got)
 	}
 }
 

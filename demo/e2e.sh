@@ -92,7 +92,7 @@ step "go install, the README's other way in"
 # The only path here that asks the module proxy anything. Everything else builds
 # from a checkout, which is why `module github.com/salmonumbrella/herdr-kata` survived five
 # v2 releases: `go install …@latest` could not see any of the v2 tags, quietly
-# resolved the newest v1 one, and installed a herdr-kata from before flows and
+# resolved the newest v1 one, and installed a herdr-kata from before workflows and
 # resource leases existed — reporting itself as v1.1.1 and complaining about nothing.
 MODULE=$(sed -n 's/^module //p' "$ROOT/go.mod" | head -1)
 MAJOR=$(sed -n 's/^version = "\([0-9]*\)\..*/\1/p' "$MANIFEST" | head -1)
@@ -126,15 +126,15 @@ head -1 "$SKILL" 2>/dev/null | grep -q -- --- && ok "skill has frontmatter" || b
 grep -q "^name: herdr-kata" "$SKILL" 2>/dev/null && ok "skill name matches its directory" || bad "skill name does not match"
 [ -L "$ROOT/.claude/skills/herdr-kata" ] && ok ".claude/skills symlink survives the clone" || bad ".claude/skills symlink missing"
 
-step "jobs and flows really run"
-# `flow new` has to produce something that parses. It is the first flow anybody
-# sees, and a broken template turns "write a flow" into "debug herdr-kata".
-herdr-kata flow new scratch --about 'the shipped template' >/dev/null 2>&1
-check "flow new writes a template" "scratch" herdr-kata flow list
+step "jobs and workflows really run"
+# `workflow new` has to produce something that parses. It is the first workflow anybody
+# sees, and a broken template turns "write a workflow" into "debug herdr-kata".
+herdr-kata workflow new scratch --about 'the shipped template' >/dev/null 2>&1
+check "workflow new writes a template" "scratch" herdr-kata workflow list
 
-FLOWS="${HERDR_KATA_HOME:-$HOME/.herdr-kata}/flows"
-mkdir -p "$FLOWS"
-cat > "$FLOWS/greenfield.yml" <<'YAML'
+WORKFLOWS="${HERDR_KATA_HOME:-$HOME/.herdr-kata}/workflows"
+mkdir -p "$WORKFLOWS"
+cat > "$WORKFLOWS/greenfield.yml" <<'YAML'
 about: prove the chain
 input: the thing to act on
 steps:
@@ -143,50 +143,50 @@ steps:
   - id: two
     run: 'echo "two saw [$HERDR_KATA_PREVIOUS]"'
 YAML
-out=$(herdr-kata flow run greenfield --input xyzzy 2>&1)
-grep -q '"outcome": "done"' <<<"$out" && ok "flow run completes" || bad "flow run did not finish" "$out"
+out=$(herdr-kata workflow run greenfield --input xyzzy 2>&1)
+grep -q '"outcome": "done"' <<<"$out" && ok "workflow run completes" || bad "workflow run did not finish" "$out"
 # Without a Herdr server, deterministic steps still complete and persist.
 check "run is recorded"          "greenfield" herdr-kata run list
 
-# latest_run picks the newest run of one flow.
+# latest_run picks the newest run of one workflow.
 #
 # By job, never by row position: `run list` prints oldest-first, so taking the
-# first data row silently inspected an *earlier* flow's run and then asserted
+# first data row silently inspected an *earlier* workflow's run and then asserted
 # against its steps. That is a check that passes for the wrong reason, which is
 # worse than one that fails.
 latest_run() { herdr-kata run list 2>/dev/null | awk -v j="$1" '$2==j{id=$1} END{print id}'; }
 
 # The feature itself: the caller's x reaches the first step, and the first
-# step's published result reaches the second. A flow whose steps cannot see
+# step's published result reaches the second. A workflow whose steps cannot see
 # each other is just two jobs.
 run_id=$(latest_run greenfield)
-out=$(herdr-kata flow status "$run_id" 2>&1)
+out=$(herdr-kata workflow status "$run_id" 2>&1)
 grep -q "one saw \[xyzzy\]" <<<"$out" && ok "the input reaches the first step" || bad "input did not reach step one" "$out"
 grep -q "two saw \[one saw \[xyzzy\]\]" <<<"$out" && ok "a step's result reaches the next" || bad "the chain did not carry" "$out"
 
-# A flow that declares an input must not run with a blank one: every {{input}}
+# A workflow that declares an input must not run with a blank one: every {{input}}
 # would become a hole an agent then invents something to fill.
-out=$(herdr-kata flow run greenfield 2>&1); status=$?
-[ $status -ne 0 ] && ok "a flow that needs an input refuses a blank one" || bad "a flow ran with no input" "$out"
+out=$(herdr-kata workflow run greenfield 2>&1); status=$?
+[ $status -ne 0 ] && ok "a workflow that needs an input refuses a blank one" || bad "a workflow ran with no input" "$out"
 
-cat > "$FLOWS/breaks.yml" <<'YAML'
+cat > "$WORKFLOWS/breaks.yml" <<'YAML'
 steps:
   - id: boom
     run: exit 3
   - id: never
     run: echo should not run
 YAML
-out=$(herdr-kata flow run breaks 2>&1); status=$?
+out=$(herdr-kata workflow run breaks 2>&1); status=$?
 grep -q "parked" <<<"$out" && ok "a failing step parks the run" || bad "failing step did not park" "$out"
-[ $status -ne 0 ] && ok "a parked flow exits nonzero" || bad "parked flow exited 0"
+[ $status -ne 0 ] && ok "a parked workflow exits nonzero" || bad "parked workflow exited 0"
 run_id=$(latest_run breaks)
-out=$(herdr-kata flow status "$run_id" 2>&1)
+out=$(herdr-kata workflow status "$run_id" 2>&1)
 grep -q "never .*pending" <<<"$out" && ok "the step after a failure never starts" || bad "a step ran behind a failed one" "$out"
 
 # A checker that hands the work back. The maker only gets it right on its
 # second run, which is the shape the feature exists for: parking here would be
 # correct and useless, because the step that can fix it is the one above.
-cat > "$FLOWS/heals.yml" <<'YAML'
+cat > "$WORKFLOWS/heals.yml" <<'YAML'
 steps:
   - id: implement
     run: 'if [ -f "$HOME/heal-tried" ]; then touch "$HOME/heal-fixed"; else touch "$HOME/heal-tried"; fi'
@@ -196,11 +196,11 @@ steps:
       goto: implement
       max_loops: 2
 YAML
-out=$(herdr-kata flow run heals 2>&1); status=$?
-grep -q '"outcome": "done"' <<<"$out" && ok "a flow heals itself and finishes" || bad "the loopback did not heal" "$out"
-[ $status -eq 0 ] && ok "a healed flow exits zero" || bad "a healed flow exited nonzero"
+out=$(herdr-kata workflow run heals 2>&1); status=$?
+grep -q '"outcome": "done"' <<<"$out" && ok "a workflow heals itself and finishes" || bad "the loopback did not heal" "$out"
+[ $status -eq 0 ] && ok "a healed workflow exits zero" || bad "a healed workflow exited nonzero"
 run_id=$(latest_run heals)
-out=$(herdr-kata flow status "$run_id" 2>&1)
+out=$(herdr-kata workflow status "$run_id" 2>&1)
 grep -q "attempt 2" <<<"$out" && ok "the retried step says which attempt it is on" \
     || bad "a healed run looks like one that worked first time" "$out"
 grep -q "2/2 steps" <<<"$out" && ok "a step run twice is still counted once" || bad "the retry was counted as extra work" "$out"
@@ -208,7 +208,7 @@ grep -q "2/2 steps" <<<"$out" && ok "a step run twice is still counted once" || 
 # The two ways a loop stops on its own. Both are parks: the attempts are on
 # record and a human can resume, rather than an unattended run rewriting the
 # same code until somebody reads the token bill.
-cat > "$FLOWS/stuck.yml" <<'YAML'
+cat > "$WORKFLOWS/stuck.yml" <<'YAML'
 steps:
   - id: implement
     run: echo nothing changes
@@ -218,12 +218,12 @@ steps:
       goto: implement
       max_loops: 5
 YAML
-herdr-kata flow run stuck >/dev/null 2>&1
-out=$(herdr-kata flow status "$(latest_run stuck)" 2>&1)
+herdr-kata workflow run stuck >/dev/null 2>&1
+out=$(herdr-kata workflow status "$(latest_run stuck)" 2>&1)
 grep -q "loop_stuck" <<<"$out" && ok "an unchanged verdict parks instead of looping again" \
     || bad "a loop that changed nothing kept going" "$out"
 
-cat > "$FLOWS/exhausts.yml" <<'YAML'
+cat > "$WORKFLOWS/exhausts.yml" <<'YAML'
 steps:
   - id: implement
     run: echo trying again
@@ -233,27 +233,27 @@ steps:
       goto: implement
       max_loops: 2
 YAML
-herdr-kata flow run exhausts >/dev/null 2>&1
-out=$(herdr-kata flow status "$(latest_run exhausts)" 2>&1)
+herdr-kata workflow run exhausts >/dev/null 2>&1
+out=$(herdr-kata workflow status "$(latest_run exhausts)" 2>&1)
 grep -q "loop_exhausted" <<<"$out" && ok "a loop that runs out of attempts parks" \
     || bad "a bounded loop did not stop where it said" "$out"
 grep -q "resume with" <<<"$out" && ok "a parked loop says how to resume it" || bad "no resume line on a parked loop" "$out"
-# The maker ran three times: the first attempt and the two loops the flow
+# The maker ran three times: the first attempt and the two loops the workflow
 # declared. The number is the whole bound, so it is the thing to assert on.
 grep -q "attempt 3" <<<"$out" && ok "a loop's attempts are counted on the record" \
     || bad "the run does not say how many attempts it made" "$out"
 
-# The bound has to survive `flow resume`, or it is a bound per attempt and
+# The bound has to survive `workflow resume`, or it is a bound per attempt and
 # anything that resumes on a schedule loops forever, a day at a time. The run's
 # own note counts the retries this attempt took: a resume on a spent budget
 # takes none, and says so by not mentioning any.
 exhausted_run=$(latest_run exhausts)
-out=$(herdr-kata flow resume "$exhausted_run" 2>&1)
+out=$(herdr-kata workflow resume "$exhausted_run" 2>&1)
 grep -q "loop_exhausted" <<<"$out" && ! grep -q "retries" <<<"$out" \
     && ok "a resume does not hand back loops already spent" \
     || bad "the resume refilled an exhausted loop" "$out"
 # ...and the human who fixed the underlying problem can ask for it back.
-out=$(herdr-kata flow resume "$exhausted_run" --reset-loops 2>&1)
+out=$(herdr-kata workflow resume "$exhausted_run" --reset-loops 2>&1)
 grep -q "2 retries" <<<"$out" && ok "--reset-loops hands the budget back" \
     || bad "--reset-loops did not restore the loop budget" "$out"
 [ -f "$HERDR_KATA_HOME/runs/$exhausted_run/loops.json" ] \
@@ -264,9 +264,9 @@ out=$(herdr-kata run list 2>&1 | grep exhausts)
 grep -q "loop_exhausted" <<<"$out" && ok "a parked loop's ending is on the run itself" \
     || bad "the run list does not say how the loop ended" "$out"
 
-# An edge pointing forward is a branch, and a flow is a series. Refused when the
-# file is read, so the flow that would loop into itself never starts.
-cat > "$FLOWS/branchy.yml" <<'YAML'
+# An edge pointing forward is a branch, and a workflow is a series. Refused when the
+# file is read, so the workflow that would loop into itself never starts.
+cat > "$WORKFLOWS/branchy.yml" <<'YAML'
 steps:
   - id: verify
     run: 'exit 1'
@@ -275,18 +275,18 @@ steps:
   - id: ship
     run: echo shipped
 YAML
-out=$(herdr-kata flow run branchy 2>&1); status=$?
+out=$(herdr-kata workflow run branchy 2>&1); status=$?
 [ $status -ne 0 ] && ok "an on_fail pointing forward is refused" || bad "a forward edge ran" "$out"
 
-# A job starts a flow on a schedule; the job supplies the x.
-herdr-kata job add --id breaks-job --name "Breaks" --flow breaks --input none >/dev/null 2>&1
-check "a job can start a flow"   "breaks"    herdr-kata job list
+# A job starts a workflow on a schedule; the job supplies the x.
+herdr-kata job add --id breaks-job --name "Breaks" --workflow breaks --input none >/dev/null 2>&1
+check "a job can start a workflow"   "breaks"    herdr-kata job list
 out=$(herdr-kata job run breaks-job 2>&1); status=$?
 [ $status -ne 0 ] && ok "job run exits nonzero on failure" || bad "job run exited 0 on a failed run"
 
-# Removing a flow a job depends on fails silently at 04:00 otherwise.
-out=$(herdr-kata flow rm breaks 2>&1); status=$?
-[ $status -ne 0 ] && ok "a flow in use cannot be removed" || bad "removed a flow a job needs" "$out"
+# Removing a workflow a job depends on fails silently at 04:00 otherwise.
+out=$(herdr-kata workflow rm breaks 2>&1); status=$?
+[ $status -ne 0 ] && ok "a workflow in use cannot be removed" || bad "removed a workflow a job needs" "$out"
 
 step "scoped resource leases"
 check "claim is taken" "claim" herdr-kata lease claim browser --scope local:example --as worker --run run-a --ttl 5m --why e2e

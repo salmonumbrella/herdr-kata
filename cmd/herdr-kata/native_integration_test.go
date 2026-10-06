@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/katacli"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 func realNativeProduct(t *testing.T) (*katacli.Client, *store.Store) {
@@ -137,19 +137,19 @@ func TestRealNativeProductMappers(t *testing.T) {
 			t.Fatalf("producer job discriminator oracle lost: %v", e)
 		}
 	})
-	t.Run("default flow save", func(t *testing.T) {
-		created, e := captureStdout(t, func() error { return flowNew([]string{"inspect", "--about", "Inspect workspace"}) })
+	t.Run("default workflow save", func(t *testing.T) {
+		created, e := captureStdout(t, func() error { return workflowNew([]string{"inspect", "--about", "Inspect workspace"}) })
 		if e != nil {
 			t.Fatal(e)
 		}
-		if !strings.Contains(created, filepath.Join(flowDraftDir(), "inspect.yml")) || len(created) > 4096 {
+		if !strings.Contains(created, filepath.Join(workflowDraftDir(), "inspect.yml")) || len(created) > 4096 {
 			t.Fatalf("unexpected draft result: %q", created)
 		}
-		saved, e := captureStdout(t, func() error { return flowSave([]string{"inspect"}) })
+		saved, e := captureStdout(t, func() error { return workflowSave([]string{"inspect"}) })
 		if e != nil {
 			realNativeFailure(t, e)
 		}
-		raw, e := os.ReadFile(filepath.Join(flowDraftDir(), "inspect.yml.native.json"))
+		raw, e := os.ReadFile(filepath.Join(workflowDraftDir(), "inspect.yml.native.json"))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -160,29 +160,29 @@ func TestRealNativeProductMappers(t *testing.T) {
 		if !strings.Contains(saved, draft.UID) || len(saved) > 4096 {
 			t.Fatalf("unexpected save result: %q", saved)
 		}
-		f, e := nativeFlow(t.Context(), draft.UID)
+		f, e := nativeWorkflow(t.Context(), draft.UID)
 		if e != nil {
 			t.Fatal(e)
 		}
 		if len(f.Steps) != 3 || !f.Steps[0].IsAgent() {
-			t.Fatalf("default flow projection %+v", f)
+			t.Fatalf("default workflow projection %+v", f)
 		}
 	})
 	t.Run("peer prompt roundtrip", func(t *testing.T) {
 		raw := json.RawMessage(`{"version":1,"about":"Peer prompt","options":{"future_counter":9007199254740993},"steps":[{"key":"inspect","kind":"prompt","prompt":"Inspect workspace","options":{"herdr_step":{"future_counter":9007199254740993}}}]}`)
-		draft, _ := katacli.NewDraft("flow", "", "Peer prompt", raw, "")
+		draft, _ := katacli.NewDraft("workflow", "", "Peer prompt", raw, "")
 		def, e := c.Save(t.Context(), draft)
 		if e != nil {
 			realNativeFailure(t, e)
 		}
-		f, e := nativeFlow(t.Context(), def.UID)
+		f, e := nativeWorkflow(t.Context(), def.UID)
 		if e != nil {
 			t.Fatal(e)
 		}
 		if f.Steps[0].Agent != "Inspect workspace" {
 			t.Fatalf("peer prompt lost %+v", f)
 		}
-		updated, e := flow.NativeDraft(f, def.UID, def.DefinitionEventUID)
+		updated, e := workflow.NativeDraft(f, def.UID, def.DefinitionEventUID)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -197,19 +197,19 @@ func TestRealNativeProductMappers(t *testing.T) {
 	})
 }
 
-func TestRealNativeStructuralFlowEdits(t *testing.T) {
+func TestRealNativeStructuralWorkflowEdits(t *testing.T) {
 	c, s := realNativeProduct(t)
 	for _, tc := range []struct {
 		name string
 		keys []string
 	}{{"delete", []string{"b"}}, {"insert", []string{"a", "x", "b"}}, {"reorder", []string{"b", "a"}}} {
 		t.Run(tc.name, func(t *testing.T) {
-			draft, _ := katacli.NewDraft("flow", "", tc.name, json.RawMessage(`{"version":1,"steps":[{"key":"a","kind":"command","command":"git status"},{"key":"b","kind":"command","command":"git diff","after":["a"],"options":{"future_counter":9007199254740993}}]}`), "")
+			draft, _ := katacli.NewDraft("workflow", "", tc.name, json.RawMessage(`{"version":1,"steps":[{"key":"a","kind":"command","command":"git status"},{"key":"b","kind":"command","command":"git diff","after":["a"],"options":{"future_counter":9007199254740993}}]}`), "")
 			def, e := c.Save(t.Context(), draft)
 			if e != nil {
 				realNativeFailure(t, e)
 			}
-			f, e := flow.FromNative(def)
+			f, e := workflow.FromNative(def)
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -222,7 +222,7 @@ func TestRealNativeStructuralFlowEdits(t *testing.T) {
 			for _, key := range tc.keys {
 				f.Steps = append(f.Steps, byKey[key])
 			}
-			update, e := flow.NativeDraft(f, def.UID, def.DefinitionEventUID)
+			update, e := workflow.NativeDraft(f, def.UID, def.DefinitionEventUID)
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -241,7 +241,7 @@ func TestRealNativeStructuralFlowEdits(t *testing.T) {
 				t.Fatal(e)
 			}
 			for i, step := range body.Steps {
-				if step.Key == flow.OverwatchStepID {
+				if step.Key == workflow.OverwatchStepID {
 					continue
 				}
 				var expected []string
@@ -353,17 +353,17 @@ func TestRealNativeOpaquePeerProjectionIsolation(t *testing.T) {
 	if e != nil || !strings.Contains(inspected, "9007199254740993") {
 		t.Fatalf("opaque raw job inspection %s %v", inspected, e)
 	}
-	flowDraft, _ := katacli.NewDraft("flow", "", "Opaque prompt", json.RawMessage(`{"version":1,"options":{"herdr":{"SkipPermissions":"unknown"}},"steps":[{"key":"inspect","kind":"prompt","prompt":"Inspect workspace"}]}`), "")
-	peer, e := c.Save(t.Context(), flowDraft)
+	workflowDraft, _ := katacli.NewDraft("workflow", "", "Opaque prompt", json.RawMessage(`{"version":1,"options":{"herdr":{"SkipPermissions":"unknown"}},"steps":[{"key":"inspect","kind":"prompt","prompt":"Inspect workspace"}]}`), "")
+	peer, e := c.Save(t.Context(), workflowDraft)
 	if e != nil {
 		realNativeFailure(t, e)
 	}
-	inspected, e = captureStdout(t, func() error { return flowShow([]string{peer.UID}) })
+	inspected, e = captureStdout(t, func() error { return workflowShow([]string{peer.UID}) })
 	if e != nil || strings.TrimSpace(inspected) != string(peer.Definition) {
-		t.Fatalf("opaque raw flow inspection %s %v", inspected, e)
+		t.Fatalf("opaque raw workflow inspection %s %v", inspected, e)
 	}
 	cached, e := s.Native.Cached(t.Context())
-	if e != nil || len(cached.Jobs) != 2 || len(cached.Flows) != 1 {
+	if e != nil || len(cached.Jobs) != 2 || len(cached.Workflows) != 1 {
 		t.Fatalf("raw accepted peer cache %+v %v", cached, e)
 	}
 }

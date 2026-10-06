@@ -39,7 +39,7 @@ func resumeNativeIssuePreparation(argv []string) error {
 	if err != nil {
 		return err
 	}
-	run, err := runNativeContext(context.Background(), s, c, store.Run{ID: uid}, flowOpts{OnlyIssuePreparation: true})
+	run, err := runNativeContext(context.Background(), s, c, store.Run{ID: uid}, workflowOpts{OnlyIssuePreparation: true})
 	if run != nil {
 		printRun(run)
 	}

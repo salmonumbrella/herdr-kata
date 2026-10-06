@@ -30,7 +30,7 @@ func captureStdout(t *testing.T, fn func() error) (string, error) {
 
 // Capture the known missing-executable fallback, while rejecting any additional
 // diagnostic line or a different failure cause.
-func captureExpectedFlowFallback(t *testing.T, flowID string, fn func()) {
+func captureExpectedWorkflowFallback(t *testing.T, workflowID string, fn func()) {
 	t.Helper()
 	output := captureStderr(t, fn)
 	missing := exec.Command(os.Getenv("HERDR_BIN_PATH")).Run()
@@ -38,8 +38,8 @@ func captureExpectedFlowFallback(t *testing.T, flowID string, fn func()) {
 		t.Fatalf("fallback fixture is not a missing executable: %v", missing)
 	}
 	line := strings.TrimSuffix(output, "\n")
-	prefix := "herdr-kata: could not open a space for this flow, so its steps have no workspace: herdr [workspace create --label FLOWS:" + flowID + ":"
+	prefix := "herdr-kata: could not open a space for this workflow, so its steps have no workspace: herdr [workspace create --label WORKFLOWS:" + workflowID + ":"
 	if strings.Contains(line, "\n") || !strings.HasPrefix(line, prefix) || !strings.HasSuffix(line, ": "+missing.Error()+": ") {
-		t.Fatalf("unexpected flow fallback diagnostics: %q", output)
+		t.Fatalf("unexpected workflow fallback diagnostics: %q", output)
 	}
 }

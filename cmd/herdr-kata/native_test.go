@@ -62,33 +62,33 @@ func TestNativeConfigurePersistsExplicitRoutedInstallation(t *testing.T) {
 		t.Fatalf("mapping %+v %v", got, e)
 	}
 }
-func TestUnconfiguredNativeFlowCannotUseLegacyDefinition(t *testing.T) {
+func TestUnconfiguredNativeWorkflowCannotUseLegacyDefinition(t *testing.T) {
 	t.Setenv("HERDR_KATA_HOME", t.TempDir())
-	if err := flowRun([]string{"01ARZ3NDEKTSV4RRFFQ69G5FAV"}); !errors.Is(err, store.ErrNativeUnconfigured) {
+	if err := workflowRun([]string{"01ARZ3NDEKTSV4RRFFQ69G5FAV"}); !errors.Is(err, store.ErrNativeUnconfigured) {
 		t.Fatalf("boundary: %v", err)
 	}
 }
-func TestFlowNewIsAnUnsavedPortableDraft(t *testing.T) {
+func TestWorkflowNewIsAnUnsavedPortableDraft(t *testing.T) {
 	t.Setenv("HERDR_KATA_HOME", t.TempDir())
-	out, e := captureStdout(t, func() error { return flowNew([]string{"inspect", "--about", "Inspect workspace"}) })
+	out, e := captureStdout(t, func() error { return workflowNew([]string{"inspect", "--about", "Inspect workspace"}) })
 	if e != nil {
 		t.Fatal(e)
 	}
-	if !strings.Contains(out, "unsaved") || !strings.Contains(out, "flow save") {
+	if !strings.Contains(out, "unsaved") || !strings.Contains(out, "workflow save") {
 		t.Fatalf("draft appears saved: %s", out)
 	}
-	if _, e := os.Stat(filepath.Join(stateDir(), "drafts", "flows", "inspect.yml")); e != nil {
+	if _, e := os.Stat(filepath.Join(stateDir(), "drafts", "workflows", "inspect.yml")); e != nil {
 		t.Fatal(e)
 	}
-	if e := flowSave([]string{"inspect"}); !errors.Is(e, store.ErrNativeUnconfigured) {
+	if e := workflowSave([]string{"inspect"}); !errors.Is(e, store.ErrNativeUnconfigured) {
 		t.Fatalf("offline save=%v", e)
 	}
 }
-func TestFlowListDoesNotAdoptPrivateLegacyAuthority(t *testing.T) {
+func TestWorkflowListDoesNotAdoptPrivateLegacyAuthority(t *testing.T) {
 	t.Setenv("HERDR_KATA_HOME", t.TempDir())
-	os.MkdirAll(flowDir(), 0700)
-	os.WriteFile(filepath.Join(flowDir(), "legacy.yml"), []byte("about: Legacy\nsteps:\n - id: inspect\n   run: git status\n"), 0600)
-	out, e := captureStdout(t, func() error { return flowList(nil) })
+	os.MkdirAll(workflowDir(), 0700)
+	os.WriteFile(filepath.Join(workflowDir(), "legacy.yml"), []byte("about: Legacy\nsteps:\n - id: inspect\n   run: git status\n"), 0600)
+	out, e := captureStdout(t, func() error { return workflowList(nil) })
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -115,8 +115,8 @@ func nativeCommandFixture(t *testing.T, responses map[string]any) string {
 	if _, ok := responses["job list"]; !ok {
 		responses["job list"] = map[string]any{"body": map[string]any{"jobs": []any{}}}
 	}
-	if _, ok := responses["flow list"]; !ok {
-		responses["flow list"] = map[string]any{"body": map[string]any{"flows": []any{}}}
+	if _, ok := responses["workflow list"]; !ok {
+		responses["workflow list"] = map[string]any{"body": map[string]any{"workflows": []any{}}}
 	}
 	raw, e := json.Marshal(responses)
 	if e != nil {
@@ -134,40 +134,40 @@ func nativeCommandFixture(t *testing.T, responses map[string]any) string {
 	}
 	return binDir
 }
-func nativeFlowFixture(t *testing.T) katacli.Definition {
+func nativeWorkflowFixture(t *testing.T) katacli.Definition {
 	t.Helper()
 	return katacli.Definition{UID: "01ARZ3NDEKTSV4RRFFQ69G5FAD", Name: "Inspect workspace", DefinitionEventUID: "01ARZ3NDEKTSV4RRFFQ69G5FAE", Definition: json.RawMessage(`{"version":1,"options":{"counter":9007199254740993,"herdr":{"input":"which inbox","about":"Inspect workspace"}},"steps":[{"key":"inspect","kind":"command","command":"git status","options":{"limit":9007199254740993}}]}`)}
 }
-func TestFlowShowDisplaysSelectedNativeDefinitionWithoutPrivateFile(t *testing.T) {
-	def := nativeFlowFixture(t)
-	nativeCommandFixture(t, map[string]any{"flow list": map[string]any{"body": map[string]any{"flows": []katacli.Definition{def}}}})
-	out, e := captureStdout(t, func() error { return flowShow([]string{def.UID}) })
+func TestWorkflowShowDisplaysSelectedNativeDefinitionWithoutPrivateFile(t *testing.T) {
+	def := nativeWorkflowFixture(t)
+	nativeCommandFixture(t, map[string]any{"workflow list": map[string]any{"body": map[string]any{"workflows": []katacli.Definition{def}}}})
+	out, e := captureStdout(t, func() error { return workflowShow([]string{def.UID}) })
 	if e != nil || !strings.Contains(out, "9007199254740993") || !strings.Contains(out, "git status") {
-		t.Fatalf("native flow display %s %v", out, e)
+		t.Fatalf("native workflow display %s %v", out, e)
 	}
 }
 
-func TestBrokenUnsavedFlowDraftRemainsEditableWithoutNativeAuthority(t *testing.T) {
-	dir := flowFilesIn(t)
-	os.MkdirAll(flowDraftDir(), 0700)
-	path := filepath.Join(dir, "drafts", "flows", "broken.yml")
+func TestBrokenUnsavedWorkflowDraftRemainsEditableWithoutNativeAuthority(t *testing.T) {
+	dir := workflowFilesIn(t)
+	os.MkdirAll(workflowDraftDir(), 0700)
+	path := filepath.Join(dir, "drafts", "workflows", "broken.yml")
 	if e := os.WriteFile(path, []byte("steps:\n - id: inspect\n   agnet: typo\n"), 0600); e != nil {
 		t.Fatal(e)
 	}
-	out, e := captureStdout(t, func() error { return flowEdit([]string{"broken"}) })
+	out, e := captureStdout(t, func() error { return workflowEdit([]string{"broken"}) })
 	if e != nil || strings.TrimSpace(out) != path {
 		t.Fatalf("broken unsaved draft %s %v", out, e)
 	}
 }
-func TestImportedFlowSaveRetainsSelectedNativeNameAndWinner(t *testing.T) {
-	def := nativeFlowFixture(t)
+func TestImportedWorkflowSaveRetainsSelectedNativeNameAndWinner(t *testing.T) {
+	def := nativeWorkflowFixture(t)
 	def.Name = "Canonical native name"
-	binDir := nativeCommandFixture(t, map[string]any{"flow list": map[string]any{"body": map[string]any{"flows": []katacli.Definition{def}}}, "flow update": map[string]any{"body": map[string]any{"flow": def}}})
-	draft, e := prepareFlowDraft(def.UID)
+	binDir := nativeCommandFixture(t, map[string]any{"workflow list": map[string]any{"body": map[string]any{"workflows": []katacli.Definition{def}}}, "workflow update": map[string]any{"body": map[string]any{"workflow": def}}})
+	draft, e := prepareWorkflowDraft(def.UID)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if e = flowSave([]string{strings.TrimSuffix(filepath.Base(draft.Path), ".yml")}); e != nil {
+	if e = workflowSave([]string{strings.TrimSuffix(filepath.Base(draft.Path), ".yml")}); e != nil {
 		t.Fatal(e)
 	}
 	raw, e := os.ReadFile(draft.Path + ".native.json")
@@ -283,16 +283,16 @@ func TestConfiguredJobCommandsUseNativeCASAndKeepLocalRunJournal(t *testing.T) {
 		t.Fatalf("native writes copied to private authority %+v %v", rows, e)
 	}
 }
-func TestFlowDraftSaveRetainsIdentityAcrossFailureThenNativeSave(t *testing.T) {
+func TestWorkflowDraftSaveRetainsIdentityAcrossFailureThenNativeSave(t *testing.T) {
 	binDir := nativeCommandStore(t)
-	if e := flowNew([]string{"inspect", "--about", "Inspect workspace"}); e != nil {
+	if e := workflowNew([]string{"inspect", "--about", "Inspect workspace"}); e != nil {
 		t.Fatal(e)
 	}
 	os.WriteFile(filepath.Join(binDir, "mode"), []byte("nonzero"), 0600)
-	if e := flowSave([]string{"inspect"}); e == nil || !strings.Contains(e.Error(), "unsaved flow draft retained") {
+	if e := workflowSave([]string{"inspect"}); e == nil || !strings.Contains(e.Error(), "unsaved workflow draft retained") {
 		t.Fatalf("failed save %v", e)
 	}
-	path := filepath.Join(flowDraftDir(), "inspect.yml.native.json")
+	path := filepath.Join(workflowDraftDir(), "inspect.yml.native.json")
 	raw, e := os.ReadFile(path)
 	if e != nil {
 		t.Fatal(e)
@@ -305,7 +305,7 @@ func TestFlowDraftSaveRetainsIdentityAcrossFailureThenNativeSave(t *testing.T) {
 		t.Fatalf("bad unsaved identity %+v", retained)
 	}
 	os.WriteFile(filepath.Join(binDir, "mode"), []byte("store"), 0600)
-	if e := flowSave([]string{"inspect"}); e != nil {
+	if e := workflowSave([]string{"inspect"}); e != nil {
 		t.Fatal(e)
 	}
 	raw, e = os.ReadFile(path)
@@ -317,28 +317,28 @@ func TestFlowDraftSaveRetainsIdentityAcrossFailureThenNativeSave(t *testing.T) {
 	if saved.UID != retained.UID || saved.ExpectedEventUID == "" {
 		t.Fatalf("retry changed UID %+v %+v", retained, saved)
 	}
-	f, e := nativeFlow(context.Background(), saved.UID)
+	f, e := nativeWorkflow(context.Background(), saved.UID)
 	if e != nil || len(f.Steps) != 3 {
-		t.Fatalf("saved native peer flow %+v %v", f, e)
+		t.Fatalf("saved native peer workflow %+v %v", f, e)
 	}
-	if e := flowRemove([]string{saved.UID}); e != nil {
+	if e := workflowRemove([]string{saved.UID}); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := nativeFlow(context.Background(), saved.UID); e == nil {
-		t.Fatal("flow tombstone remains live")
+	if _, e := nativeWorkflow(context.Background(), saved.UID); e == nil {
+		t.Fatal("workflow tombstone remains live")
 	}
-	if _, e := os.Stat(filepath.Join(flowDraftDir(), "inspect.yml")); e != nil {
+	if _, e := os.Stat(filepath.Join(workflowDraftDir(), "inspect.yml")); e != nil {
 		t.Fatal("native tombstone deleted local draft")
 	}
 }
 
-func TestJobShowReadsSelectedNativeFlowAndKeepsOfflineLabel(t *testing.T) {
-	flowDef := nativeFlowFixture(t)
-	jobDef := katacli.Definition{UID: "01ARZ3NDEKTSV4RRFFQ69G5FAF", Name: "Inspect job", DefinitionEventUID: "01ARZ3NDEKTSV4RRFFQ69G5FAG", Definition: json.RawMessage(`{"version":1,"enabled":false,"trigger":{"kind":"manual"},"action":{"kind":"execute","flow_uid":"` + flowDef.UID + `"},"options":{"herdr":{"Model":"sonnet","Tags":["daily"]}}}`)}
-	binDir := nativeCommandFixture(t, map[string]any{"job show": map[string]any{"body": map[string]any{"job": jobDef}}, "job list": map[string]any{"body": map[string]any{"jobs": []katacli.Definition{jobDef}}}, "flow list": map[string]any{"body": map[string]any{"flows": []katacli.Definition{flowDef}}}})
+func TestJobShowReadsSelectedNativeWorkflowAndKeepsOfflineLabel(t *testing.T) {
+	workflowDef := nativeWorkflowFixture(t)
+	jobDef := katacli.Definition{UID: "01ARZ3NDEKTSV4RRFFQ69G5FAF", Name: "Inspect job", DefinitionEventUID: "01ARZ3NDEKTSV4RRFFQ69G5FAG", Definition: json.RawMessage(`{"version":1,"enabled":false,"trigger":{"kind":"manual"},"action":{"kind":"execute","workflow_uid":"` + workflowDef.UID + `"},"options":{"herdr":{"Model":"sonnet","Tags":["daily"]}}}`)}
+	binDir := nativeCommandFixture(t, map[string]any{"job show": map[string]any{"body": map[string]any{"job": jobDef}}, "job list": map[string]any{"body": map[string]any{"jobs": []katacli.Definition{jobDef}}}, "workflow list": map[string]any{"body": map[string]any{"workflows": []katacli.Definition{workflowDef}}}})
 	out, e := captureStdout(t, func() error { return jobShow([]string{jobDef.UID}) })
 	if e != nil || !strings.Contains(out, "git status") {
-		t.Fatalf("job native flow %s %v", out, e)
+		t.Fatalf("job native workflow %s %v", out, e)
 	}
 	if _, e := captureStdout(t, func() error { return jobList(nil) }); e != nil {
 		t.Fatal(e)
@@ -350,32 +350,32 @@ func TestJobShowReadsSelectedNativeFlowAndKeepsOfflineLabel(t *testing.T) {
 	}
 	out, e = captureStdout(t, func() error { return jobShow([]string{jobDef.UID}) })
 	if e != nil || strings.Count(out, "offline native cache") < 2 || !strings.Contains(out, "git status") {
-		t.Fatalf("offline job show and flow provenance %s %v", out, e)
+		t.Fatalf("offline job show and workflow provenance %s %v", out, e)
 	}
 }
 
-func TestCachedFlowShowLabelsOfflineAndPreservesRawDocument(t *testing.T) {
-	def := nativeFlowFixture(t)
-	binDir := nativeCommandFixture(t, map[string]any{"flow list": map[string]any{"body": map[string]any{"flows": []katacli.Definition{def}}}})
-	if _, e := captureStdout(t, func() error { return flowShow([]string{def.UID}) }); e != nil {
+func TestCachedWorkflowShowLabelsOfflineAndPreservesRawDocument(t *testing.T) {
+	def := nativeWorkflowFixture(t)
+	binDir := nativeCommandFixture(t, map[string]any{"workflow list": map[string]any{"body": map[string]any{"workflows": []katacli.Definition{def}}}})
+	if _, e := captureStdout(t, func() error { return workflowShow([]string{def.UID}) }); e != nil {
 		t.Fatal(e)
 	}
 	os.WriteFile(filepath.Join(binDir, "mode"), []byte("nonzero"), 0600)
 	var out string
 	diagnostic := captureStderr(t, func() {
 		var e error
-		out, e = captureStdout(t, func() error { return flowShow([]string{def.UID}) })
+		out, e = captureStdout(t, func() error { return workflowShow([]string{def.UID}) })
 		if e != nil {
 			t.Fatal(e)
 		}
 	})
 	if strings.TrimSpace(out) != string(def.Definition) || !strings.Contains(diagnostic, "offline native cache") {
-		t.Fatalf("unlabeled cached native flow: %s diagnostic %s", out, diagnostic)
+		t.Fatalf("unlabeled cached native workflow: %s diagnostic %s", out, diagnostic)
 	}
 }
 
 func TestNativeMixedProjectionRowsRemainInspectable(t *testing.T) {
-	good := nativeFlowFixture(t)
+	good := nativeWorkflowFixture(t)
 	bad := good
 	bad.UID = "01ARZ3NDEKTSV4RRFFQ69G5FAH"
 	bad.Definition = json.RawMessage(`{"version":1,"options":{"herdr":{"SkipPermissions":"unknown"}},"steps":[{"key":"inspect","kind":"prompt","prompt":"Inspect"}]}`)
@@ -384,7 +384,7 @@ func TestNativeMixedProjectionRowsRemainInspectable(t *testing.T) {
 	badJob.UID = "01ARZ3NDEKTSV4RRFFQ69G5FAJ"
 	badJob.Name = "Opaque peer"
 	badJob.Definition = json.RawMessage(`{"version":1,"kind":"job","trigger":{"kind":"manual"},"action":{"kind":"execute","prompt":"Inspect"},"options":{"herdr":{"Tags":"daily"}}}`)
-	nativeCommandFixture(t, map[string]any{"job list": map[string]any{"body": map[string]any{"jobs": []katacli.Definition{badJob, goodJob}}}, "flow list": map[string]any{"body": map[string]any{"flows": []katacli.Definition{bad, good}}}})
+	nativeCommandFixture(t, map[string]any{"job list": map[string]any{"body": map[string]any{"jobs": []katacli.Definition{badJob, goodJob}}}, "workflow list": map[string]any{"body": map[string]any{"workflows": []katacli.Definition{bad, good}}}})
 	s := storeForEnv(t)
 	if job, e := s.Job(t.Context(), goodJob.UID); e != nil || job == nil {
 		t.Fatalf("unrelated good job hidden %+v %v", job, e)
@@ -408,18 +408,18 @@ func TestNativeMixedProjectionRowsRemainInspectable(t *testing.T) {
 	}
 	diag = captureStderr(t, func() {
 		var e error
-		listed, e = captureStdout(t, func() error { return flowList(nil) })
+		listed, e = captureStdout(t, func() error { return workflowList(nil) })
 		if e != nil {
 			t.Fatal(e)
 		}
 	})
 	if !strings.Contains(listed, good.UID) || !strings.Contains(diag, bad.UID) {
-		t.Fatalf("flow list isolation %s diagnostic %s", listed, diag)
+		t.Fatalf("workflow list isolation %s diagnostic %s", listed, diag)
 	}
-	if f, e := nativeFlow(t.Context(), good.UID); e != nil || f.ID != good.UID {
-		t.Fatalf("unrelated good flow hidden %+v %v", f, e)
+	if f, e := nativeWorkflow(t.Context(), good.UID); e != nil || f.ID != good.UID {
+		t.Fatalf("unrelated good workflow hidden %+v %v", f, e)
 	}
-	raw, e := captureStdout(t, func() error { return flowShow([]string{bad.UID}) })
+	raw, e := captureStdout(t, func() error { return workflowShow([]string{bad.UID}) })
 	if e != nil || strings.TrimSpace(raw) != string(bad.Definition) {
 		t.Fatalf("bad peer raw inspection unavailable %s %v", raw, e)
 	}

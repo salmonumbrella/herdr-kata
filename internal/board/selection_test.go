@@ -3,8 +3,8 @@ package board
 import (
 	"testing"
 
-	"github.com/salmonumbrella/herdr-kata/internal/flow"
 	"github.com/salmonumbrella/herdr-kata/internal/store"
+	"github.com/salmonumbrella/herdr-kata/internal/workflow"
 )
 
 // The cursor is an index into the *filtered* list, so every resolver has to
@@ -80,7 +80,7 @@ func TestSelectedRunIsEmptyWhereThereIsNoSelection(t *testing.T) {
 		focus focus
 	}{
 		{"thread", focusLeases},
-		{"flows", focusFlows},
+		{"workflows", focusWorkflows},
 	} {
 		m.focus = f.focus
 		m.cursor = 0
@@ -140,7 +140,7 @@ func TestClampCursorUsesTheListInView(t *testing.T) {
 		return &Model{height: 40,
 			jobs:       []store.Job{{ID: "alpha"}, {ID: "beta"}, {ID: "gamma"}},
 			runs:       []store.Run{{ID: "r1", JobID: "alpha"}},
-			flows:      []flow.Flow{{ID: "f1"}, {ID: "f2"}},
+			workflows:  []workflow.Workflow{{ID: "f1"}, {ID: "f2"}},
 			detailRuns: []store.Run{{ID: "d1"}},
 			last:       map[string]store.Run{},
 			cursor:     9,
@@ -153,7 +153,7 @@ func TestClampCursorUsesTheListInView(t *testing.T) {
 	}{
 		{"jobs", func(m *Model) { m.focus = focusJobs }, 2},
 		{"runs", func(m *Model) { m.focus = focusRuns }, 0},
-		{"flows", func(m *Model) { m.focus = focusFlows }, 1},
+		{"workflows", func(m *Model) { m.focus = focusWorkflows }, 1},
 		{"thread has no rows", func(m *Model) { m.focus = focusLeases }, 0},
 		{"detail", func(m *Model) { d := store.Job{ID: "alpha"}; m.detail = &d }, 0},
 	}
