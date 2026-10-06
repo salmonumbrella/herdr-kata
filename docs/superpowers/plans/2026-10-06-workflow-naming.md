@@ -33,8 +33,8 @@
 
 - [x] Run repository checks and a real updated-Kata integration test where supported.
 - [x] Obtain one independent whole-change review; address substantive findings.
-- [ ] Commit, push and open a PR in this repository (no existing PR was open at start).
-- [ ] Record completion and validation on the tracked issue.
+- [x] Commit, push and open a PR in this repository (no existing PR was open at start).
+- [x] Record completion and validation on the tracked issue.
 
 ## Validation record
 
@@ -55,3 +55,5 @@ The repository CI command also includes build, vet, and six target compilation
 checks; target compilation is not a claim of native runtime testing on each OS.
 
 Final `make ci` passed: formatting, build, vet, complete race suite, and Linux/macOS/Windows amd64/arm64 compilation.
+
+Delivered in [PR #3](https://github.com/salmonumbrella/herdr-kata/pull/3). The owned validation runner was deleted after checks completed.
