@@ -1,0 +1,24 @@
+╭───────────┬──────┬──────┬───────────╮
+│[2m kata カタ [m│[2m jobs [m│[1m runs [m│[2m workflows [m│               [1m1 parked[m · [1msigning blocked[m
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────
+[1m  # status job           model detail                                    started[m
+[7m-[m[7m [m[7m—[m[7m [m[7mparked[m[7m [m[7mExample build[m[7m [m[7m—    [m[7m [m[7msigning refused                          [m[7m [m[7m2m ago [m
+      ✓ plan             agent succeeded        —                              
+      [1m✗[m verify           cmd   failed (command  1m0s     Inspect the command ou
+            [1m⏸[m verify           cmd   stopped (no_acti                          
+      · publish          agent not started                                     
+
+
+
+
+
+
+
+
+  page 1/1
+
+[1merror: signing_blocked: root owner: kata federation root-key repin --project[m
+[1merror: <name>[m
+ [1mtab[m tabs▕ [1m/[m search       ▕ [1m[ ][m page▕ [1mj/k[m move▕ [1mspace[m steps▕ [1ml/→[m open▕ [1mu[m resume 
+ [1ma[m attach▕ [1mi[m issue        ▕ [1mK[m kata  ▕ [1mr[m reload▕ [1mL[m layout   ▕ [1mM[m mouse ▕ [1mq[m quit   
+ [1m1–4[m tabs▕ [1mctrl+d/u[m scroll                                                      

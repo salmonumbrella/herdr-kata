@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "migration": {
+    "from": 1,
+    "pin": {
+      "version": 1,
+      "state_created_at": "2026-01-01T00:00:00Z",
+      "executor": "installation",
+      "instance_uid": "instance",
+      "project_uid": "",
+      "actor": "worker",
+      "route": {
+        "bin": "/usr/local/bin/kata",
+        "endpoint": "local",
+        "diagnose_state": "ready"
+      }
+    }
+  }
+}

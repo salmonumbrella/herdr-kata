@@ -1,0 +1,40 @@
+Example job
+
+tags             (no labels)
+schedule         
+next             next unavailable locally
+state            enabled
+action           workflow Example command workflow
+workflow         Example command workflow
+cwd              run directory
+timeout          2h0m0s (default)
+agent            — (command-only workflow)
+
+Workflow
+  Verify the example
+  1 step: verify
+
+Runs
+▶ parked    scheduled 1h ago waiting: review required                                                                   
+  succeeded scheduled 2h ago Example note                                                                               
+  failed    scheduled 3h ago Example note                                                                               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ h/← back▕ K kata  ▕ r reload▕ ctrl+d/u scroll▕ j/k move▕ l/→ open run▕ a attach▕ u resume▕ i issue▕ R run▕ p pause     
+ e edit  ▕ D delete▕ M mouse ▕ q quit                                                                                   

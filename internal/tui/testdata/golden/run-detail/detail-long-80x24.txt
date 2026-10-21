@@ -1,0 +1,24 @@
+Example verification parked
+
+outcome        parked
+parked         review required
+failed step    build #0 · A detailed local diagnosis explains what to inspect
+               before resuming. A detailed local diagnosis explains what to
+               inspect before resuming. A detailed local diagnosis explains what
+               to inspect before resuming. A detailed local diagnosis explains
+               what to inspect before resuming. A detailed local diagnosis
+               explains what to inspect before resuming. A detailed local
+               diagnosis explains what to inspect before resuming. A detailed
+               local diagnosis explains what to inspect before resuming. A
+               detailed local diagnosis explains what to inspect before
+               resuming. A detailed local diagnosis explains what to inspect
+               before resuming. A detailed local diagnosis explains what to
+               inspect before resuming. A detailed local diagnosis explains what
+               to inspect before resuming. A detailed local diagnosis explains
+               what to inspect before resuming. A detailed local diagnosis
+               explains what to inspect before resuming. A detailed local
+               diagnosis explains what to inspect before resuming. A detailed
+               local diagnosis explains what to inspect before resuming. A
+↓ 122 more
+ h/← back ▕ l/→ open job   ▕ j/k scroll▕ a attach▕ u resume▕ K kata             
+ r refresh▕ ctrl+d/u scroll▕ M mouse   ▕ q quit                                 

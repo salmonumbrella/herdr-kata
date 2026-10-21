@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                                                     1 running · 1 parked
+┴───────────┴──────┴──────┘           └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  status workflow                                                                                                                            steps input updated
+  no workflows yet — kata cron workflow create --file <file> writes one
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume▕ e edit▕ r reload▕ K kata▕ L layout▕ M mouse▕ q quit▕ 1–4 tabs▕ ctrl+d/u scroll        

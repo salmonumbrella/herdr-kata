@@ -1,0 +1,2 @@
+# Terminal frame fixtures retain intentional column padding.
+**/testdata/golden/** -whitespace

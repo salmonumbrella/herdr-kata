@@ -1,0 +1,23 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                  1r/1p · runtime stopped
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────
+  new job in project
+
+  ▶ example-project      1 jobs · route ok
+    team-project         1 jobs · route refused: access_lost
+
+  j/k move · enter choose · esc cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+

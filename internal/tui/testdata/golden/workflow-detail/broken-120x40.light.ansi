@@ -1,0 +1,40 @@
+[1mExample[m
+
+[1mProblems[m
+  [1;38;5;124m! unsupported workflow[m
+  [1;38;5;124m! options.on_failure supports only park workflows[m
+  [38;5;242mfix it with e · r reloads[m
+
+  Inspect an example
+  
+[38;5;242minput         [m target
+[38;5;242mfailure       [m [38;5;242m—[m
+[38;5;242mloop          [m check ↺ inspect · max 2 · span inspect → check
+[38;5;242magent         [m each job's profile · prompt steps shared unless fresh
+[38;5;242mprompts       [m up to 4 prompts per generation (2 step attempts + 2 extra loop attempts) · cap per job, see used by
+[38;5;242mtimeout       [m per run, set by each job · default 2h0m0s
+[38;5;242mcommands      [m allowed
+
+[1mSteps 3[m
+[48;5;153m▶[m[48;5;153m▸[m[48;5;153m1. inspect  prompt shared · retry 0[m
+       Inspect {{input}}
+ ▸[38;5;242m2. [mcheck  [38;5;242mcommand · retry 0 · ↺ inspect ×2[m
+       [38;5;242mtrue[m
+ ▸[38;5;242m3. [msummarize  [38;5;242mprompt fresh[m
+       Summarize {{previous}}
+
+[1mUsed by 1[m
+[1;38;5;242;48;5;253m  [m[1;38;5;242;48;5;253mjob                 [m[1;38;5;242;48;5;253m [m[1;38;5;242;48;5;253mstate       [m[1;38;5;242;48;5;253m [m[1;38;5;242;48;5;253mschedule        [m[1;38;5;242;48;5;253m [m[1;38;5;242;48;5;253mprofile     [m[1;38;5;242;48;5;253m [m[1;38;5;242;48;5;253mcap    [m[1;38;5;242;48;5;253m [m[1;38;5;242;48;5;253minput                                [m[1;38;5;242;48;5;253m [m[1;38;5;242;48;5;253mtimeout[m
+  Uses example         enabled      manual           other        4/12    "example input"                       2h0m0s 
+
+[1mRuns 2[m
+  [38;5;28mrunning    [m scheduled —         run run-c                                                                            
+  [1;38;5;125mparked     [m scheduled —         run run-b           · older definition                                               
+
+
+
+
+
+
+[48;5;253m [m[38;5;242;48;5;253m[38;5;242mh/←[m [38;5;248mback[m[38;5;242m▕[m [38;5;242mj/k[m [38;5;248mmove[m[38;5;242m▕[m [38;5;242mspace[m [38;5;248mstep[m[38;5;242m▕[m [38;5;242ml/→[m [38;5;248mopen[m[38;5;242m▕[m [38;5;242mR[m [38;5;248mrun job[m[38;5;242m▕[m [38;5;242mu[m [38;5;248mresume[m[38;5;242m▕[m [38;5;242ma[m [38;5;248mattach[m[38;5;242m▕[m [38;5;242me[m [38;5;248medit[m[38;5;242m▕[m [38;5;242mr[m [38;5;248mreload[m[38;5;242m▕[m [38;5;242mK[m [38;5;248mkata[m[38;5;242m▕[m [38;5;242mctrl+d/u[m [38;5;248mscroll[m    [m[48;5;253m [m
+[48;5;253m [m[38;5;242;48;5;253m[38;5;242mM[m [38;5;248mmouse[m [38;5;242m▕[m [38;5;242mq[m [38;5;248mquit[m                                                                                                      [m[48;5;253m [m

@@ -1,0 +1,1 @@
+{"error":{"kind":"conflict","code":"idempotency_mismatch","hint":"use a fresh --idempotency-key, or repeat the original create exactly","message":"idempotency key matched a prior issue with a different fingerprint","exit_code":5,"data":{"uid":"01M4TGPKHJK8WVW1HX6GPYKZ6C","short_id":"kz6c","qualified_id":"adapter-test#kz6c"}}}

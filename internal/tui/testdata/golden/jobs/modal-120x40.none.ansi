@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│[2m kata カタ [m│[1m jobs [m│[2m runs [m│[2m workflows [m│                                                             1 running · [1m1 parked[m
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────────────────────────────────────────────
+[1m  # status      job                                                                               model schedule updated[m
+[7m▶[m[7m [m[7m—[m[7m [m[7mrunning  [m[7m [m[1;7m★[m[7m [m[7mExample build                                                                    [m[7m [m[7m—    [m[7m [m[7mmanual  [m[7m [m[7m2m ago [m
+  — [1mparked   [m [1m [m Example verification with a long descriptive name                                 —     manual   2m ago 
+  — succeeded [1m [m Example report                                                                    —     manual   2m ago 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+[1mdelete Example build?[m
+   / Example build
+   / Example report
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+y delete · any other key cancels · run history is kept

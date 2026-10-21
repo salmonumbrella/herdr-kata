@@ -1,0 +1,40 @@
+[1mExample[m
+
+  Inspect an example
+  
+input          target
+failure        park — exhausted failures hold for u resume
+loop           check ↺ inspect · max 2 · span inspect → check
+agent          each job's profile · prompt steps shared unless fresh
+prompts        up to 4 prompts per generation (2 step attempts + 2 extra loop attempts) · cap per job, see used by
+timeout        per run, set by each job · default 2h0m0s
+commands       allowed
+
+[1mSteps 3[m
+[7m▶[m[7m+[m[7m1. inspect  prompt shared · retry 0[m
+       Inspect {{input}}
+ +2. check  command · retry 0 · ↺ inspect ×2
+       true
+ +3. summarize  prompt fresh
+       Summarize {{previous}}
+
+[1mUsed by 0[m
+  no jobs use this workflow
+
+[1mRuns 0[m
+  never run
+
+
+
+
+
+
+
+
+
+
+
+
+
+ [1mh/←[m back▕ [1mj/k[m move▕ [1mspace[m step▕ [1ml/→[m open▕ [1mR[m run job▕ [1mu[m resume▕ [1ma[m attach▕ [1me[m edit▕ [1mr[m reload▕ [1mK[m kata▕ [1mctrl+d/u[m scroll     
+ [1mM[m mouse ▕ [1mq[m quit                                                                                                       

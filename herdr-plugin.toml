@@ -1,0 +1,47 @@
+id = "kata"
+name = "kata"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Runs Kata cron jobs and workflows as Herdr agents"
+platforms = ["linux", "macos"]
+
+[[build]]
+command = ["git", "fetch", "--depth", "1", "origin", "refs/tags/*:refs/tags/*"]
+[[build]]
+command = ["go", "build", "-trimpath", "-o", "./bin/herdr-kata", "./cmd/herdr-kata"]
+
+[[startup]]
+command = ["./bin/herdr-kata", "up"]
+
+[[actions]]
+id = "up"
+title = "kata: start or upgrade runtime"
+contexts = ["global"]
+command = ["./bin/herdr-kata", "up"]
+
+[[panes]]
+id = "status"
+title = "kata status"
+placement = "popup"
+command = ["./bin/herdr-kata", "status", "--pause"]
+
+[[startup]]
+command = ["./bin/herdr-kata", "tui", "--startup"]
+
+[[actions]]
+id = "board-wide"
+title = "kata: open a wide TUI"
+contexts = ["global"]
+command = ["./bin/herdr-kata", "tui", "--wide"]
+
+[[panes]]
+id = "board"
+title = "kata TUI"
+placement = "split"
+command = ["./bin/herdr-kata", "tui"]
+
+[[actions]]
+id = "open-kata"
+title = "Open Kata"
+contexts = ["global"]
+command = ["./bin/herdr-kata", "open-kata"]

@@ -1,0 +1,210 @@
+{
+  "projects": [
+    {
+      "project": "example-project",
+      "project_uid": "project-a",
+      "inbox": {
+        "version": 1,
+        "last_successful_scan": "2026-01-01T00:00:00Z",
+        "requests": null
+      },
+      "next_fires": {
+        "same-job": "2026-01-01T00:01:00Z"
+      },
+      "running": false,
+      "worker_running": false,
+      "definitions": [
+        {
+          "project": "example-project",
+          "definition": {
+            "enabled": true
+          },
+          "trigger": {
+            "kind": "interval",
+            "interval_seconds": 60
+          },
+          "created_at": "2026-01-01T00:00:00Z",
+          "uid": "same-job",
+          "name": "Check",
+          "definition_event_uid": "",
+          "owner": 1,
+          "supported": true
+        }
+      ],
+      "route": {
+        "project": "example-project",
+        "allowed": true
+      },
+      "jobs": [
+        {
+          "handled_through": "2026-01-01T00:00:00Z",
+          "job_uid": "same-job",
+          "project": "example-project",
+          "version": 1
+        }
+      ],
+      "runs": [
+        {
+          "Job": {
+            "name": "Check",
+            "uid": "same-job"
+          },
+          "Phase": "running",
+          "Target": {
+            "Identity": {
+              "project_uid": "project-a"
+            }
+          },
+          "UID": "run-a",
+          "Version": 1,
+          "project": "example-project"
+        }
+      ]
+    },
+    {
+      "project": "team-project",
+      "project_uid": "project-b",
+      "inbox": {
+        "version": 1,
+        "last_successful_scan": "2026-01-01T00:00:00Z",
+        "requests": null
+      },
+      "next_fires": {
+        "same-job": "2026-01-01T00:01:00Z"
+      },
+      "running": false,
+      "worker_running": false,
+      "definitions": [
+        {
+          "project": "team-project",
+          "definition": {
+            "enabled": true
+          },
+          "trigger": {
+            "kind": "interval",
+            "interval_seconds": 60
+          },
+          "created_at": "2026-01-01T00:00:00Z",
+          "uid": "same-job",
+          "name": "Check",
+          "definition_event_uid": "",
+          "owner": 1,
+          "supported": true
+        }
+      ],
+      "route": {
+        "project": "team-project",
+        "access_lost": true,
+        "allowed": false,
+        "error": "actor lost access to project team-project"
+      },
+      "jobs": [
+        {
+          "handled_through": "2026-01-01T00:00:00Z",
+          "job_uid": "same-job",
+          "project": "team-project",
+          "version": 1
+        }
+      ],
+      "runs": [
+        {
+          "Job": {
+            "name": "Check",
+            "uid": "same-job"
+          },
+          "Phase": "held",
+          "Target": {
+            "Identity": {
+              "project_uid": "project-b"
+            }
+          },
+          "UID": "run-b",
+          "Version": 1,
+          "project": "team-project"
+        }
+      ]
+    }
+  ],
+  "running": false,
+  "worker_running": false,
+  "definitions": [
+    {
+      "project": "example-project",
+      "definition": {
+        "enabled": true
+      },
+      "trigger": {
+        "kind": "interval",
+        "interval_seconds": 60
+      },
+      "created_at": "2026-01-01T00:00:00Z",
+      "uid": "same-job",
+      "name": "Check",
+      "definition_event_uid": "",
+      "owner": 1,
+      "supported": true
+    },
+    {
+      "project": "team-project",
+      "definition": {
+        "enabled": true
+      },
+      "trigger": {
+        "kind": "interval",
+        "interval_seconds": 60
+      },
+      "created_at": "2026-01-01T00:00:00Z",
+      "uid": "same-job",
+      "name": "Check",
+      "definition_event_uid": "",
+      "owner": 1,
+      "supported": true
+    }
+  ],
+  "jobs": [
+    {
+      "handled_through": "2026-01-01T00:00:00Z",
+      "job_uid": "same-job",
+      "project": "example-project",
+      "version": 1
+    },
+    {
+      "handled_through": "2026-01-01T00:00:00Z",
+      "job_uid": "same-job",
+      "project": "team-project",
+      "version": 1
+    }
+  ],
+  "runs": [
+    {
+      "Job": {
+        "name": "Check",
+        "uid": "same-job"
+      },
+      "Phase": "running",
+      "Target": {
+        "Identity": {
+          "project_uid": "project-a"
+        }
+      },
+      "UID": "run-a",
+      "Version": 1,
+      "project": "example-project"
+    },
+    {
+      "Job": {
+        "name": "Check",
+        "uid": "same-job"
+      },
+      "Phase": "held",
+      "Target": {
+        "Identity": {
+          "project_uid": "project-b"
+        }
+      },
+      "UID": "run-b",
+      "Version": 1,
+      "project": "team-project"
+    }
+  ]
+}

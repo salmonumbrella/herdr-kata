@@ -1,0 +1,24 @@
+[1mnew job[m · project example-project
+
+▶ Name               —
+                     required; must be unique in the project
+  Description        —
+  Tags               —
+  Action             prompt
+  Prompt             —
+  Schedule           manual
+  Timezone           UTC
+  Catchup            latest
+  Grace              —
+  Overlap            forbid
+  Timeout            —
+  Checkout           —
+  Profile            default · agent default
+  Issue              per-run
+  Issue title        —
+  Issue body         —
+  Run parent         —
+  Deadline offset    —
+  Secret refs        —
+  Other options      —
+↓ 4 more

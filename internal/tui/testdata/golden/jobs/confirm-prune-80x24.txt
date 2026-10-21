@@ -1,0 +1,24 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                     2 running · 1 parked
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────
+  #     status      job                       model         schedule     updated
+▶ #a02b parked    ★ Example daily check       example-model every 1h0m0s 1h ago 
+  #a12b succeeded   Example report            example-model every 1h0m0s 2h ago 
+  #a22b failed      Example paused check (pau example-model every 1h0m0s 3h ago 
+  —     queued      Example queued work       example-model every 1h0m0s 15d ago
+  —     running     Example unsupported work  example-model every 1h0m0s 5h ago 
+  —     never       Example never run         example-model every 1h0m0s 15d ago
+
+
+
+
+
+  page 1/1
+prune 2 finished one-shot(s)
+  example-project / Example daily check
+  example-project / Example report
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+y delete · any other key cancels · run history is kept

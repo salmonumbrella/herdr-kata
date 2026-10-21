@@ -1,0 +1,6 @@
+[tools]
+go = "1.27.2"
+"github:golangci/golangci-lint" = "2.14.0"
+"github:rhysd/actionlint" = "1.7.12"
+"github:j178/prek" = "0.4.14"
+uv = "0.13.1"

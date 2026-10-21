@@ -1,0 +1,50 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  # status job                                      model detail                                     started││ong example name Long example name Long example name Long example name Long example name│
+│▾ — failed ong example name Long example name Long  —      long Unicode 診断 message A long Unicode  2m ago ││                                                                                        │
+│      ·                        not started                long Unicode 診断 message A long Unicode 診断 mes ││status    failed                                                                        │
+│▸ — failed ong example name Long example name Long  —      long Unicode 診断 message A long Unicode  2m ago ││model     —                                                                             │
+│                                                                                                            ││trigger   scheduled                                                                     │
+│                                                                                                            ││detail     long Unicode 診断 message A long Unicode 診断 message A long Unicode 診断 mes│
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume▕ a attach▕ i issue▕ K kata▕ r reload▕ L layout▕ M mouse▕ q quit▕ 1–4 tabs▕ ctrl+d/u scroll                                     

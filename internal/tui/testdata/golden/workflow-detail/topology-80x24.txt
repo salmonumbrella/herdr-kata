@@ -1,0 +1,24 @@
+Example
+
+Problems
+  ! unsupported workflow
+  ! invalid or duplicate step key "same"
+  fix it with e · r reloads
+
+input          none
+failure        —
+loop           —
+agent          each job's profile · prompt steps shared unless fresh
+prompts        —
+timeout        per run, set by each job · default 2h0m0s
+commands       allowed
+
+Steps 2
+  execution order unavailable
+  same  prompt
+  First
+  same  prompt
+  Second
+↓ 6 more
+ h/← back▕ j/k move▕ space step▕ l/→ open       ▕ R run job▕ u resume▕ a attach 
+ e edit  ▕ r reload▕ K kata    ▕ ctrl+d/u scroll▕ M mouse  ▕ q quit             

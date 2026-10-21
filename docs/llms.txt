@@ -1,0 +1,39 @@
+# herdr-kata
+
+> Run Kata cron jobs and workflows as Herdr agents.
+
+## Docs
+
+- [Overview](index.md): Find guides, reference and recovery instructions for herdr-kata.
+- [Quickstart](get-started/quickstart.md): Run a prompt job in Herdr, inspect its evidence in Kata and put it on an interval.
+- [Install and upgrade](get-started/install.md): Install herdr-kata, check its requirements and upgrade or remove the runtime.
+- [Concepts](guide/concepts.md): The terms and ownership boundaries used by Kata, the runtime and Herdr.
+- [Schedule jobs](guide/jobs.md): Create prompt, workflow and notification jobs and choose their scheduling policy.
+- [Write prompts that close their issue](guide/prompts.md): Write job and workflow prompts whose runs report enough evidence to close their Kata issue.
+- [Build workflows](guide/workflows.md): Combine prompt and command steps, pass input and notes and choose fresh agents.
+- [Run recurring issues](guide/recurring-issues.md): Bind a parent issue to a workflow and let Kata deliver recurring children to the runtime.
+- [Run an agent on an issue's schedule](guide/issue-schedules.md): Run an agent on an issue when its Kata schedule arrives, from an explicit request or an execute job.
+- [Use the TUI](guide/tui.md): Open the TUI, inspect runs and workflows, open Kata, edit definitions and bind recurring parents.
+- [Run multiple projects](guide/multiple-projects.md): Serve several Kata projects with one runtime and control their access to local resources.
+- [CLI and plugin surface](reference/cli.md): Commands, flags, exit codes and Herdr plugin entry points.
+- [Configuration](reference/configuration.md): Configuration keys, defaults, environment overrides and pinned Kata routing.
+- [Job and workflow fields](reference/definitions.md): How the runtime interprets Kata definitions, parent bindings and unsupported fields.
+- [Agent and command contract](reference/agent-contract.md): Step inputs, reports, notes, receipts and the evidence required before advancing.
+- [What herdr-kata writes to Kata](reference/reporting.md): Run observations, issue outcomes, closure evidence, attention and mutation counts.
+- [State and run phases](reference/state.md): State files, run phases, submission barriers, capacity rules and retention.
+- [Hold reasons and resume rules](reference/holds.md): What each hold reason means, what to inspect and what an explicit resume does.
+- [Kata adapter contract](reference/kata-adapter.md): Normative scheduling, admission, transport and native-child rules for the current adapter.
+- [TUI reference](reference/tui.md): TUI keys, tabs, colors, navigation, screen fields and the embedded Kata tab.
+- [Run statuses](reference/statuses.md): Every run and step status word the board and the CLI print, what it means, and its color.
+- [Run the runtime](operations/runtime.md): Start, inspect, upgrade and stop a runtime and handle its pinned Kata route.
+- [Diagnose setup](operations/doctor.md): Read each herdr-kata doctor check and follow the fix for a failure.
+- [Recover runs](operations/recovery.md): Inspect held runs, resume or hand them off and record runs whose local state was lost.
+
+## Optional
+
+- [Changelog](changelog.md): Release history for herdr-kata.
+- [Architecture](design/architecture.md): The process model, kept boundaries and reasons for an event-driven runtime.
+- [Run lifecycle and recovery](design/run-lifecycle.md): Why journals, submission barriers and occupant proof govern recovery and cleanup.
+- [Notes and maker/checker loops](design/loops.md): Why workflows use explicit notes, one bounded rewind span and a saved finding chain.
+- [Trust model](design/trust-model.md): Who herdr-kata trusts to run work on its host, what stays owner-local and how projects stay apart.
+- [Contributing](development/contributing.md): Find your way around the repository, run focused checks and update the documentation.

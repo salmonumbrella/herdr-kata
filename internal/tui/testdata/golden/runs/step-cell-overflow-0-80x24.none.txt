@@ -1,0 +1,24 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                          runtime stopped
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────
+  # status job         model detail                                      started
+- — failed Example job —     inspect output                              2s ago 
+      ✗ smoke-test       cmd   failed (command  2s       inspect output        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+ tab tabs▕ / search       ▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume 
+ a attach▕ i issue        ▕ K kata  ▕ r reload▕ L layout   ▕ M mouse ▕ q quit   
+ 1–4 tabs▕ ctrl+d/u scroll                                                      

@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                             2 running · 1 parked
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────────────────────────────────────────────
+  #     status      job                                                               model         schedule     updated
+▶ #a02b parked    ★ Example daily check                                               example-model every 1h0m0s 1h ago 
+  #a12b succeeded   Example report                                                    example-model every 1h0m0s 2h ago 
+  #a22b failed      Example paused check (paused)                                     example-model every 1h0m0s 3h ago 
+  —     queued      Example queued work                                               example-model every 1h0m0s 15d ago
+  —     running     Example unsupported work (unsupported)                            example-model every 1h0m0s 5h ago 
+  —     never       Example never run                                                 example-model every 1h0m0s 15d ago
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+Kata has a newer definition of Example daily check · project example-project
+  enabled  yours: yes  Kata: no
+  pause not applied · original definition guard kept
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+esc discards · j/k scroll · q quit

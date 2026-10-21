@@ -1,0 +1,24 @@
+edit example-job · project example-project
+
+  Name               example-job
+  Description        Example daily check
+  Tags               example, daily
+  Action             prompt
+  Prompt             Check the example and report any changes. … (+1 lines)
+  Schedule           interval
+▶ Interval           24h0m0s
+                     e.g. 1h, 30m · whole seconds also accepted
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            forbid
+  Timeout            10m0s
+  Checkout           —
+  Profile            default · agent default
+  Issue              per-run
+  Issue title        Example {{date}}
+  Issue body         —
+  Run parent         —
+  Deadline offset    —
+  Secret refs        —
+↓ 5 more

@@ -1,0 +1,24 @@
+╭───────────┬──────┬──────┬───────────╮
+│[2m kata カタ [m│[2m jobs [m│[1m runs [m│[2m workflows [m│   2 running · [1m2 parked[m · [1msigning blocked[m
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────
+[1m  # status      job                          model detail                started[m
+[7m▶[m[7m [m[7m—[m[7m [m[7mnever      [m[7m [m[7mExample zero                [m[7m [m[7m—    [m[7m [m[7m                     [m[7m [m[7m—      [m
+  — [1mparked     [m Example held phase wins      —                           —      
+  — [1mblocked    [m Example blocked              —                           —      
+  — [1mneeds-human[m Example needs-human          —                           —      
+  — running     Example running              —                           —      
+  — queued      Example prepared             —                           —      
+  — queued      Example admitted             —                           —      
+  — succeeded   Example succeeded            —                           —      
+  — [1mfailed     [m Example failed               —                           —      
+  — [1munknown    [m Example unknown              —                           —      
+  — cancelled   Example cancelled            —                           —      
+  — [1munknown    [m Example unrecognized         —                           —      
+  — [1munknown    [m Example unrecognized outcome —                           —      
+  page 1/2
+
+[1merror: signing_blocked: root owner: kata federation root-key repin --project[m
+[1merror: <name>[m
+ [1mtab[m tabs▕ [1m/[m search       ▕ [1m[ ][m page▕ [1mj/k[m move▕ [1mspace[m steps▕ [1ml/→[m open▕ [1mu[m resume 
+ [1ma[m attach▕ [1mi[m issue        ▕ [1mK[m kata  ▕ [1mr[m reload▕ [1mL[m layout   ▕ [1mM[m mouse ▕ [1mq[m quit   
+ [1m1–4[m tabs▕ [1mctrl+d/u[m scroll                                                      

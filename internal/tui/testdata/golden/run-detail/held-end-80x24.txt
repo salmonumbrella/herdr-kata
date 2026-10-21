@@ -1,0 +1,24 @@
+  evidence before continuing. Read the local command evidence before continuing.
+  Read the local command evidence before continuing. Read the local command
+  evidence before continuing. Read the local command evidence before continuing.
+  Read the local command evidence before continuing. Read the local command
+  evidence before continuing. Read the local command evidence before continuing.
+  Read the local command evidence before continuing. Read the local command
+  evidence before continuing. Read the local command evidence before continuing.
+  Read the local command evidence before continuing. Read the local command
+  evidence before continuing. 
+  from verify #2
+
+Steps
+      ✓ plan             agent succeeded        —        
+      ✗ verify           cmd   failed (command verify exited 1) #2 1m0s     Read
+            ⏸ verify           cmd   stopped (no_activity)          
+      · publish          agent not started               
+
+Artifacts
+  /state/runs/run-a/run.json
+  /state/runs/run-a/steps/verify/1/stderr.log
+  /state/log/herdr-kata.log
+↑ 64 more
+ h/← back ▕ l/→ open job   ▕ j/k scroll▕ a attach▕ u resume▕ K kata             
+ r refresh▕ ctrl+d/u scroll▕ M mouse   ▕ q quit                                 

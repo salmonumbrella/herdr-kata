@@ -1,0 +1,24 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                 1 parked · route refused
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────
+  # status job           model detail                                    started
+- — parked Example build —     waiting: step_failed                      2m ago 
+      ✓ plan             agent succeeded        —                              
+      ✗ verify           cmd   failed (command  1m0s     Inspect the command ou
+            ⏸ verify           cmd   stopped (no_acti                          
+      · publish          agent not started                                     
+
+
+
+
+
+
+
+
+  page 1/1
+
+error: route refused
+local snapshot retained
+ tab tabs▕ / search       ▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume 
+ a attach▕ i issue        ▕ K kata  ▕ r reload▕ L layout   ▕ M mouse ▕ q quit   
+ 1–4 tabs▕ ctrl+d/u scroll                                                      

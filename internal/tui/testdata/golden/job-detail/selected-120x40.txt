@@ -1,0 +1,40 @@
+Example build
+
+tags             (no labels)
+schedule         manual
+state            enabled, favorite
+action           prompt
+cwd              run directory
+timeout          2h0m0s (default)
+agent            default (unmapped)
+model            —
+sandbox          agent default
+approvals        agent default
+prompts          1 planned / 12 cap
+
+Prompt
+  Check the example
+
+Runs
+▶ running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+  running scheduled 2m ago                                                                                              
+↓ 2 more
+ h/← back▕ K kata ▕ r reload▕ ctrl+d/u scroll▕ j/k move▕ l/→ open run▕ a attach▕ i issue▕ R run▕ p pause▕ e edit        
+ D delete▕ M mouse▕ q quit                                                                                              

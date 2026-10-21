@@ -1,0 +1,40 @@
+timeout        per run, set by each job · default 2h0m0s
+commands       allowed
+
+[1mSteps 3[m
+ +1. inspect  prompt shared · retry 0
+       Inspect {{input}}
+ +2. check  command · retry 0 · ↺ inspect ×2
+       true
+ +3. summarize  prompt fresh
+       Summarize {{previous}}
+
+[1mUsed by 1[m
+[1m  [m[1mjob                 [m[1m [m[1mstate       [m[1m [m[1mschedule        [m[1m [m[1mprofile     [m[1m [m[1mcap    [m[1m [m[1minput                                [m[1m [m[1mtimeout[m
+  Uses example         enabled      manual           other        4/12    "example input"                       2h0m0s 
+
+[1mRuns 40[m
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+[7m▶[m[7m [m[7msucceeded  [m[7m [m[7mscheduled[m[7m [m[7m—        [m[7m [m[7mrun retained      [m[7m [m[7m                                                                  [m
+  +20 older · Runs lists every retained run
+↑ 9 more
+ [1mh/←[m back▕ [1mj/k[m move▕ [1mspace[m step▕ [1ml/→[m open▕ [1mR[m run job▕ [1mu[m resume▕ [1ma[m attach▕ [1me[m edit▕ [1mr[m reload▕ [1mK[m kata▕ [1mctrl+d/u[m scroll     
+ [1mM[m mouse ▕ [1mq[m quit                                                                                                       

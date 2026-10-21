@@ -1,0 +1,29 @@
+[1medit example-job[m[38;5;242m · project example-project[m
+
+  [38;5;242mName              [m example-job
+  [38;5;242mDescription       [m Example daily check
+  [38;5;242mTags              [m example, daily
+  [38;5;242mAction            [m workflow
+  [38;5;242mWorkflow          [m Example command workflow
+  [38;5;242mInput             [m [38;5;242m—[m
+  [38;5;242mSchedule          [m interval
+  [38;5;242mInterval          [m 24h0m0s
+  [38;5;242mTimezone          [m UTC
+  [38;5;242mCatchup           [m skip
+  [38;5;242mGrace             [m 10m0s
+  [38;5;242mOverlap           [m forbid
+  [38;5;242mTimeout           [m 10m0s
+  [38;5;242mCheckout          [m [38;5;242m—[m
+▶ [38;5;242mProfile           [m [38;5;240m— (not needed: command-only workflow)[m
+                     [38;5;242mnot needed: command-only workflow[m
+  [38;5;242mIssue             [m per-run
+  [38;5;242mIssue title       [m Example {{date}}
+  [38;5;242mIssue body        [m [38;5;242m—[m
+  [38;5;242mRun parent        [m [38;5;242m—[m
+  [38;5;242mDeadline offset   [m [38;5;242m—[m
+  [38;5;242mSecret refs       [m [38;5;242m—[m
+  [38;5;242mOther options     [m [38;5;240m—[m
+  [38;5;242mEnabled           [m yes
+  [38;5;242mFavorite          [m yes
+
+[38;5;242mj/k[m [38;5;248mmove[m[38;5;248m · [m[38;5;242ml/→ or enter[m [38;5;248medit[m[38;5;248m · [m[38;5;242mspace[m [38;5;248mtoggle[m[38;5;248m · [m[38;5;242mctrl+s[m [38;5;248msave job[m[38;5;248m · [m[38;5;242mesc[m [38;5;248mabandon edit[m

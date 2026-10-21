@@ -1,0 +1,40 @@
+[1mExample job[m
+Example scheduled report
+
+tags             [daily] [example]
+schedule         0 8 * * * (Europe/Berlin)
+next             next unavailable locally
+catchup          skip · grace 10m0s
+overlap          forbid
+state            enabled[1m · unsupported[m
+action           prompt
+issue            per-run "Example report"
+cwd              run directory
+timeout          2h0m0s (default)
+agent            codex · profile worker
+model            example-model
+sandbox          [1mbypassed[m
+approvals        [1mbypassed[m
+extra args       -m example-model --dangerously-bypass-approvals-and-sandbox
+prompts          1 planned / 12 cap
+secret refs      API_TOKEN ← mapped-name, OTHER_TOKEN ← [1munmapped-name[m
+options          future_setting (preserved)
+argv             codex -m example-model --dangerously-bypass-approvals-and-sandbox
+
+[1mUnsupported[m
+  unmapped profile
+  Example warning
+
+[1mPrompt[m
+  Review the example report.
+  Keep this literal JSON: {"version":1}
+
+[1mRuns[m
+[7m▶[m[7m [m[7mparked   [m[7m [m[7mscheduled[m[7m [m[7m1h ago[m[7m [m[7mwaiting: review required                                                                   [m
+  succeeded scheduled 2h ago Example note                                                                               
+  [1mfailed   [m scheduled 3h ago Example note                                                                               
+
+
+
+ [1mh/←[m back▕ [1mK[m kata  ▕ [1mr[m reload▕ [1mctrl+d/u[m scroll▕ [1mj/k[m move▕ [1ml/→[m open run▕ [1ma[m attach▕ [1mu[m resume▕ [1mi[m issue▕ [1mR[m run▕ [1mp[m pause     
+ [1me[m edit  ▕ [1mD[m delete▕ [1mM[m mouse ▕ [1mq[m quit                                                                                   

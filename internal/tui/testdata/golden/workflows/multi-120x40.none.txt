@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                            example-project: 1 running · 1 parked
+┴───────────┴──────┴──────┘           └─────────────────────────────────────────────────────────────────────────────────
+  status  workflow                                                                                  steps input  updated
++ never   [another-project] Example                                                                 3     target —      
++ running Example                                                                                   3     target —      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move       ▕ space steps▕ l/→ open▕ u resume▕ e edit▕ r reload▕ K kata▕ L layout     
+ M mouse ▕ q quit  ▕ 1–4 tabs▕ ctrl+d/u scroll                                                                          

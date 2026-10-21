@@ -1,0 +1,76 @@
+[project]
+site_name = "herdr-kata"
+site_description = "Run Kata cron jobs and workflows as Herdr agents."
+docs_dir = "docs"
+site_dir = "site"
+repo_url = "https://github.com/salmonumbrella/herdr-kata"
+repo_name = "salmonumbrella/herdr-kata"
+edit_uri = "edit/main/docs/"
+extra_css = ["stylesheets/extra.css"]
+nav = [
+  {"Start" = [
+    {"Overview" = "index.md"},
+    {"Quickstart" = "get-started/quickstart.md"},
+    {"Install and upgrade" = "get-started/install.md"},
+    {"Changelog" = "changelog.md"},
+  ]},
+  {"Guide" = [
+    {"Concepts" = "guide/concepts.md"},
+    {"Schedule jobs" = "guide/jobs.md"},
+    {"Write prompts that close their issue" = "guide/prompts.md"},
+    {"Build workflows" = "guide/workflows.md"},
+    {"Run recurring issues" = "guide/recurring-issues.md"},
+    {"Run an agent on an issue's schedule" = "guide/issue-schedules.md"},
+    {"Use the TUI" = "guide/tui.md"},
+    {"Run multiple projects" = "guide/multiple-projects.md"},
+  ]},
+  {"Reference" = [
+    {"CLI and plugin surface" = "reference/cli.md"},
+    {"Configuration" = "reference/configuration.md"},
+    {"Job and workflow fields" = "reference/definitions.md"},
+    {"Agent and command contract" = "reference/agent-contract.md"},
+    {"What herdr-kata writes to Kata" = "reference/reporting.md"},
+    {"State and run phases" = "reference/state.md"},
+    {"Hold reasons and resume rules" = "reference/holds.md"},
+    {"Kata adapter contract" = "reference/kata-adapter.md"},
+    {"TUI reference" = "reference/tui.md"},
+    {"Run statuses" = "reference/statuses.md"},
+  ]},
+  {"Operations" = [
+    {"Run the runtime" = "operations/runtime.md"},
+    {"Diagnose setup" = "operations/doctor.md"},
+    {"Recover runs" = "operations/recovery.md"},
+  ]},
+  {"Design" = [
+    {"Architecture" = "design/architecture.md"},
+    {"Run lifecycle and recovery" = "design/run-lifecycle.md"},
+    {"Notes and maker/checker loops" = "design/loops.md"},
+    {"Trust model" = "design/trust-model.md"},
+  ]},
+  {"Development" = [
+    {"Contributing" = "development/contributing.md"},
+  ]},
+]
+
+[project.theme]
+variant = "modern"
+features = [
+  "navigation.instant",
+  "navigation.instant.progress",
+  "navigation.tracking",
+  "navigation.sections",
+  "navigation.path",
+  "content.action.edit",
+  "content.action.view",
+  "content.code.copy",
+]
+
+[project.theme.palette]
+scheme = "slate"
+primary = "custom"
+accent = "cyan"
+
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+edit = "lucide/pencil"
+view = "lucide/file-code"

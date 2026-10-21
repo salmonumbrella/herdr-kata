@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                       348 parked
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────────────────────────────────────────────
+  # status job             model detail                                                                          started
+▾ — parked Example build   —     waiting: step_failed                                                            2m ago 
+      ✓ plan             agent succeeded        —                                                                      
+      ✗ verify           cmd   failed (command  1m0s     Inspect the command output before continuing.                 
+            ⏸ verify           cmd   stopped (no_acti                                                                  
+      · publish          agent not started                                                                             
+▸ — parked Example job 001 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 002 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 003 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 004 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 005 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 006 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 007 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 008 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 009 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 010 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 011 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 012 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 013 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 014 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 015 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 016 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 017 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 018 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 019 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 020 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 021 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 022 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 023 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 024 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 025 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 026 —     waiting: step_failed                                                            2m ago 
+▸ — parked Example job 027 —     waiting: step_failed                                                            2m ago 
+↓ 5 more
+  page 1/11
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps    ▕ l/→ open▕ u resume▕ a attach▕ i issue▕ K kata▕ r reload       
+ L layout▕ M mouse ▕ q quit  ▕ 1–4 tabs▕ ctrl+d/u scroll                                                                

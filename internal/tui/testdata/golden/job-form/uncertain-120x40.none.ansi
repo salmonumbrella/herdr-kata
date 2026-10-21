@@ -1,0 +1,32 @@
+[1medit example-job[m · project example-project
+
+[1mReadback unavailable · example-job[m
+[1mctrl+s reads back and retries the same draft · esc asks to discard this draft[m
+[1moutcome uncertain: connection interrupted[m
+
+  Name               example-job
+  Description        Example daily check
+  Tags               example, daily
+  Action             prompt
+  Prompt             Check the example and report any changes. … (+1 lines)
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            forbid
+  Timeout            10m0s
+  Checkout           —
+  Profile            default · agent default
+  Issue              per-run
+  Issue title        Example {{date}}
+  Issue body         —
+  Run parent         —
+  Deadline offset    —
+  Secret refs        —
+  Other options      —
+  Enabled            yes
+▶ Favorite           yes
+                     local board preference
+
+[1mj/k[m move · [1mctrl+s[m read back/retry · [1mesc[m discard draft?

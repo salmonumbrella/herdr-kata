@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│[2m kata カタ [m│[1m jobs [m│[2m runs [m│[2m workflows [m│                                                                                                     1 running · [1m1 parked[m
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐┌────────────────────────────────────────────────┐
+│[1m  # status      job                                                                   model schedule updated[m││[1mExample build                                   [m│
+│[7m▶[m[7m [m[7m—[m[7m [m[7mrunning  [m[7m [m[1;7m★[m[7m [m[7mExample build                                                        [m[7m [m[7m—    [m[7m [m[7mmanual  [m[7m [m[7m2m ago [m││                                                │
+│  — [1mparked   [m [1m [m Example verification with a long descriptive name                     —     manual   2m ago ││project   [1mp[m[1mr[m[1mo[m[1mj[m[1me[m[1mc[m[1mt[m[1m [m[1mu[m[1mn[m[1mp[m[1mi[m[1mn[m[1mn[m[1me[m[1md[m                      │
+│  — succeeded [1m [m Example report                                                        —     manual   2m ago ││state     enabled                               │
+│                                                                                                            ││schedule  manual                                │
+│                                                                                                            ││model     —                                     │
+│                                                                                                            ││timeout   2h0m0s (default)                      │
+│                                                                                                            ││prompts   1/12                                  │
+│                                                                                                            ││dir       run dir                               │
+│                                                                                                            ││tags      (no labels)                           │
+│                                                                                                            ││                                                │
+│                                                                                                            ││[1mLast run[m                                        │
+│                                                                                                            ││running · 2m ago                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+  page 1/1
+ [1mtab[m tabs▕ [1m/[m search▕ [1m[ ][m page▕ [1mj/k[m move▕ [1ml/→[m open▕ [1mR[m run ▕ [1mf[m fav   ▕ [1mF[m finished     ▕ [1mP[m prune▕ [1mp[m pause▕ [1mn[m new▕ [1me[m edit▕ [1mD[m delete▕ [1ma[m attach▕ [1mu[m resume▕ [1mi[m issue    
+ [1mb[m parent▕ [1mK[m kata  ▕ [1mr[m reload▕ [1mL[m layout▕ [1mM[m mouse ▕ [1mq[m quit▕ [1m1–4[m tabs▕ [1mctrl+d/u[m scroll                                                                            

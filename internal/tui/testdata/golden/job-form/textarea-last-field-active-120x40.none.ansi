@@ -1,0 +1,37 @@
+[1medit example-job[m · project example-project
+
+  Name               example-job
+  Description        Example daily check
+  Tags               example, daily
+  Action             prompt
+  Prompt             Check the example and report any changes. … (+1 lines)
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            forbid
+  Timeout            10m0s
+  Checkout           —
+  Profile            default · agent default
+  Issue              per-run
+  Issue title        Example {{date}}
+▶ Issue body         
+  Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with 
+  Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wr
+  apped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Exampl
+  e body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicod
+  e 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped 
+  text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body
+   with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é 
+  and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. 
+  Example body with Unicode 界é and wrapped text. CARET_END▏
+      [1m←/→/↑/↓[m caret · [1mhome/end[m line · [1mctrl+home/end[m text · [1mbackspace/del[m erase · [1mctrl+s/S[m save · [1my/n[m discard/keep
+  Run parent         —
+  Deadline offset    —
+  Secret refs        —
+  Other options      —
+  Enabled            yes
+  Favorite           yes
+
+[1mj/k[m move · [1ml/→ or enter[m edit · [1mspace[m toggle · [1mctrl+s[m save job · [1mesc[m abandon edit

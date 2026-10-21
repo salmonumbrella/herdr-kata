@@ -1,0 +1,19 @@
+edit example-job · project example-project
+
+  Name               example-job
+  Action             recurring
+▶ Parent issue       example-project#example-parent
+                     fixed; b edits the binding
+  Child title        Example child
+  Child body         Check the example
+  Message            —
+  Schedule           interval
+  Interval           1m0s
+  Timezone           UTC
+  Catchup            latest
+  Grace              —
+  Overlap            allow
+  Enabled            no
+  Favorite           no
+
+j/k move · l/→ or enter edit · space toggle · ctrl+s save job · esc abandon edit

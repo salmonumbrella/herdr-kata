@@ -1,0 +1,40 @@
+Example job
+  deleted in Kata
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ h/← back▕ K kata▕ r reload▕ ctrl+d/u scroll▕ M mouse▕ q quit                                                           

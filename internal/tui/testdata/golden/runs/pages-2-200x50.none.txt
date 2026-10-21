@@ -1,0 +1,50 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                                                                                                       348 parked
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  # status job             model detail                                                              started││Example job 042                                                                         │
+│+ — parked Example job 042 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 043 —     waiting: step_failed                                                2m ago ││status    parked                                                                        │
+│+ — parked Example job 044 —     waiting: step_failed                                                2m ago ││model     —                                                                             │
+│+ — parked Example job 045 —     waiting: step_failed                                                2m ago ││trigger   scheduled                                                                     │
+│+ — parked Example job 046 —     waiting: step_failed                                                2m ago ││detail    waiting: step_failed                                                          │
+│+ — parked Example job 047 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 048 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 049 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 050 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 051 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 052 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 053 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 054 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 055 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 056 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 057 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 058 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 059 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 060 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 061 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 062 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 063 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 064 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 065 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 066 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 067 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 068 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 069 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 070 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 071 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 072 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 073 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 074 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 075 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 076 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 077 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 078 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 079 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 080 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 081 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 082 —     waiting: step_failed                                                2m ago ││                                                                                        │
+│+ — parked Example job 083 —     waiting: step_failed                                                2m ago ││                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘
+  page 2/9
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume▕ a attach▕ i issue▕ K kata▕ r reload▕ L layout▕ M mouse▕ q quit▕ 1–4 tabs▕ ctrl+d/u scroll                                     

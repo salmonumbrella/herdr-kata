@@ -1,0 +1,21 @@
+edit example-job · project example-project
+
+  Name               example-job
+▶ Action             recurring
+                     choose the job action
+  recurring jobs can't carry tags, description or agent options; they will be
+  dropped on save
+  Parent issue       —
+  Child title        Example {{date}}
+  Child body         —
+  Message            —
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            allow
+  Enabled            yes
+  Favorite           yes
+
+j/k move · l/→ or enter edit · space toggle · ctrl+s save job · esc abandon edit

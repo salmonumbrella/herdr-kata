@@ -1,0 +1,37 @@
+edit example-job · project example-project
+
+  Name               example-job
+  Description        Example daily check
+  Tags               example, daily
+  Action             prompt
+  Prompt             Check the example and report any changes. … (+1 lines)
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            forbid
+  Timeout            10m0s
+  Checkout           —
+  Profile            default · agent default
+  Issue              per-run
+  Issue title        Example {{date}}
+▶ Issue body         
+  Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with 
+  Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wr
+  apped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Exampl
+  e body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicod
+  e 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped 
+  text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body
+   with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é 
+  and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. 
+  Example body with Unicode 界é and wrapped text. CARET_END▏
+      ←/→/↑/↓ caret · home/end line · ctrl+home/end text · backspace/del erase · ctrl+s/S save · y/n discard/keep
+  Run parent         —
+  Deadline offset    —
+  Secret refs        —
+  Other options      —
+  Enabled            yes
+  Favorite           yes
+
+j/k move · l/→ or enter edit · space toggle · ctrl+s save job · esc abandon edit

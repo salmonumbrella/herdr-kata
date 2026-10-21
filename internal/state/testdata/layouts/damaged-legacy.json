@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "state_created_at": "broken",
+  "executor": "installation",
+  "instance_uid": "instance",
+  "project_uid": "",
+  "actor": "worker",
+  "route": {
+    "bin": "/usr/local/bin/kata",
+    "endpoint": "local",
+    "diagnose_state": "ready"
+  }
+}

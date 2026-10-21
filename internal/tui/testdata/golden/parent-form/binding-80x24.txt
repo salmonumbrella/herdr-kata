@@ -1,0 +1,13 @@
+shared parent binding
+example-project#ab12
+
+This binding affects every job and not-yet-admitted child of this parent.
+Prepared runs keep their frozen binding.
+One key per save · empty value removes that key.
+
+▶ Workflow           
+  Profile            
+  Checkout           
+
+
+tab fields · ←/→ choose · ctrl+s save key · esc close

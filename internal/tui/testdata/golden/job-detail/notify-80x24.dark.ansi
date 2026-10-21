@@ -1,0 +1,24 @@
+[1mExample job[m
+
+[38;5;246mtags            [m [38;5;246m(no labels)[m
+[38;5;246mschedule         [mmanual
+[38;5;246mstate            [menabled
+[38;5;246maction          [m notify worker
+[38;5;246missue           [m existing example-project#cd34
+[38;5;246mrecipient       [m worker
+
+[1mMessage[m
+  Review the example
+
+[1mRuns[m
+[48;5;24m▶[m[48;5;24m [m[48;5;24mparked   [m[48;5;24m [m[48;5;24mscheduled[m[48;5;24m [m[48;5;24m1h ago[m[48;5;24m [m[48;5;24mwaiting: review required                           [m
+  [38;5;245msucceeded[m scheduled 2h ago Example note                                       
+  [1;38;5;196mfailed   [m scheduled 3h ago Example note                                       
+
+
+
+
+
+[48;5;234m [m[38;5;246;48;5;234m[38;5;246mh/←[m [38;5;240mback[m[38;5;246m▕[m [38;5;246mK[m [38;5;240mkata[m [38;5;246m▕[m [38;5;246mr[m [38;5;240mreload[m[38;5;246m▕[m [38;5;246mctrl+d/u[m [38;5;240mscroll[m[38;5;246m▕[m [38;5;246mj/k[m [38;5;240mmove[m[38;5;246m▕[m [38;5;246ml/→[m [38;5;240mopen run[m[38;5;246m▕[m [38;5;246ma[m [38;5;240mattach[m[m[48;5;234m [m
+[48;5;234m [m[38;5;246;48;5;234m[38;5;246mu[m [38;5;240mresume[m[38;5;246m▕[m [38;5;246mi[m [38;5;240missue[m[38;5;246m▕[m [38;5;246mR[m [38;5;240mrun[m   [38;5;246m▕[m [38;5;246mp[m [38;5;240mpause[m        [38;5;246m▕[m [38;5;246me[m [38;5;240medit[m  [38;5;246m▕[m [38;5;246mD[m [38;5;240mdelete[m    [38;5;246m▕[m [38;5;246mM[m [38;5;240mmouse[m [m[48;5;234m [m
+[48;5;234m [m[38;5;246;48;5;234m[38;5;246mq[m [38;5;240mquit[m                                                                        [m[48;5;234m [m

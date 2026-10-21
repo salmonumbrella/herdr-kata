@@ -1,0 +1,33 @@
+Work Kata issue project#abcd: Maintain parser
+
+Job: Parser maintenance
+Run: run-1
+Occurrence: 2026-01-02T03:04:05Z
+Step: review (attempt 2)
+
+Issue context:
+Keep the public API stable.
+
+Workflow: Parser review
+About:
+Review the parser changes.
+
+Input description:
+Compare with the previous API.
+
+Findings on project#abcd: root c:root; current c:head; maker claim c:01ARZ3NDEKTSV4RRFFQ69G5FAV
+Saved maker claim.
+
+Task:
+Audit the parser; report any changes.
+
+Result contract:
+Finish by running the staged report command for this attempt:
+'/state/bin/report'"'"'s binary' report --result '/state/runs/run-1/steps/review/2/result.json' --status <succeeded|failed|needs-human> --summary '<what was done and how it was verified>' [--evidence '<type:value>']... [--close-reason <done|audit-no-change>] [--note '<one line for the next step, at most 280 bytes>']
+
+Optional assertion: add --assert <confirm|refute> --target c:01ARZ3NDEKTSV4RRFFQ69G5FAV only about that maker's specific claim. Give evidence in --summary: at least 40 Unicode characters after whitespace normalization; never pad. Status alone is not an assertion. Short evidence or a repeated kind becomes a general reply.
+
+The report writes version 1 with run run-1, step review, attempt 2. Report failed when the task fails and needs-human when human input is required. Report only what you actually did and verified.
+Evidence types: commit:<7-40 hex SHA>, pr:<URL>, test:<command>, reviewed-paths:<path>, external:<account>, no-change-audit:<rationale>.
+For done, provide a substantive summary of at least 40 characters after whitespace normalization and at least one commit, pr, test, reviewed-paths or external evidence item. For audit-no-change, provide exactly one no-change-audit plus optional reviewed-paths. Never pad the summary or invent evidence; success without usable close evidence goes to review.
+Leave work.* metadata on the run issue to the runtime. The runtime handles issue closure, attention and notifications. Write the report before finishing; an idle agent without a valid report is an unknown outcome.

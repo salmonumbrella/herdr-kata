@@ -1,0 +1,24 @@
+[1medit example-job[m · project example-project
+
+  Name               example-job
+  Description        Example daily check
+  Tags               example, daily
+  Action             workflow
+  Workflow           Example command workflow
+  Input              —
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            forbid
+  Timeout            10m0s
+  Checkout           —
+▶ Profile            — (not needed: command-only workflow)
+                     not needed: command-only workflow
+  Issue              per-run
+  Issue title        Example {{date}}
+  Issue body         —
+  Run parent         —
+  Deadline offset    —
+↓ 6 more

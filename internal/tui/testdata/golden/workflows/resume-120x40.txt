@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                      1 running · runtime stopped
+┴───────────┴──────┴──────┘           └─────────────────────────────────────────────────────────────────────────────────
+  status  workflow                                                                                  steps input  updated
+▸ running Example                                                                                   3     target —      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+
+resume requested · Example job · project example-project
+ tab tabs▕ / search▕ [ ] page▕ j/k move       ▕ space steps▕ l/→ open▕ u resume▕ e edit▕ r reload▕ K kata▕ L layout     
+ M mouse ▕ q quit  ▕ 1–4 tabs▕ ctrl+d/u scroll                                                                          

@@ -1,0 +1,50 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                                                                           2 running · 2 parked · signing blocked
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  # status      job                            model detail                                          started││Example zero                                                                            │
+│▶ — never       Example zero                   —                                                     —      ││                                                                                        │
+│  — parked      Example held phase wins        —                                                     —      ││status    never                                                                         │
+│  — blocked     Example blocked                —                                                     —      ││model     —                                                                             │
+│  — needs-human Example needs-human            —                                                     —      ││trigger   scheduled                                                                     │
+│  — running     Example running                —                                                     —      ││                                                                                        │
+│  — queued      Example prepared               —                                                     —      ││                                                                                        │
+│  — queued      Example admitted               —                                                     —      ││                                                                                        │
+│  — succeeded   Example succeeded              —                                                     —      ││                                                                                        │
+│  — failed      Example failed                 —                                                     —      ││                                                                                        │
+│  — unknown     Example unknown                —                                                     —      ││                                                                                        │
+│  — cancelled   Example cancelled              —                                                     —      ││                                                                                        │
+│  — unknown     Example unrecognized           —                                                     —      ││                                                                                        │
+│  — unknown     Example unrecognized outcome   —                                                     —      ││                                                                                        │
+│  — never       Example head inspect           —     inspect: head                                   —      ││                                                                                        │
+│  — never       Example later inspect ignored  —     reporting…                                      —      ││                                                                                        │
+│  — never       Example pending after done     —     reporting…                                      —      ││                                                                                        │
+│  — never       Example all done               —                                                     —      ││                                                                                        │
+│  — never       Example run inspect all done   —     inspect: run                                    —      ││                                                                                        │
+│  — never       Example run inspect precedence —     inspect: run                                    —      ││                                                                                        │
+│  — never       Example signing precedence     —     signing refused                                 —      ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘
+  page 1/1
+
+error: signing_blocked: root owner: kata federation root-key repin --project <name>
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume▕ a attach▕ i issue▕ K kata▕ r reload▕ L layout▕ M mouse▕ q quit▕ 1–4 tabs▕ ctrl+d/u scroll                                     

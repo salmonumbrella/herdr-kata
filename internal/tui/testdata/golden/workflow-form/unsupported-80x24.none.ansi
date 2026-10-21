@@ -1,0 +1,24 @@
+[1medit workflow Example[m
+/tmp/workflow-draft.json
+
+[1mStatus[m
+  [1mworkflow CHECK needs attention; ctrl+s saves with the original guard[m
+
+[1mCheck[m
+  [1m! unsupported workflow: options.on_failure supports only park workflows[m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1me[m edit again · [1mctrl+s[m save · [1mesc[m cancel

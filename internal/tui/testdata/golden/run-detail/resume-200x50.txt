@@ -1,0 +1,50 @@
+Example job running
+
+outcome        running
+trigger        scheduled
+phase          running
+started        not started
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        0/unlimited
+model          —
+workflow        · step inspect
+
+Result
+  0/1 steps ok
+
+Artifacts
+  run directory removed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+resume requested · project project-a
+ h/← back▕ l/→ open job▕ j/k scroll▕ a attach▕ K kata▕ r refresh▕ ctrl+d/u scroll▕ M mouse▕ q quit                                                                                                      

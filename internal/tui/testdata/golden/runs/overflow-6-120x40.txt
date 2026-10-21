@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────────────────────────────────────────────
+  # status job                                      model detail                                                 started
+▾ — failed Long example name Long example name Long —     A long Unicode 診断 message A long Unicode 診断 messag 2m ago 
+      ·                        not started               A long Unicode 診断 message A long Unicode 診断 message A long
+▸ — failed Long example name Long example name Long —     A long Unicode 診断 message A long Unicode 診断 messag 2m ago 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps    ▕ l/→ open▕ u resume▕ a attach▕ i issue▕ K kata▕ r reload       
+ L layout▕ M mouse ▕ q quit  ▕ 1–4 tabs▕ ctrl+d/u scroll                                                                

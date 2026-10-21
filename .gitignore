@@ -1,0 +1,21 @@
+/bin/
+/.cache/
+*.test
+*.out
+.DS_Store
+
+# Local agent tooling
+/.kata.toml
+/.kata.local.toml
+/.codex/hooks.json
+/.skillshare/
+/.claude/settings.local.json
+/.pi/skills/
+/docs/superpowers/
+/.roborev/
+/.worktrees/
+
+# Documentation tooling and generated site
+/docs/.venv/
+/docs/site/
+/docs/zensical-public-docs.*

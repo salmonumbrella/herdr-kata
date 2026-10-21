@@ -1,0 +1,50 @@
+Example build parked
+
+outcome        parked (failed)
+parked         step_failed
+failed step    verify #2 · Inspect the command output before continuing.
+next action    inspect the diagnosis, resolve it, then u resume.
+trigger        scheduled
+phase          parked
+started        2026-10-16 11:58:00
+duration       still running · 2m
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        3/12
+model          —
+workflow       Example workflow · step verify
+
+Result
+  1/3 steps ok
+  cmd verify #2: exit 1
+  failed (command verify exited 1)
+  Inspect the command output before continuing.
+  from verify #2
+
+Steps
+      ✓ plan             agent succeeded        —        
+      ✗ verify           cmd   failed (command verify exited 1) #2 1m0s     Inspect the command output before continuing.
+            ⏸ verify           cmd   stopped (no_activity)          
+      · publish          agent not started               
+
+Artifacts
+  /state/runs/run-a/run.json
+  artifact metadata unavailable
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ h/← back▕ l/→ open job▕ j/k scroll▕ a attach▕ u resume▕ K kata▕ r refresh▕ ctrl+d/u scroll▕ M mouse▕ q quit                                                                                            

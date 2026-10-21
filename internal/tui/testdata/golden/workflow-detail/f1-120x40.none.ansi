@@ -1,0 +1,40 @@
+[1minspect-and-check[m
+updated 2d ago
+
+  Inspect an example
+  
+input          target
+failure        park — exhausted failures hold for u resume
+loop           check ↺ inspect · max 2 · span inspect → check
+agent          each job's profile · prompt steps shared unless fresh
+prompts        up to 4 prompts per generation (2 step attempts + 2 extra loop attempts) · cap per job, see used by
+timeout        per run, set by each job · default 2h0m0s
+commands       allowed
+
+[1mSteps 3[m
+[7m▶[m[7m+[m[7m1. inspect  prompt shared · retry 0[m
+       Inspect {{input}}
+ +2. check  command · retry 0 · ↺ inspect ×2
+       true
+ +3. summarize  prompt fresh
+       Summarize {{previous}}
+
+[1mUsed by 2[m
+[1m  [m[1mjob                 [m[1m [m[1mstate       [m[1m [m[1mschedule        [m[1m [m[1mprofile     [m[1m [m[1mcap    [m[1m [m[1minput                                [m[1m [m[1mtimeout[m
+  manual-inspect       paused       manual           cheap        [1m4/3    [m prompt_budget 4 > 3                   30m0s  
+  nightly-inspect      enabled      every 24h0m0s    default      4/12    "Review the current diff."            2h0m0s 
+
+[1mRuns 3[m
+  succeeded   scheduled 10m ago   nightly-inspect    Diff whitespace check passed.                                     
+  [1mparked     [m manual    3h ago    manual-inspect     waiting: loop_exhausted · older definition                        
+  [1mfailed     [m scheduled 1d ago    nightly-inspect    check: exit 1                                                     
+
+
+
+
+
+
+
+
+ [1mh/←[m back▕ [1mj/k[m move▕ [1mspace[m step▕ [1ml/→[m open▕ [1mR[m run job▕ [1mu[m resume▕ [1ma[m attach▕ [1me[m edit▕ [1mr[m reload▕ [1mK[m kata▕ [1mctrl+d/u[m scroll     
+ [1mM[m mouse ▕ [1mq[m quit                                                                                                       

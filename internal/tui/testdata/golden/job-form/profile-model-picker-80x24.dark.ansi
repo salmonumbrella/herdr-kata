@@ -1,0 +1,24 @@
+[1mnew job[m[38;5;246m · project example-project[m
+
+  [38;5;246mName              [m example-job
+  [38;5;246mDescription       [m [38;5;246m—[m
+  [38;5;246mTags              [m [38;5;246m—[m
+  [38;5;246mAction            [m prompt
+  [38;5;246mPrompt            [m work[38;5;246m[m
+  [38;5;246mSchedule          [m manual
+  [38;5;246mTimezone          [m UTC
+  [38;5;246mCatchup           [m latest
+  [38;5;246mGrace             [m [38;5;246m—[m
+  [38;5;246mOverlap           [m forbid
+  [38;5;246mTimeout           [m [38;5;246m—[m
+  [38;5;246mCheckout          [m [38;5;246m—[m
+▶ [38;5;246mProfile           [m quick · other-model low
+                     [38;5;246mclaude · model other-model low · sandbox [m[38;5;246magent default[m[38;5;246m ·
+                     approvals [m[38;5;246magent default[m[38;5;246m · 1 planned / 12 cap[m
+  [38;5;246mIssue             [m per-run
+  [38;5;246mIssue title       [m [38;5;246m—[m
+  [38;5;246mIssue body        [m [38;5;246m—[m
+  [38;5;246mRun parent        [m [38;5;246m—[m
+  [38;5;246mDeadline offset   [m [38;5;246m—[m
+  [38;5;246mSecret refs       [m [38;5;246m—[m
+↓ 5 more

@@ -1,0 +1,24 @@
+[1medit example-job[m[38;5;242m · project example-project[m
+
+[1;38;5;125mReadback unavailable · example-job[m
+[1;38;5;125mctrl+s reads back and retries the same draft · esc asks to discard this draft[m
+[1;38;5;125moutcome uncertain: connection interrupted[m
+
+  [38;5;242mName              [m [38;5;240mexample-job[m
+  [38;5;242mDescription       [m [38;5;240mExample daily check[m
+  [38;5;242mTags              [m [38;5;240mexample, daily[m
+  [38;5;242mAction            [m [38;5;240mprompt[m
+  [38;5;242mPrompt            [m [38;5;240mCheck the example and report any changes. … (+1 lines)[m
+  [38;5;242mSchedule          [m [38;5;240minterval[m
+  [38;5;242mInterval          [m [38;5;240m24h0m0s[m
+  [38;5;242mTimezone          [m [38;5;240mUTC[m
+  [38;5;242mCatchup           [m [38;5;240mskip[m
+  [38;5;242mGrace             [m [38;5;240m10m0s[m
+  [38;5;242mOverlap           [m [38;5;240mforbid[m
+  [38;5;242mTimeout           [m [38;5;240m10m0s[m
+  [38;5;242mCheckout          [m [38;5;240m—[m
+  [38;5;242mProfile           [m [38;5;240mdefault · agent default[m
+  [38;5;242mIssue             [m [38;5;240mper-run[m
+  [38;5;242mIssue title       [m [38;5;240mExample {{date}}[m
+  [38;5;242mIssue body        [m [38;5;240m—[m
+↓ 9 more

@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                         1 parked
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────────────────────────────────────────────
+      · step-15          cmd   not started                                                                             
+      · step-16          cmd   not started                                                                             
+      · step-17          cmd   not started                                                                             
+      · step-18          cmd   not started                                                                             
+      · step-19          cmd   not started                                                                             
+      · step-20          cmd   not started                                                                             
+      · step-21          cmd   not started                                                                             
+      · step-22          cmd   not started                                                                             
+      · step-23          cmd   not started                                                                             
+      · step-24          cmd   not started                                                                             
+      · step-25          cmd   not started                                                                             
+      · step-26          cmd   not started                                                                             
+      · step-27          cmd   not started                                                                             
+      · step-28          cmd   not started                                                                             
+      · step-29          cmd   not started                                                                             
+      · step-30          cmd   not started                                                                             
+      · step-31          cmd   not started                                                                             
+      · step-32          cmd   not started                                                                             
+      · step-33          cmd   not started                                                                             
+      · step-34          cmd   not started                                                                             
+      · step-35          cmd   not started                                                                             
+      · step-36          cmd   not started                                                                             
+      · step-37          cmd   not started                                                                             
+      · step-38          cmd   not started                                                                             
+      · step-39          cmd   not started                                                                             
+      · step-40          cmd   not started                                                                             
+      · step-41          cmd   not started                                                                             
+      · step-42          cmd   not started                                                                             
+      · step-43          cmd   not started                                                                             
+      · step-44          cmd   not started                                                                             
+      · step-45          cmd   not started                                                                             
+      · step-46          cmd   not started                                                                             
+      · step-47          cmd   not started                                                                             
+↑ 21 more   ↓ 12 more
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps    ▕ l/→ open▕ u resume▕ a attach▕ i issue▕ K kata▕ r reload       
+ L layout▕ M mouse ▕ q quit  ▕ 1–4 tabs▕ ctrl+d/u scroll                                                                

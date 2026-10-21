@@ -1,0 +1,40 @@
+edit workflow Example
+/tmp/workflow-draft.json
+
+Status
+  workflow saved · shown once the worker refreshes definitions
+
+Check
+  local workflow checks passed
+  ignored options key: future
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+e edit again · ctrl+s save · esc cancel

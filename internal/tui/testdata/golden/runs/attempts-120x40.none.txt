@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                        1 running
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────────────────────────────────────────────
+  # status  job           model detail                                                                           started
+- — running Example build —     1/3 · verify                                                                     2m ago 
+      ✓ plan             agent succeeded        —                                                                      
+      ▶ verify           cmd   running #3                Inspect the command output before continuing.                 
+            ⏸ verify           cmd   quota (agent_quo                                                                  
+            ⏸ verify           cmd   stopped (no_acti                                                                  
+      · publish          agent not started                                                                             
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps    ▕ l/→ open▕ u resume▕ a attach▕ i issue▕ K kata▕ r reload       
+ L layout▕ M mouse ▕ q quit  ▕ 1–4 tabs▕ ctrl+d/u scroll                                                                

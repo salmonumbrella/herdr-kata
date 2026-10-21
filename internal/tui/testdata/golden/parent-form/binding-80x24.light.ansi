@@ -1,0 +1,13 @@
+[1mshared parent binding[m
+[38;5;242mexample-project#ab12[m
+
+This binding affects every job and not-yet-admitted child of this parent.
+Prepared runs keep their frozen binding.
+One key per save · empty value removes that key.
+
+▶ [38;5;242mWorkflow          [m 
+  [38;5;242mProfile           [m 
+  [38;5;242mCheckout          [m 
+
+[38;5;242m[m
+[38;5;242mtab[m [38;5;248mfields[m[38;5;248m · [m[38;5;242m←/→[m [38;5;248mchoose[m[38;5;248m · [m[38;5;242mctrl+s[m [38;5;248msave key[m[38;5;248m · [m[38;5;242mesc[m [38;5;248mclose[m

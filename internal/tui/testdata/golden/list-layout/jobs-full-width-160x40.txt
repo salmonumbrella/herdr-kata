@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                                                     1 running · 1 parked
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  # status      job                                                                                                         model schedule workflow next updated
+▶ — running   ★ Example build                                                                                               —     manual   —             2m ago 
+  — parked      Example verification with a long descriptive name                                                           —     manual   —             2m ago 
+  — succeeded   Example report                                                                                              —     manual   —             2m ago 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ l/→ open▕ R run ▕ f fav   ▕ F finished     ▕ P prune▕ p pause▕ n new▕ e edit▕ D delete▕ a attach▕ u resume▕ i issue    
+ b parent▕ K kata  ▕ r reload▕ L layout▕ M mouse ▕ q quit▕ 1–4 tabs▕ ctrl+d/u scroll                                                                            

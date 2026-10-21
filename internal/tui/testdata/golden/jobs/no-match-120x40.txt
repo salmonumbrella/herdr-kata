@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                             2 running · 1 parked
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────────────────────────────────────────────
+  # status job                                                                                    model schedule updated
+  no jobs match absent
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1 · 0 of 6 match
+
+filter: absent  (esc clears)
+ tab tabs▕ / search       ▕ [ ] page▕ j/k move▕ l/→ open▕ R run   ▕ f fav ▕ F finished▕ P prune ▕ p pause▕ n new        
+ e edit  ▕ D delete       ▕ a attach▕ u resume▕ i issue ▕ b parent▕ K kata▕ r reload  ▕ L layout▕ M mouse▕ q quit       
+ 1–4 tabs▕ ctrl+d/u scroll                                                                                              

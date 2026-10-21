@@ -1,0 +1,40 @@
+[1mExample[m
+
+[1mProblems[m
+  [1;38;5;196m! unsupported workflow[m
+  [1;38;5;196m! invalid or duplicate step key "same"[m
+  [38;5;246mfix it with e · r reloads[m
+
+[38;5;246minput         [m none
+[38;5;246mfailure       [m [38;5;246m—[m
+[38;5;246mloop          [m [38;5;246m—[m
+[38;5;246magent         [m each job's profile · prompt steps shared unless fresh
+[38;5;246mprompts       [m [38;5;246m—[m
+[38;5;246mtimeout       [m per run, set by each job · default 2h0m0s
+[38;5;246mcommands      [m allowed
+
+[1mSteps 2[m
+  [1;38;5;205mexecution order unavailable[m
+  same  prompt
+  [38;5;246mFirst[m
+  same  prompt
+  [38;5;246mSecond[m
+
+[1mUsed by 0[m
+  no jobs use this workflow
+
+[1mRuns 0[m
+  never run
+
+
+
+
+
+
+
+
+
+
+
+[48;5;234m [m[38;5;246;48;5;234m[38;5;246mh/←[m [38;5;240mback[m[38;5;246m▕[m [38;5;246mj/k[m [38;5;240mmove[m[38;5;246m▕[m [38;5;246mspace[m [38;5;240mstep[m[38;5;246m▕[m [38;5;246ml/→[m [38;5;240mopen[m[38;5;246m▕[m [38;5;246mR[m [38;5;240mrun job[m[38;5;246m▕[m [38;5;246mu[m [38;5;240mresume[m[38;5;246m▕[m [38;5;246ma[m [38;5;240mattach[m[38;5;246m▕[m [38;5;246me[m [38;5;240medit[m[38;5;246m▕[m [38;5;246mr[m [38;5;240mreload[m[38;5;246m▕[m [38;5;246mK[m [38;5;240mkata[m[38;5;246m▕[m [38;5;246mctrl+d/u[m [38;5;240mscroll[m    [m[48;5;234m [m
+[48;5;234m [m[38;5;246;48;5;234m[38;5;246mM[m [38;5;240mmouse[m [38;5;246m▕[m [38;5;246mq[m [38;5;240mquit[m                                                                                                      [m[48;5;234m [m

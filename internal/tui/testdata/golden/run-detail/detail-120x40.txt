@@ -1,0 +1,40 @@
+Example verification parked
+
+outcome        parked
+parked         review required
+next action    inspect the diagnosis, resolve it, then u resume.
+trigger        scheduled
+phase          parked
+started        2026-10-16 11:58:00
+duration       still running · 2m
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        0/unlimited
+model          —
+workflow       Example workflow
+
+Result
+  0/1 steps ok
+
+Artifacts
+  loading artifacts…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ h/← back▕ l/→ open job▕ j/k scroll▕ a attach▕ u resume▕ K kata▕ r refresh▕ ctrl+d/u scroll▕ M mouse▕ q quit            

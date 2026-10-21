@@ -1,0 +1,24 @@
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+  succeeded   scheduled —         run retained                                 
+▶ succeeded   scheduled —         run retained                                 
+  +20 older · Runs lists every retained run
+↑ 26 more
+ h/← back▕ j/k move▕ space step▕ l/→ open       ▕ R run job▕ u resume▕ a attach 
+ e edit  ▕ r reload▕ K kata    ▕ ctrl+d/u scroll▕ M mouse  ▕ q quit             

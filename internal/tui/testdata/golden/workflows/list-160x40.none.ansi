@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│[2m kata カタ [m│[2m jobs [m│[2m runs [m│[1m workflows [m│                                                                                                     1 running · [1m1 parked[m
+┴───────────┴──────┴──────┘           └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐┌────────────────────────────────────────────────┐
+│[1m  status  workflow                                                                      steps input  updated[m││[1mExample                                         [m│
+│[7m+[m[7m [m[7mrunning[m[7m [m[7mExample                                                                      [m[7m [m[7m3    [m[7m [m[7mtarget[m[7m [m[7m—      [m││                                                │
+│                                                                                                            ││Inspect an example                              │
+│                                                                                                            ││                                                │
+│                                                                                                            ││[1minput  [m target                                  │
+│                                                                                                            ││[1mfailure[m park                                    │
+│                                                                                                            ││[1mjobs   [m 1 Uses example                          │
+│                                                                                                            ││                                                │
+│                                                                                                            ││[1mSteps[m 3                                         │
+│                                                                                                            ││1. inspect               prompt shared · retry 0│
+│                                                                                                            ││2. check              command · retry 0 ↺inspect│
+│                                                                                                            ││3. summarize                        prompt fresh│
+│                                                                                                            ││                                                │
+│                                                                                                            ││[1mLast run                                        [m│
+│                                                                                                            ││running · not started yet                       │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+  page 1/1
+ [1mtab[m tabs▕ [1m/[m search▕ [1m[ ][m page▕ [1mj/k[m move▕ [1mspace[m steps▕ [1ml/→[m open▕ [1mu[m resume▕ [1me[m edit▕ [1mr[m reload▕ [1mK[m kata▕ [1mL[m layout▕ [1mM[m mouse▕ [1mq[m quit▕ [1m1–4[m tabs▕ [1mctrl+d/u[m scroll        

@@ -1,0 +1,40 @@
+[1mExample build[m [1mparked[m
+
+outcome        [1mparked[m (failed)
+parked         [1madmission_rejected[m
+next action    run herdr-kata stop, then herdr-kata status --json to identify and abandon this run --local.
+trigger        scheduled
+phase          parked
+started        2026-10-16 11:58:00
+duration       still running · 2m
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        3/12
+model          —
+workflow       Example workflow · step verify
+
+[1mResult[m
+  0/1 steps ok
+
+[1mArtifacts[m
+  /state/runs/run-a/run.json
+  /state/runs/run-a/steps/verify/1/stderr.log
+  /state/log/herdr-kata.log
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ [1mh/←[m back▕ [1ml/→[m open job▕ [1mj/k[m scroll▕ [1ma[m attach▕ [1mK[m kata▕ [1mr[m refresh▕ [1mctrl+d/u[m scroll▕ [1mM[m mouse▕ [1mq[m quit                      

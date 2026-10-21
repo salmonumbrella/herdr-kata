@@ -1,0 +1,50 @@
+[1mExample build[m [1mparked[m
+
+outcome        [1mparked[m (failed)
+parked         [1mstep_failed[m
+failed step    verify #2 · Inspect the command output before continuing.
+next action    inspect the diagnosis, resolve it, then u resume.
+trigger        scheduled
+phase          parked
+started        2026-10-16 11:58:00
+duration       still running · 2m
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        3/12
+model          —
+workflow       Example workflow · step verify
+
+[1mResult[m
+  1/3 steps ok
+  [1mcmd verify #2: exit 1[m
+  [1mfailed (command verify exited 1)[m
+  Inspect the command output before continuing.
+  from verify #2
+
+[1mSteps[m
+      ✓ plan             agent succeeded        —        
+      [1m✗[m verify           cmd   failed (command verify exited 1) #2 1m0s     Inspect the command output before continuing.
+            [1m⏸[m verify           cmd   stopped (no_activity)          
+      · publish          agent not started               
+
+[1mArtifacts[m
+  /state/runs/run-a/run.json
+  +7 more not listed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ [1mh/←[m back▕ [1ml/→[m open job▕ [1mj/k[m scroll▕ [1ma[m attach▕ [1mu[m resume▕ [1mK[m kata▕ [1mr[m refresh▕ [1mctrl+d/u[m scroll▕ [1mM[m mouse▕ [1mq[m quit                                                                                            

@@ -1,0 +1,40 @@
+[1mExample job[m
+
+tags             (no labels)
+schedule         every 1h0m0s
+next             Kata-managed; next delivery unavailable locally
+catchup          latest
+overlap          forbid
+state            [1mpaused[m · native (Kata delivers)
+action           recurring
+parent           example-project#ab12
+child title      Example recurring child
+recipient        worker
+
+[1mChild body[m
+  Inspect the example project and report the result.
+
+[1mMessage[m
+  Optional delivery note
+
+[1mRuns[m
+[7m▶[m[7m [m[7mparked   [m[7m [m[7mscheduled[m[7m [m[7m1h ago[m[7m [m[7mwaiting: review required                                                                   [m
+  succeeded scheduled 2h ago Example note                                                                               
+  [1mfailed   [m scheduled 3h ago Example note                                                                               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ [1mh/←[m back▕ [1mK[m kata  ▕ [1mr[m reload▕ [1mctrl+d/u[m scroll▕ [1mj/k[m move▕ [1ml/→[m open run▕ [1ma[m attach▕ [1mu[m resume▕ [1mi[m issue▕ [1mR[m run▕ [1mp[m pause     
+ [1me[m edit  ▕ [1mb[m parent▕ [1mD[m delete▕ [1mM[m mouse        ▕ [1mq[m quit                                                                  

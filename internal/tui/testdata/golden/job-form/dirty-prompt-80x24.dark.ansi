@@ -1,0 +1,24 @@
+[1medit example-job[m[38;5;246m · project example-project[m
+
+[1;38;5;205mdiscard changes? y/n[m
+
+▶ [38;5;246mName              [m changed
+                     [38;5;246mrequired; must be unique in the project[m
+  [38;5;246mDescription       [m Example daily check
+  [38;5;246mTags              [m example, daily
+  [38;5;246mAction            [m prompt
+  [38;5;246mPrompt            [m Check the example and report any changes.[38;5;246m … (+1 lines)[m
+  [38;5;246mSchedule          [m interval
+  [38;5;246mInterval          [m 24h0m0s
+  [38;5;246mTimezone          [m UTC
+  [38;5;246mCatchup           [m skip
+  [38;5;246mGrace             [m 10m0s
+  [38;5;246mOverlap           [m forbid
+  [38;5;246mTimeout           [m 10m0s
+  [38;5;246mCheckout          [m [38;5;246m—[m
+  [38;5;246mProfile           [m default · agent default
+  [38;5;246mIssue             [m per-run
+  [38;5;246mIssue title       [m Example {{date}}
+  [38;5;246mIssue body        [m [38;5;246m—[m
+  [38;5;246mRun parent        [m [38;5;246m—[m
+↓ 7 more

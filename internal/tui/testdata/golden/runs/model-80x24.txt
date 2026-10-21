@@ -1,0 +1,24 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                     2 running · 1 parked
+┴───────────┴──────┘      └───────────┴─────────────────────────────────────────
+  #     status    job                      model    detail               started
+▶ #a02b parked    Example daily check      gpt-6.1- waiting: review requ 1h ago 
+  #a12b succeeded Example report           —                             2h ago 
+  #a22b failed    Example paused check     —                             3h ago 
+  —     queued    Example queued work      —                             —      
+  —     running   Example unsupported work —                             5h ago 
+
+
+
+
+
+
+
+
+
+
+
+  page 1/1
+ tab tabs▕ / search       ▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume 
+ a attach▕ i issue        ▕ K kata  ▕ r reload▕ L layout   ▕ M mouse ▕ q quit   
+ 1–4 tabs▕ ctrl+d/u scroll                                                      

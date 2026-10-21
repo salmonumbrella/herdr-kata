@@ -1,0 +1,40 @@
+edit workflow Example
+/tmp/workflow-draft.json
+
+Status
+  definition: invalid JSON or exceeds 256 KiB
+
+Check
+  ! invalid JSON or exceeds 256 KiB
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+e edit again · ctrl+s save · esc cancel

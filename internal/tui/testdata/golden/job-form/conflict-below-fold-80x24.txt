@@ -1,0 +1,24 @@
+edit example-job · project example-project
+
+Kata has a newer definition of example-job
+  name   yours: example-job   Kata: example-renamed
+original definition guard kept
+esc asks to discard this draft · reopen e to start from Kata's version
+
+  Name               example-job
+  Description        Example daily check
+  Tags               example, daily
+  Action             prompt
+  Prompt             Check the example and report any changes. … (+1 lines)
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            forbid
+  Timeout            10m0s
+  Checkout           —
+  Profile            default · agent default
+  Issue              per-run
+  Issue title        Example {{date}}
+↓ 10 more

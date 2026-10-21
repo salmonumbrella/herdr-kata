@@ -1,0 +1,49 @@
+version: "2"
+run:
+  timeout: 10m
+  go: "1.27"
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - modernize
+    - kennlint
+  settings:
+    modernize:
+      # Persisted JSON tags are a compatibility contract.
+      disable: [omitzero]
+    staticcheck:
+      checks: ["all", "-ST1000", "-ST1003", "-ST1020", "-ST1021", "-ST1022", "-QF*"]
+    custom:
+      kennlint:
+        type: module
+        description: Kit's sleep-in-tests, sub-second test deadline and error-text analyzers.
+        original-url: go.kenn.io/kit/lint
+        settings:
+          disable:
+            - nohttpmux
+            - rowserrcheck
+            - sqlcheck
+            - sqlclosecheck
+            - testifyhelper
+  exclusions:
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - errcheck
+        path: _test\.go
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt

@@ -1,0 +1,24 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                     1 running · 1 parked
+┴───────────┴──────┴──────┘           └─────────────────────────────────────────
+  status    workflow                                        steps input  updated
+▶ ! Decode failure: does not parse: unexpected end of JSON input                
+▸ succeeded Done                                            3     target 10m ago
+▸ failed    Failed                                          3     target 10m ago
+▸ parked    Held                                            3     target 10m ago
+▸ never     Never                                           3     target —      
+▸ queued    Queued                                          3     target —      
+▸ running   Running                                         3     target 10m ago
+▸ never     Warning only                                    3     target —      
+
+
+
+
+
+
+
+
+  page 1/1
+ tab tabs       ▕ / search▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume 
+ e edit         ▕ r reload▕ K kata  ▕ L layout▕ M mouse    ▕ q quit  ▕ 1–4 tabs 
+ ctrl+d/u scroll                                                                

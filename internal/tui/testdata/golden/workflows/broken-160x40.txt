@@ -1,0 +1,40 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                                                     1 running · 1 parked
+┴───────────┴──────┴──────┘           └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐┌────────────────────────────────────────────────┐
+│  status  workflow                                                                       steps input updated││unsupported workflow                            │
+│▶ ! Example: unsupported workflow: options.on_failure supports only park workflows                          ││                                                │
+│                                                                                                            ││options.on_failure supports only park workflows │
+│                                                                                                            ││fix it with e · r reloads                       │
+│                                                                                                            ││input   none                                    │
+│                                                                                                            ││failure —                                       │
+│                                                                                                            ││jobs    1 Uses example                          │
+│                                                                                                            ││                                                │
+│                                                                                                            ││Steps 1                                         │
+│                                                                                                            ││1. main                            prompt shared│
+│                                                                                                            ││                                                │
+│                                                                                                            ││Last run                                        │
+│                                                                                                            ││running · not started yet                       │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+│                                                                                                            ││                                                │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume▕ e edit▕ r reload▕ K kata▕ L layout▕ M mouse▕ q quit▕ 1–4 tabs▕ ctrl+d/u scroll        

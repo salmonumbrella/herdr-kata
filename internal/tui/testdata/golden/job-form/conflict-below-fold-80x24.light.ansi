@@ -1,0 +1,24 @@
+[1medit example-job[m[38;5;242m · project example-project[m
+
+[1;38;5;125mKata has a newer definition of example-job[m
+  name   yours: example-job   Kata: example-renamed
+[38;5;242moriginal definition guard kept[m
+[38;5;242mesc asks to discard this draft · reopen e to start from Kata's version[m
+
+  [38;5;242mName              [m [38;5;240mexample-job[m
+  [38;5;242mDescription       [m [38;5;240mExample daily check[m
+  [38;5;242mTags              [m [38;5;240mexample, daily[m
+  [38;5;242mAction            [m [38;5;240mprompt[m
+  [38;5;242mPrompt            [m [38;5;240mCheck the example and report any changes. … (+1 lines)[m
+  [38;5;242mSchedule          [m [38;5;240minterval[m
+  [38;5;242mInterval          [m [38;5;240m24h0m0s[m
+  [38;5;242mTimezone          [m [38;5;240mUTC[m
+  [38;5;242mCatchup           [m [38;5;240mskip[m
+  [38;5;242mGrace             [m [38;5;240m10m0s[m
+  [38;5;242mOverlap           [m [38;5;240mforbid[m
+  [38;5;242mTimeout           [m [38;5;240m10m0s[m
+  [38;5;242mCheckout          [m [38;5;240m—[m
+  [38;5;242mProfile           [m [38;5;240mdefault · agent default[m
+  [38;5;242mIssue             [m [38;5;240mper-run[m
+  [38;5;242mIssue title       [m [38;5;240mExample {{date}}[m
+↓ 10 more

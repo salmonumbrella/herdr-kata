@@ -1,0 +1,24 @@
+  [38;5;246mSchedule          [m interval
+  [38;5;246mInterval          [m 24h0m0s
+  [38;5;246mTimezone          [m UTC
+  [38;5;246mCatchup           [m skip
+  [38;5;246mGrace             [m 10m0s
+  [38;5;246mOverlap           [m forbid
+  [38;5;246mTimeout           [m 10m0s
+  [38;5;246mCheckout          [m [38;5;246m—[m
+  [38;5;246mProfile           [m default · agent default
+  [38;5;246mIssue             [m per-run
+  [38;5;246mIssue title       [m Example {{date}}
+▶ [38;5;246mIssue body        [m 
+  body with Unicode 界é and wrapped text. Example body with Unicode 界é and 
+  wrapped text. Example body with Unicode 界é and wrapped text. Example body
+   with Unicode 界é and wrapped text. Example body with Unicode 界é and wrap
+  ped text. Example body with Unicode 界é and wrapped text. Example body wit
+  h Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped 
+  text. Example body with Unicode 界é and wrapped text. Example body with Un
+  icode 界é and wrapped text. Example body with Unicode 界é and wrapped text
+  . Example body with Unicode 界é and wrapped text. Example body with Unicod
+  e 界é and wrapped text. Example body with Unicode 界é and wrapped text. CA
+  RET_END▏
+      [38;5;246m[38;5;246m←/→/↑/↓[m [38;5;240mcaret[m[38;5;240m · [m[38;5;246mhome/end[m [38;5;240mline[m[38;5;240m · [m[38;5;246mctrl+home/end[m [38;5;240mtext[m[38;5;240m · [m[38;5;246mbackspace/del[m [38;5;240merase[m[m
+↑ 7 more   ↓ 8 more

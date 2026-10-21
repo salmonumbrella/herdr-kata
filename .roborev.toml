@@ -1,0 +1,78 @@
+display_name = "herdr-kata"
+
+# The maintainer's review agent for this repository.
+agent = "codex"
+model = "gpt-6.1-sol"
+review_reasoning = "high"
+
+review_guidelines = """
+Latest stable Go on Linux and macOS. Windows is unsupported
+(`herdr-plugin.toml` platforms); do not flag Windows-only behavior. Be
+pragmatic: theoretical findings produce churn.
+
+## Small by design
+
+herdr-kata is a runtime, not a scheduler. Kata owns definitions, schedules,
+issues and run evidence; the plugin keeps only the local state that prevents a
+resent prompt. An edge case that would need new machinery is a documented
+limit (README "Limits" and the limits on each docs page). Do not raise a
+documented limit as a finding; do flag code that contradicts one.
+
+## Trust model
+
+- Kata is the system of record. Actors who can write job definitions,
+  workflows or parent bindings in the target Kata project are trusted to run
+  commands and prompts on this host; that write access is restricted in Kata,
+  not here. Commands, prompts and paths taken from those definitions are not
+  injection findings.
+- The Herdr socket, plugin config directory and state directory are
+  owner-local. Races, symlinks or reads exploitable only by a process running
+  as the same OS user are not findings.
+- Credentials reach Kata only through the variable named by
+  `kata.credential_env`; config holds no secrets and the child environment is
+  an allowlist. Do flag a path that logs or renders a credential, widens that
+  allowlist, or reads a credential from config.
+
+## Accepted trade-offs
+
+Re-raise one of these only with a concrete failure path.
+
+- Delivery to native children is at least once. An identical replacement
+  request cannot be told apart from the original.
+- At its expiry a run is held; the agent is not killed. A held run keeps its
+  slot until its occupant is proven stopped.
+- Lost local state never triggers an automatic replacement execution. The
+  operator resolves it explicitly (`abandon`, `release`).
+
+## Contracts
+
+The consent-contract list in `AGENTS.md` is canonical. Keep this inline
+mirror and the shared runtime-invariant clauses aligned with it.
+
+These change only with the owner's consent: on-disk state (run journals,
+receipts, checkpoints, snapshots and their `Version` fields), `herdr_kata.*`
+Kata metadata keys and the reporting contract in
+`docs/reference/kata-adapter.md` and `docs/reference/reporting.md`,
+configuration keys in `docs/reference/configuration.md`, and the install
+contract: the module path `github.com/salmonumbrella/herdr-kata`, the
+`herdr-kata` binary built from `./cmd/herdr-kata` to `./bin/herdr-kata`, and
+`herdr-plugin.toml` with plugin id `kata`, pane ids
+`status` and `board`, action ids `up`, `board-wide` and `open-kata`, and every
+command.
+Report any change to one as High so the owner can confirm it was approved.
+
+Runtime invariants: after admission the runtime never sends a run's prompt
+again, and lost or ambiguous state holds the run for the operator instead of
+replacing it. Every Kata write goes through the route guard and conditional
+writes, and an ambiguous write is read back, never retried. The TUI reads
+local snapshots and run journals and never polls Kata; it fetches from or
+writes to Kata only through its injected service on an explicit user action,
+and run-now and resume only post local requests to the worker. Report a
+change that breaks one of these as High.
+
+## Pinned versions
+
+You see only the diff and have no network. Do not claim a pinned Kata test
+ref, Herdr checksum, action SHA or tool version does not exist. Flag only
+breakage visible in the diff.
+"""

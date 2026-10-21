@@ -1,0 +1,24 @@
+Example build parked
+
+outcome        parked (failed)
+parked         admission_rejected
+next action    run herdr-kata stop, then herdr-kata status --json to identify
+               and abandon this run --local.
+trigger        scheduled
+phase          parked
+started        2026-10-16 11:58:00
+duration       still running · 2m
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        3/12
+model          —
+workflow       Example workflow · step verify
+
+Result
+  0/1 steps ok
+
+Artifacts
+  /state/runs/run-a/run.json
+↓ 2 more
+ h/← back       ▕ l/→ open job▕ j/k scroll▕ a attach▕ K kata▕ r refresh         
+ ctrl+d/u scroll▕ M mouse     ▕ q quit                                          

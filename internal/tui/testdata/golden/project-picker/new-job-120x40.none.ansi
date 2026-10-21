@@ -1,0 +1,39 @@
+╭───────────┬──────┬──────┬───────────╮
+│[2m kata カタ [m│[1m jobs [m│[2m runs [m│[2m workflows [m│            example-project: 1 running · team-project: [1m1 parked[m · [1mruntime stopped[m
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────────────────────────────────────────────
+  [1mnew job in project[m
+
+  ▶ [7mexample-project     [m 1 jobs · route ok
+    team-project         1 jobs · [1mroute refused: access_lost[m
+
+  [1mj/k[m move · [1menter[m choose · [1mesc[m cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

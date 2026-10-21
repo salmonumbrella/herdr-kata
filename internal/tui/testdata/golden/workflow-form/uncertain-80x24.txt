@@ -1,0 +1,24 @@
+edit workflow Example
+/tmp/workflow-draft.json
+
+Status
+  context deadline exceeded · uncertain outcome; ctrl+s retries the identical
+  draft
+
+Check
+  local workflow checks passed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+e edit again · ctrl+s save · esc cancel

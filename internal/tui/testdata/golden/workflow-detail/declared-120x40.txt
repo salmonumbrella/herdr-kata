@@ -1,0 +1,40 @@
+Example
+
+input          none
+failure        settle failed
+loop           none
+agent          profile other (declared by the workflow) · prompt steps shared unless fresh
+prompts        up to 3 prompts per generation (3 step attempts + 0 extra loop attempts) · cap 4
+timeout        per run, set by each job · default 2h0m0s
+commands       allowed
+
+Steps 1
+▶▸1. main  prompt shared · retry 2
+       Work
+
+Used by 1
+  job                  state        schedule         profile      cap     input                                 timeout
+  Uses example         enabled      manual           other        3/4     "example input"                       2h0m0s 
+
+Runs 2
+  running     scheduled —         run run-c                                                                            
+  parked      scheduled —         run run-b           · older definition                                               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ h/← back▕ j/k move▕ space step▕ l/→ open▕ R run job▕ u resume▕ a attach▕ e edit▕ r reload▕ K kata▕ ctrl+d/u scroll     
+ M mouse ▕ q quit                                                                                                       

@@ -1,0 +1,50 @@
+[1mExample build[m running
+
+outcome        running
+trigger        scheduled
+phase          running
+started        2026-10-16 11:58:00
+duration       still running · 2m
+deadline       2026-10-16 12:50:00 (in 50m)
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        3/12
+model          —
+workflow       Example workflow · step verify
+
+[1mResult[m
+  1/3 steps ok
+  An unrelated earlier success
+  from plan #1
+
+[1mSteps[m
+      ✓ plan             agent succeeded        —        
+      ▶ verify           cmd   running #2                Inspect the command output before continuing.
+            [1m⏸[m verify           cmd   stopped (no_activity)          
+      · publish          agent not started               
+
+[1mArtifacts[m
+  /state/runs/run-a/run.json
+  /state/runs/run-a/steps/verify/1/stderr.log
+  /state/log/herdr-kata.log
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ [1mh/←[m back▕ [1ml/→[m open job▕ [1mj/k[m scroll▕ [1ma[m attach▕ [1mK[m kata▕ [1mr[m refresh▕ [1mctrl+d/u[m scroll▕ [1mM[m mouse▕ [1mq[m quit                                                                                                      

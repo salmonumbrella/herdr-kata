@@ -1,0 +1,24 @@
+[1mnew job[m · project example-project
+
+  Name               example-job
+  Description        —
+  Tags               —
+  Action             prompt
+  Prompt             work
+  Schedule           manual
+  Timezone           UTC
+  Catchup            latest
+  Grace              —
+  Overlap            forbid
+  Timeout            —
+  Checkout           —
+▶ Profile            quick · other-model low
+                     claude · model other-model low · sandbox agent default ·
+                     approvals agent default · 1 planned / 12 cap
+  Issue              per-run
+  Issue title        —
+  Issue body         —
+  Run parent         —
+  Deadline offset    —
+  Secret refs        —
+↓ 5 more

@@ -1,0 +1,15 @@
+[1mExample                                                         [m
+
+Inspect an example
+
+[1minput  [m target                                                  
+[1mfailure[m park                                                    
+[1mjobs   [m 1 Uses example                                          
+
+[1mSteps[m[38;5;240m 3[m
+[38;5;240m1.[m inspect                               [38;5;240mprompt shared · retry 0[m
+[38;5;240m2.[m check                              [38;5;240mcommand · retry 0 ↺inspect[m
+[38;5;240m3.[m summarize                                        [38;5;240mprompt fresh[m
+
+[1mLast run                                                        [m
+[38;5;28mrunning[m · not started yet

@@ -1,0 +1,24 @@
+Example
+
+Problems
+  ! unsupported workflow
+  ! options.on_failure supports only park workflows
+  fix it with e · r reloads
+
+  Inspect an example
+  
+input          target
+failure        —
+loop           check ↺ inspect · max 2 · span inspect → check
+agent          each job's profile · prompt steps shared unless fresh
+prompts        up to 4 prompts per generation (2 step attempts + 2 extra loop
+               attempts) · cap per job, see used by
+timeout        per run, set by each job · default 2h0m0s
+commands       allowed
+
+Steps 3
+▶▸1. inspect  prompt shared · retry 0
+       Inspect {{input}}
+↓ 12 more
+ h/← back▕ j/k move▕ space step▕ l/→ open       ▕ R run job▕ u resume▕ a attach 
+ e edit  ▕ r reload▕ K kata    ▕ ctrl+d/u scroll▕ M mouse  ▕ q quit             

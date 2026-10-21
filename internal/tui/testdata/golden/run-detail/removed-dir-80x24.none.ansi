@@ -1,0 +1,24 @@
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        3/12
+model          —
+workflow       Example workflow · step verify
+
+[1mResult[m
+  1/3 steps ok
+  [1mcmd verify #2: exit 1[m
+  [1mfailed (command verify exited 1)[m
+  Inspect the command output before continuing.
+  from verify #2
+
+[1mSteps[m
+      ✓ plan             agent succeeded        —        
+      [1m✗[m verify           cmd   failed (command verify exited 1) #2 1m0s     Insp
+            [1m⏸[m verify           cmd   stopped (no_activity)          
+      · publish          agent not started               
+
+[1mArtifacts[m
+  run directory removed
+↑ 10 more
+ [1mh/←[m back ▕ [1ml/→[m open job   ▕ [1mj/k[m scroll▕ [1ma[m attach▕ [1mu[m resume▕ [1mK[m kata             
+ [1mr[m refresh▕ [1mctrl+d/u[m scroll▕ [1mM[m mouse   ▕ [1mq[m quit                                 

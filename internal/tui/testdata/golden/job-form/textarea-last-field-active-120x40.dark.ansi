@@ -1,0 +1,37 @@
+[1medit example-job[m[38;5;246m · project example-project[m
+
+  [38;5;246mName              [m example-job
+  [38;5;246mDescription       [m Example daily check
+  [38;5;246mTags              [m example, daily
+  [38;5;246mAction            [m prompt
+  [38;5;246mPrompt            [m Check the example and report any changes.[38;5;246m … (+1 lines)[m
+  [38;5;246mSchedule          [m interval
+  [38;5;246mInterval          [m 24h0m0s
+  [38;5;246mTimezone          [m UTC
+  [38;5;246mCatchup           [m skip
+  [38;5;246mGrace             [m 10m0s
+  [38;5;246mOverlap           [m forbid
+  [38;5;246mTimeout           [m 10m0s
+  [38;5;246mCheckout          [m [38;5;246m—[m
+  [38;5;246mProfile           [m default · agent default
+  [38;5;246mIssue             [m per-run
+  [38;5;246mIssue title       [m Example {{date}}
+▶ [38;5;246mIssue body        [m 
+  Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with 
+  Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wr
+  apped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Exampl
+  e body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicod
+  e 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped 
+  text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body
+   with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é 
+  and wrapped text. Example body with Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped text. 
+  Example body with Unicode 界é and wrapped text. CARET_END▏
+      [38;5;246m[38;5;246m←/→/↑/↓[m [38;5;240mcaret[m[38;5;240m · [m[38;5;246mhome/end[m [38;5;240mline[m[38;5;240m · [m[38;5;246mctrl+home/end[m [38;5;240mtext[m[38;5;240m · [m[38;5;246mbackspace/del[m [38;5;240merase[m[38;5;240m · [m[38;5;246mctrl+s/S[m [38;5;240msave[m[38;5;240m · [m[38;5;246my/n[m [38;5;240mdiscard/keep[m[m
+  [38;5;246mRun parent        [m [38;5;246m—[m
+  [38;5;246mDeadline offset   [m [38;5;246m—[m
+  [38;5;246mSecret refs       [m [38;5;246m—[m
+  [38;5;246mOther options     [m [38;5;245m—[m
+  [38;5;246mEnabled           [m yes
+  [38;5;246mFavorite          [m yes
+
+[38;5;246mj/k[m [38;5;240mmove[m[38;5;240m · [m[38;5;246ml/→ or enter[m [38;5;240medit[m[38;5;240m · [m[38;5;246mspace[m [38;5;240mtoggle[m[38;5;240m · [m[38;5;246mctrl+s[m [38;5;240msave job[m[38;5;240m · [m[38;5;246mesc[m [38;5;240mabandon edit[m

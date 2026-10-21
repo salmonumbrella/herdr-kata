@@ -1,0 +1,12 @@
+  Timeout            10m0s
+  Checkout           —
+  Profile            default · agent def
+  Issue              per-run
+  Issue title        Example {{date}}
+▶ Issue body         
+  wrapped text. Example body with Un
+  icode 界é and wrapped text. Exampl
+  e body with Unicode 界é and wrappe
+  d text. CARET_END▏
+      [1m←/→/↑/↓[m caret · [1mhome/end[m line
+↑ 13 more   ↓ 8 more

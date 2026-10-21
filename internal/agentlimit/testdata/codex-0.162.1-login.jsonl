@@ -1,0 +1,1 @@
+{"timestamp":"2026-09-24T16:01:00Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"example","error":{"message":"<redacted>","codex_error_info":"unauthorized"}}}

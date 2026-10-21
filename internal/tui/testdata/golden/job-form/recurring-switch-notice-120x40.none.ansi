@@ -1,0 +1,20 @@
+[1medit example-job[m · project example-project
+
+  Name               example-job
+▶ Action             recurring
+                     choose the job action
+  [1mrecurring jobs can't carry tags, description or agent options; they will be dropped on save[m
+  Parent issue       —
+  Child title        Example {{date}}
+  Child body         —
+  Message            —
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            allow
+  Enabled            yes
+  Favorite           yes
+
+[1mj/k[m move · [1ml/→ or enter[m edit · [1mspace[m toggle · [1mctrl+s[m save job · [1mesc[m abandon edit

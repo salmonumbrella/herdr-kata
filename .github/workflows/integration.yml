@@ -1,0 +1,69 @@
+name: Integration
+# Real Kata, real Herdr and macOS suites. They are slow (macOS minutes bill at
+# 10x), so they run only on release tags and on demand. Implementers run the
+# Kata and Herdr suites locally before pushing.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  # Fall back to source on any proxy error.
+  GOPROXY: https://proxy.golang.org|direct
+  KATA_TEST_REF: v0.19.0
+  KATA_TEST_SHA256: 28da39a7b16b126c56345ddf9b49520a8c90c1eb12d73373cdf3de05621e8bfc
+jobs:
+  herdr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Download and verify Herdr 0.9.5
+        run: |
+          curl --fail --location --retry 3 https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64 -o "$RUNNER_TEMP/herdr"
+          echo "14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d  $RUNNER_TEMP/herdr" | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/herdr"
+          "$RUNNER_TEMP/herdr" --version
+      - run: make test-herdr
+        env:
+          HERDR_KATA_TEST_HERDR_BIN: ${{ runner.temp }}/herdr
+  kata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Download and verify Kata release
+        run: |
+          archive="kata_${KATA_TEST_REF#v}_homebrew_linux_amd64.tar.gz"
+          curl --fail --location --retry 3 "https://github.com/kenn-io/kata/releases/download/$KATA_TEST_REF/$archive" -o "$RUNNER_TEMP/$archive"
+          echo "$KATA_TEST_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" kata
+          "$RUNNER_TEMP/kata" --version
+      - run: make test-kata test-kata-children test-kata-replies
+        env:
+          HERDR_KATA_TEST_KATA_BIN: ${{ runner.temp }}/kata
+      - run: go test -race -shuffle=on -tags kata_replies,crashpoint ./internal/runner -run '^TestIntegTypedChainCrash$'
+        env:
+          HERDR_KATA_TEST_KATA_BIN: ${{ runner.temp }}/kata
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          cache: true
+      - run: make check

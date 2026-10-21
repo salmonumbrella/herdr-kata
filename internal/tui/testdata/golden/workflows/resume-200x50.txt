@@ -1,0 +1,50 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                                                                                      1 running · runtime stopped
+┴───────────┴──────┴──────┘           └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  status  workflow                                                                      steps input  updated││Example                                                                                 │
+│▸ running Example                                                                       3     target —      ││                                                                                        │
+│                                                                                                            ││Inspect an example                                                                      │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││input   target                                                                          │
+│                                                                                                            ││failure park                                                                            │
+│                                                                                                            ││jobs    1 Uses example                                                                  │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││Steps 3                                                                                 │
+│                                                                                                            ││1. inspect                                                       prompt shared · retry 0│
+│                                                                                                            ││2. check                                                      command · retry 0 ↺inspect│
+│                                                                                                            ││3. summarize                                                                prompt fresh│
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││Last run                                                                                │
+│                                                                                                            ││running · not started yet                                                               │
+│                                                                                                            ││0/2 · inspect                                                                           │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘
+  page 1/1
+
+resume requested · Example job · project example-project
+ tab tabs▕ / search▕ [ ] page▕ j/k move▕ space steps▕ l/→ open▕ u resume▕ e edit▕ r reload▕ K kata▕ L layout▕ M mouse▕ q quit▕ 1–4 tabs▕ ctrl+d/u scroll                                                

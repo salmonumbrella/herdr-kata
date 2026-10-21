@@ -1,0 +1,24 @@
+Example build succeeded
+
+outcome        succeeded
+trigger        scheduled
+phase          settled
+started        2026-10-16 11:58:00
+ended          2026-10-16 12:00:00
+duration       2m0s
+herdr tab      pane pane-1 (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        3/12
+model          —
+workflow       Example workflow · step verify
+
+Result
+  1/1 steps ok
+  The example is ready.
+  · Verified the example output
+  from main #1
+
+Artifacts
+↓ 3 more
+ h/← back       ▕ l/→ open job▕ j/k scroll▕ a attach▕ K kata▕ r refresh         
+ ctrl+d/u scroll▕ M mouse     ▕ q quit                                          

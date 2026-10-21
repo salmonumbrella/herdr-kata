@@ -1,0 +1,40 @@
+[38;5;242m╭───────────┬──────┬──────┬───────────╮[m
+[38;5;242m│[m[38;5;242m kata カタ [m[38;5;242m│[m[1;38;5;125m jobs [m[38;5;242m│[m[38;5;242m runs [m[38;5;242m│[m[38;5;242m workflows [m[38;5;242m│[m                                                             [38;5;242m2 running[m[38;5;242m · [m[1;38;5;125m1 parked[m
+[38;5;242m┴───────────┘      └──────┴───────────┴─────────────────────────────────────────────────────────────────────────────────[m
+[1;38;5;242;48;5;253m  #     status      job                                                               model         schedule     updated[m
+[48;5;153m▶[m[48;5;153m [m[48;5;153m#a02b[m[48;5;153m [m[48;5;153mparked   [m[48;5;153m [m[1;48;5;153m★[m[48;5;153m [m[48;5;153mExample daily check                                              [m[48;5;153m [m[48;5;153mexample-model[m[48;5;153m [m[48;5;153mevery 1h0m0s[m[48;5;153m [m[48;5;153m1h ago [m
+[48;5;254m  [m[48;5;254m#a12b[m[48;5;254m [m[38;5;240;48;5;254msucceeded[m[48;5;254m [m[1;48;5;254m [m[48;5;254m [m[48;5;254mExample report                                                   [m[48;5;254m [m[48;5;254mexample-model[m[48;5;254m [m[48;5;254mevery 1h0m0s[m[48;5;254m [m[48;5;254m2h ago [m
+  [38;5;242m#a22b[m [1;38;5;124mfailed   [m [1m [m [38;5;242mExample paused check (paused)                                    [m [38;5;242mexample-model[m [38;5;242mevery 1h0m0s[m [38;5;242m3h ago [m
+[48;5;254m  [m[38;5;242;48;5;254m—    [m[48;5;254m [m[38;5;28;48;5;254mqueued   [m[48;5;254m [m[1;48;5;254m [m[48;5;254m [m[48;5;254mExample queued work                                              [m[48;5;254m [m[48;5;254mexample-model[m[48;5;254m [m[48;5;254mevery 1h0m0s[m[48;5;254m [m[48;5;254m15d ago[m
+  [38;5;242m—    [m [38;5;28mrunning  [m [1m [m [1;38;5;125mExample unsupported work (unsupported)                           [m example-model every 1h0m0s 5h ago 
+[48;5;254m  [m[38;5;242;48;5;254m—    [m[48;5;254m [m[38;5;242;48;5;254mnever    [m[48;5;254m [m[1;48;5;254m [m[48;5;254m [m[48;5;254mExample never run                                                [m[48;5;254m [m[48;5;254mexample-model[m[48;5;254m [m[48;5;254mevery 1h0m0s[m[48;5;254m [m[48;5;254m15d ago[m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[38;5;242m  page 1/1[m
+[1mprune 2 finished one-shot(s)[m
+  [38;5;242mexample-project / Example daily check[m
+  [38;5;242mexample-project / Example report[m
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[38;5;242my delete · any other key cancels · run history is kept[m

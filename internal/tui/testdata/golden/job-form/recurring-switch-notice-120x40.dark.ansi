@@ -1,0 +1,20 @@
+[1medit example-job[m[38;5;246m · project example-project[m
+
+  [38;5;246mName              [m example-job
+▶ [38;5;246mAction            [m recurring
+                     [38;5;246mchoose the job action[m
+  [1;38;5;205mrecurring jobs can't carry tags, description or agent options; they will be dropped on save[m
+  [38;5;246mParent issue      [m [38;5;246m—[m
+  [38;5;246mChild title       [m Example {{date}}
+  [38;5;246mChild body        [m [38;5;246m—[m
+  [38;5;246mMessage           [m [38;5;246m—[m
+  [38;5;246mSchedule          [m interval
+  [38;5;246mInterval          [m 24h0m0s
+  [38;5;246mTimezone          [m UTC
+  [38;5;246mCatchup           [m skip
+  [38;5;246mGrace             [m 10m0s
+  [38;5;246mOverlap           [m [38;5;245mallow[m
+  [38;5;246mEnabled           [m yes
+  [38;5;246mFavorite          [m yes
+
+[38;5;246mj/k[m [38;5;240mmove[m[38;5;240m · [m[38;5;246ml/→ or enter[m [38;5;240medit[m[38;5;240m · [m[38;5;246mspace[m [38;5;240mtoggle[m[38;5;240m · [m[38;5;246mctrl+s[m [38;5;240msave job[m[38;5;240m · [m[38;5;246mesc[m [38;5;240mabandon edit[m

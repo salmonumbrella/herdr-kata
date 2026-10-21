@@ -1,0 +1,1 @@
+{"version":1,"kind":"job","enabled":true,"trigger":{"kind":"interval","interval_seconds":3600},"action":{"kind":"execute","prompt":"Review the changes"},"checkout_key":"repo","issue":{"kind":"per-run","title":"Review"},"overlap":"forbid","catchup":"all","future_field":true}

@@ -1,0 +1,24 @@
+[1mExample build[m [1;38;5;125mparked[m
+
+[38;5;242moutcome       [m [1;38;5;125mparked[m [38;5;242m(failed)[m
+[38;5;242mparked        [m [1;38;5;125mstep_failed[m
+[38;5;242mfailed step   [m verify #2 · Inspect the command output before continuing.
+[38;5;242mnext action   [m inspect the diagnosis, resolve it, then u resume.
+[38;5;242mtrigger       [m scheduled
+[38;5;242mphase         [m parked
+[38;5;242mstarted       [m 2026-10-16 11:58:00
+[38;5;242mduration      [m still running · 2m
+[38;5;242mworkflow      [m Example workflow · step verify
+
+[1mResult[m
+  [1;38;5;124mcmd verify #2: exit 1[m
+  [1;38;5;124mfailed (command verify exited 1)[m
+  Inspect the command output before continuing.
+  [38;5;242mfrom verify #2[m
+
+[1mSteps[m
+      [1;38;5;124m✗[m[38;5;242m verify           cmd   failed (command verify exited 1) #2 1m0s     Insp[m
+            [1;38;5;125m⏸[m[38;5;242m verify           cmd   stopped (no_activity)          [m
+↓ 5 more
+[48;5;253m [m[38;5;242;48;5;253m[38;5;242mh/←[m [38;5;248mback[m [38;5;242m▕[m [38;5;242ml/→[m [38;5;248mopen job[m   [38;5;242m▕[m [38;5;242mj/k[m [38;5;248mscroll[m[38;5;242m▕[m [38;5;242ma[m [38;5;248mattach[m[38;5;242m▕[m [38;5;242mu[m [38;5;248mresume[m[38;5;242m▕[m [38;5;242mK[m [38;5;248mkata[m            [m[48;5;253m [m
+[48;5;253m [m[38;5;242;48;5;253m[38;5;242mr[m [38;5;248mrefresh[m[38;5;242m▕[m [38;5;242mctrl+d/u[m [38;5;248mscroll[m[38;5;242m▕[m [38;5;242mM[m [38;5;248mmouse[m   [38;5;242m▕[m [38;5;242mq[m [38;5;248mquit[m                                [m[48;5;253m [m

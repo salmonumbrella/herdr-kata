@@ -1,0 +1,40 @@
+[1mExample build[m [1;38;5;205mparked[m
+
+[38;5;246moutcome       [m [1;38;5;205mparked[m [38;5;246m(failed)[m
+[38;5;246mparked        [m [1;38;5;205mno_result[m
+[38;5;246mnext action   [m inspect the diagnosis, resolve it, then u resume.
+[38;5;246mtrigger       [m scheduled
+[38;5;246mphase         [m parked
+[38;5;246mstarted       [m 2026-10-16 11:58:00
+[38;5;246mduration      [m still running · 2m
+[38;5;246mherdr tab     [m no agent pane (server unproven)
+[38;5;246mtokens        [m 0 in · 0 out · 0 cache read · 0 cache write
+[38;5;246mprompts       [m 3/12
+[38;5;246mmodel         [m —
+[38;5;246mworkflow      [m Example workflow · step main
+
+[1mResult[m
+  0/1 steps ok
+  [38;5;246mno result recorded[m
+  [38;5;246mfrom main #1[m
+
+[1mArtifacts[m
+  [38;5;246m/state/runs/run-a/run.json[m
+  [38;5;246m/state/runs/run-a/steps/verify/1/stderr.log[m
+  [38;5;246m/state/log/herdr-kata.log[m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[48;5;234m [m[38;5;246;48;5;234m[38;5;246mh/←[m [38;5;240mback[m[38;5;246m▕[m [38;5;246ml/→[m [38;5;240mopen job[m[38;5;246m▕[m [38;5;246mj/k[m [38;5;240mscroll[m[38;5;246m▕[m [38;5;246ma[m [38;5;240mattach[m[38;5;246m▕[m [38;5;246mu[m [38;5;240mresume[m[38;5;246m▕[m [38;5;246mK[m [38;5;240mkata[m[38;5;246m▕[m [38;5;246mr[m [38;5;240mrefresh[m[38;5;246m▕[m [38;5;246mctrl+d/u[m [38;5;240mscroll[m[38;5;246m▕[m [38;5;246mM[m [38;5;240mmouse[m[38;5;246m▕[m [38;5;246mq[m [38;5;240mquit[m           [m[48;5;234m [m

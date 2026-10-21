@@ -1,0 +1,40 @@
+Example job succeeded
+
+outcome        succeeded
+failed step    inspect #0 · 
+trigger        scheduled · resumed ×1
+phase          settled
+started        not started
+herdr tab      no agent pane (server unproven)
+tokens         0 in · 0 out · 0 cache read · 0 cache write
+prompts        0/unlimited
+model          —
+workflow        · step inspect
+pending writes 1
+
+Result
+  0/1 steps ok
+  no result recorded
+  from inspect #0
+
+Artifacts
+  run directory removed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+resume requested · project project-a
+ h/← back▕ l/→ open job▕ j/k scroll▕ a attach▕ K kata▕ r refresh▕ ctrl+d/u scroll▕ M mouse▕ q quit                      

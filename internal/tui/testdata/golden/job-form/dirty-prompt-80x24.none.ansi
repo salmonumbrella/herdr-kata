@@ -1,0 +1,24 @@
+[1medit example-job[m · project example-project
+
+[1mdiscard changes? y/n[m
+
+▶ Name               changed
+                     required; must be unique in the project
+  Description        Example daily check
+  Tags               example, daily
+  Action             prompt
+  Prompt             Check the example and report any changes. … (+1 lines)
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            forbid
+  Timeout            10m0s
+  Checkout           —
+  Profile            default · agent default
+  Issue              per-run
+  Issue title        Example {{date}}
+  Issue body         —
+  Run parent         —
+↓ 7 more

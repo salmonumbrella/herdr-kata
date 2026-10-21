@@ -1,0 +1,1 @@
+{"error":{"kind":"conflict","code":"duplicate_candidates","hint":"comment on an existing issue, or pass --force-new to create anyway","message":"1 existing issue matches this title","exit_code":5,"data":{"candidates":[{"uid":"01M4TGPKHJK8WVW1HX6GPYKZ6C","short_id":"kz6c","qualified_id":"adapter-test#kz6c","title":"Fix adapter integration","score":1}]}}}

@@ -1,0 +1,1 @@
+{"version":1,"kind":"job","enabled":true,"trigger":{"kind":"interval","interval_seconds":60},"action":{"kind":"notify","recipient":"actor/runtime","message":"Work the occurrence"},"issue":{"kind":"per-run","parent_uid":"01M4TADGDFRMAC38MX3NZCW1K5","title":"Occurrence"},"overlap":"allow","catchup":"all"}

@@ -1,0 +1,40 @@
+timeout        per run, set by each job · default 2h0m0s
+commands       allowed
+
+Steps 3
+ ▸1. inspect  prompt shared · retry 0
+       Inspect {{input}}
+ ▸2. check  command · retry 0 · ↺ inspect ×2
+       true
+ ▸3. summarize  prompt fresh
+       Summarize {{previous}}
+
+Used by 1
+  job                  state        schedule         profile      cap     input                                 timeout
+  Uses example         enabled      manual           other        4/12    "example input"                       2h0m0s 
+
+Runs 40
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+  succeeded   scheduled —         run retained                                                                         
+▶ succeeded   scheduled —         run retained                                                                         
+  +20 older · Runs lists every retained run
+↑ 9 more
+ h/← back▕ j/k move▕ space step▕ l/→ open▕ R run job▕ u resume▕ a attach▕ e edit▕ r reload▕ K kata▕ ctrl+d/u scroll     
+ M mouse ▕ q quit                                                                                                       

@@ -1,0 +1,24 @@
+  Schedule           interval
+  Interval           24h0m0s
+  Timezone           UTC
+  Catchup            skip
+  Grace              10m0s
+  Overlap            forbid
+  Timeout            10m0s
+  Checkout           —
+  Profile            default · agent default
+  Issue              per-run
+  Issue title        Example {{date}}
+▶ Issue body         
+  body with Unicode 界é and wrapped text. Example body with Unicode 界é and 
+  wrapped text. Example body with Unicode 界é and wrapped text. Example body
+   with Unicode 界é and wrapped text. Example body with Unicode 界é and wrap
+  ped text. Example body with Unicode 界é and wrapped text. Example body wit
+  h Unicode 界é and wrapped text. Example body with Unicode 界é and wrapped 
+  text. Example body with Unicode 界é and wrapped text. Example body with Un
+  icode 界é and wrapped text. Example body with Unicode 界é and wrapped text
+  . Example body with Unicode 界é and wrapped text. Example body with Unicod
+  e 界é and wrapped text. Example body with Unicode 界é and wrapped text. CA
+  RET_END▏
+      [1m←/→/↑/↓[m caret · [1mhome/end[m line · [1mctrl+home/end[m text · [1mbackspace/del[m erase
+↑ 7 more   ↓ 8 more

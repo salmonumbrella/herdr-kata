@@ -1,0 +1,50 @@
+╭───────────┬──────┬──────┬───────────╮
+│ kata カタ │ jobs │ runs │ workflows │                                                                                                                                             2 running · 1 parked
+┴───────────┘      └──────┴───────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────────────────────────────────────────────────────┐┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  # status job                                                            model         schedule     updated││Example daily check                                                                     │
+│▶ — never  Example daily check                                            example-model every 1h0m0s 15d ago││                                                                                        │
+│                                                                                                            ││project   project unpinned                                                              │
+│                                                                                                            ││state     enabled                                                                       │
+│                                                                                                            ││schedule  every 1h0m0s                                                                  │
+│                                                                                                            ││next      next unavailable locally                                                      │
+│                                                                                                            ││model     example-model                                                                 │
+│                                                                                                            ││profile   worker · codex                                                                │
+│                                                                                                            ││timeout   2h0m0s (default)                                                              │
+│                                                                                                            ││prompts   1/12                                                                          │
+│                                                                                                            ││dir       run dir                                                                       │
+│                                                                                                            ││tags      [daily]                                                                       │
+│                                                                                                            ││perms     bypassed                                                                      │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││never run                                                                               │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+│                                                                                                            ││                                                                                        │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘└────────────────────────────────────────────────────────────────────────────────────────┘
+  page 1/1
+ tab tabs▕ / search▕ [ ] page▕ j/k move       ▕ l/→ open▕ R run▕ f fav▕ F finished▕ P prune▕ p pause▕ n new▕ e edit▕ D delete▕ a attach▕ u resume▕ i issue▕ b parent▕ K kata▕ r reload▕ L layout        
+ M mouse ▕ q quit  ▕ 1–4 tabs▕ ctrl+d/u scroll                                                                                                                                                          

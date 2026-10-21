@@ -1,0 +1,40 @@
+[1mExample[m
+
+  Inspect an example
+  
+[38;5;246minput         [m target
+[38;5;246mfailure       [m park — exhausted failures hold for u resume
+[38;5;246mloop          [m check ↺ inspect · max 2 · span inspect → check
+[38;5;246magent         [m each job's profile · prompt steps shared unless fresh
+[38;5;246mprompts       [m up to 4 prompts per generation (2 step attempts + 2 extra loop attempts) · cap per job, see used by
+[38;5;246mtimeout       [m per run, set by each job · default 2h0m0s
+[38;5;246mcommands      [m allowed
+
+[1mSteps 3[m
+[48;5;24m▶[m[48;5;24m▸[m[48;5;24m1. inspect  prompt shared · retry 0[m
+       Inspect {{input}}
+ ▸[38;5;246m2. [mcheck  [38;5;246mcommand · retry 0 · ↺ inspect ×2[m
+       [38;5;246mtrue[m
+ ▸[38;5;246m3. [msummarize  [38;5;246mprompt fresh[m
+       Summarize {{previous}}
+
+[1mUsed by 1[m
+[1;38;5;246;48;5;234m  [m[1;38;5;246;48;5;234mjob                 [m[1;38;5;246;48;5;234m [m[1;38;5;246;48;5;234mstate       [m[1;38;5;246;48;5;234m [m[1;38;5;246;48;5;234mschedule        [m[1;38;5;246;48;5;234m [m[1;38;5;246;48;5;234mprofile     [m[1;38;5;246;48;5;234m [m[1;38;5;246;48;5;234mcap    [m[1;38;5;246;48;5;234m [m[1;38;5;246;48;5;234minput                                [m[1;38;5;246;48;5;234m [m[1;38;5;246;48;5;234mtimeout[m
+  Uses example         enabled      manual           other        4/12    "example input"                       2h0m0s 
+
+[1mRuns 1[m
+  [38;5;46mrunning    [m scheduled —         Example job        0/2 · inspect · older definition                                  
+
+
+
+
+
+
+
+
+
+
+
+[1;38;5;46mresume requested · Example job · project example-project[m
+[48;5;234m [m[38;5;246;48;5;234m[38;5;246mh/←[m [38;5;240mback[m[38;5;246m▕[m [38;5;246mj/k[m [38;5;240mmove[m[38;5;246m▕[m [38;5;246mspace[m [38;5;240mstep[m[38;5;246m▕[m [38;5;246ml/→[m [38;5;240mopen[m[38;5;246m▕[m [38;5;246mR[m [38;5;240mrun job[m[38;5;246m▕[m [38;5;246mu[m [38;5;240mresume[m[38;5;246m▕[m [38;5;246ma[m [38;5;240mattach[m[38;5;246m▕[m [38;5;246me[m [38;5;240medit[m[38;5;246m▕[m [38;5;246mr[m [38;5;240mreload[m[38;5;246m▕[m [38;5;246mK[m [38;5;240mkata[m[38;5;246m▕[m [38;5;246mctrl+d/u[m [38;5;240mscroll[m    [m[48;5;234m [m
+[48;5;234m [m[38;5;246;48;5;234m[38;5;246mM[m [38;5;240mmouse[m [38;5;246m▕[m [38;5;246mq[m [38;5;240mquit[m                                                                                                      [m[48;5;234m [m

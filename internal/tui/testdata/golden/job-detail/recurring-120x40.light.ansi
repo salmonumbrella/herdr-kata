@@ -1,0 +1,40 @@
+[1mExample job[m
+
+[38;5;242mtags            [m [38;5;242m(no labels)[m
+[38;5;242mschedule         [mevery 1h0m0s
+[38;5;242mnext            [m Kata-managed; next delivery unavailable locally
+[38;5;242mcatchup         [m latest
+[38;5;242moverlap         [m forbid
+[38;5;242mstate            [m[1;38;5;125mpaused[m · native (Kata delivers)
+[38;5;242maction          [m recurring
+[38;5;242mparent          [m example-project#ab12
+[38;5;242mchild title     [m Example recurring child
+[38;5;242mrecipient       [m worker
+
+[1mChild body[m
+  Inspect the example project and report the result.
+
+[1mMessage[m
+  Optional delivery note
+
+[1mRuns[m
+[48;5;153m▶[m[48;5;153m [m[48;5;153mparked   [m[48;5;153m [m[48;5;153mscheduled[m[48;5;153m [m[48;5;153m1h ago[m[48;5;153m [m[48;5;153mwaiting: review required                                                                   [m
+  [38;5;240msucceeded[m scheduled 2h ago Example note                                                                               
+  [1;38;5;124mfailed   [m scheduled 3h ago Example note                                                                               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[48;5;253m [m[38;5;242;48;5;253m[38;5;242mh/←[m [38;5;248mback[m[38;5;242m▕[m [38;5;242mK[m [38;5;248mkata[m  [38;5;242m▕[m [38;5;242mr[m [38;5;248mreload[m[38;5;242m▕[m [38;5;242mctrl+d/u[m [38;5;248mscroll[m[38;5;242m▕[m [38;5;242mj/k[m [38;5;248mmove[m[38;5;242m▕[m [38;5;242ml/→[m [38;5;248mopen run[m[38;5;242m▕[m [38;5;242ma[m [38;5;248mattach[m[38;5;242m▕[m [38;5;242mu[m [38;5;248mresume[m[38;5;242m▕[m [38;5;242mi[m [38;5;248missue[m[38;5;242m▕[m [38;5;242mR[m [38;5;248mrun[m[38;5;242m▕[m [38;5;242mp[m [38;5;248mpause[m    [m[48;5;253m [m
+[48;5;253m [m[38;5;242;48;5;253m[38;5;242me[m [38;5;248medit[m  [38;5;242m▕[m [38;5;242mb[m [38;5;248mparent[m[38;5;242m▕[m [38;5;242mD[m [38;5;248mdelete[m[38;5;242m▕[m [38;5;242mM[m [38;5;248mmouse[m        [38;5;242m▕[m [38;5;242mq[m [38;5;248mquit[m                                                                 [m[48;5;253m [m

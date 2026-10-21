@@ -1,0 +1,12 @@
+session = "work"
+executor = "work-runtime"
+[kata]
+bin = "/usr/local/bin/kata"
+project = "tasks"
+actor = "runner"
+env = { KATA_HOME = "/tmp/kata-test", XDG_CONFIG_HOME = "/tmp/config" }
+[checkouts]
+project = "/tmp/project"
+[profiles.default]
+kind = "codex"
+args = ["-m", "example-model"]

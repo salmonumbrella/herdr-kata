@@ -1,0 +1,24 @@
+[1mExample[m
+
+[1mProblems[m
+  [1m! does not parse: unexpected end of JSON input[m
+  fix it with e · r reloads
+
+
+[1mUsed by 1[m
+[1m  [m[1mjob                 [m[1m [m[1mstate       [m[1m [m[1mprofile     [m[1m [m[1mcap    [m[1m [m[1minput                 [m
+[7m▶[m[7m [m[7mUses example        [m[7m [m[7menabled     [m[7m [m[7mother       [m[7m [m[7m—      [m[7m [m[7m"example input"       [m
+
+[1mRuns 2[m
+  running     scheduled —         run run-c                                    
+  [1mparked     [m scheduled —         run run-b           · older definition       
+
+
+
+
+
+
+
+
+ [1mh/←[m back▕ [1mj/k[m move▕ [1mspace[m step▕ [1ml/→[m open       ▕ [1mR[m run job▕ [1mu[m resume▕ [1ma[m attach 
+ [1me[m edit  ▕ [1mr[m reload▕ [1mK[m kata    ▕ [1mctrl+d/u[m scroll▕ [1mM[m mouse  ▕ [1mq[m quit             

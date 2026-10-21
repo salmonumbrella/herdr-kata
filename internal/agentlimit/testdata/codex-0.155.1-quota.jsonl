@@ -1,0 +1,2 @@
+{"timestamp":"2026-09-24T16:00:01Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":100,"resets_at":1790270580},"secondary":{"used_percent":100,"resets_at":1790269200}}}}
+{"timestamp":"2026-09-24T16:01:00Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"example","last_agent_message":"<redacted>","error":{"message":"<redacted>","codex_error_info":"usage_limit_exceeded"}}}

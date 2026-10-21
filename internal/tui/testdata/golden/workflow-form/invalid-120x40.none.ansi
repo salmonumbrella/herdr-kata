@@ -1,0 +1,40 @@
+[1medit workflow Example[m
+/tmp/workflow-draft.json
+
+[1mStatus[m
+  [1mdefinition: invalid JSON or exceeds 256 KiB[m
+
+[1mCheck[m
+  [1m! invalid JSON or exceeds 256 KiB[m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1me[m edit again · [1mctrl+s[m save · [1mesc[m cancel

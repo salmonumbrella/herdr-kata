@@ -1,0 +1,12 @@
+  [38;5;242mTimeout           [m 10m0s
+  [38;5;242mCheckout          [m [38;5;242m—[m
+  [38;5;242mProfile           [m default · agent def
+  [38;5;242mIssue             [m per-run
+  [38;5;242mIssue title       [m Example {{date}}
+▶ [38;5;242mIssue body        [m 
+  wrapped text. Example body with Un
+  icode 界é and wrapped text. Exampl
+  e body with Unicode 界é and wrappe
+  d text. CARET_END▏
+      [38;5;242m[38;5;242m←/→/↑/↓[m [38;5;248mcaret[m[38;5;248m · [m[38;5;242mhome/end[m [38;5;248mline[m[m
+↑ 13 more   ↓ 8 more

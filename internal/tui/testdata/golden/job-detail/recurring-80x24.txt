@@ -1,0 +1,24 @@
+tags             (no labels)
+schedule         every 1h0m0s
+next             Kata-managed; next delivery unavailable locally
+catchup          latest
+overlap          forbid
+state            paused · native (Kata delivers)
+action           recurring
+parent           example-project#ab12
+child title      Example recurring child
+recipient        worker
+
+Child body
+  Inspect the example project and report the result.
+
+Message
+  Optional delivery note
+
+Runs
+▶ parked    scheduled 1h ago waiting: review required                           
+  succeeded scheduled 2h ago Example note                                       
+↑ 2 more   ↓ 1 more
+ h/← back▕ K kata ▕ r reload▕ ctrl+d/u scroll▕ j/k move▕ l/→ open run▕ a attach 
+ u resume▕ i issue▕ R run   ▕ p pause        ▕ e edit  ▕ b parent    ▕ D delete 
+ M mouse ▕ q quit                                                               

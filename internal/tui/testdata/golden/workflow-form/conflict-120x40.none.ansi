@@ -1,0 +1,40 @@
+[1medit workflow Example[m
+/tmp/workflow-draft.json
+
+[1mStatus[m
+  [1mkata conflict (exit 0): definition changed[m
+
+[1mCheck[m
+  local workflow checks passed
+
+[1mNewer in kata[m
+  Updated example · 1 steps: main
+  /tmp/workflow-draft.json.newer.json
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[1me[m edit again · [1mctrl+s[m save · [1mesc[m cancel

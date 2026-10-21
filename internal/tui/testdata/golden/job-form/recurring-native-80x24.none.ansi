@@ -1,0 +1,19 @@
+[1medit example-job[m · project example-project
+
+  Name               example-job
+  Action             recurring
+▶ Parent issue       example-project#example-parent
+                     fixed; b edits the binding
+  Child title        Example child
+  Child body         Check the example
+  Message            —
+  Schedule           interval
+  Interval           1m0s
+  Timezone           UTC
+  Catchup            latest
+  Grace              —
+  Overlap            allow
+  Enabled            no
+  Favorite           no
+
+[1mj/k[m move · [1ml/→ or enter[m edit · [1mspace[m toggle · [1mctrl+s[m save job · [1mesc[m abandon edit

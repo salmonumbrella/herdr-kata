@@ -1,0 +1,24 @@
+  evidence before continuing. Read the local command evidence before continuing.
+  Read the local command evidence before continuing. Read the local command
+  evidence before continuing. Read the local command evidence before continuing.
+  Read the local command evidence before continuing. Read the local command
+  evidence before continuing. Read the local command evidence before continuing.
+  Read the local command evidence before continuing. Read the local command
+  evidence before continuing. Read the local command evidence before continuing.
+  Read the local command evidence before continuing. Read the local command
+  evidence before continuing. 
+  [38;5;242mfrom verify #2[m
+
+[1mSteps[m
+      [38;5;240m✓[m[38;5;242m plan             agent succeeded        —        [m
+      [1;38;5;124m✗[m[38;5;242m verify           cmd   failed (command verify exited 1) #2 1m0s     Read[m
+            [1;38;5;125m⏸[m[38;5;242m verify           cmd   stopped (no_activity)          [m
+      [38;5;242m·[m[38;5;242m publish          agent not started               [m
+
+[1mArtifacts[m
+  [38;5;242m/state/runs/run-a/run.json[m
+  [38;5;242m/state/runs/run-a/steps/verify/1/stderr.log[m
+  [38;5;242m/state/log/herdr-kata.log[m
+↑ 64 more
+[48;5;253m [m[38;5;242;48;5;253m[38;5;242mh/←[m [38;5;248mback[m [38;5;242m▕[m [38;5;242ml/→[m [38;5;248mopen job[m   [38;5;242m▕[m [38;5;242mj/k[m [38;5;248mscroll[m[38;5;242m▕[m [38;5;242ma[m [38;5;248mattach[m[38;5;242m▕[m [38;5;242mu[m [38;5;248mresume[m[38;5;242m▕[m [38;5;242mK[m [38;5;248mkata[m            [m[48;5;253m [m
+[48;5;253m [m[38;5;242;48;5;253m[38;5;242mr[m [38;5;248mrefresh[m[38;5;242m▕[m [38;5;242mctrl+d/u[m [38;5;248mscroll[m[38;5;242m▕[m [38;5;242mM[m [38;5;248mmouse[m   [38;5;242m▕[m [38;5;242mq[m [38;5;248mquit[m                                [m[48;5;253m [m
