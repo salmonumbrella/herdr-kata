@@ -170,10 +170,14 @@ restart:
 				}
 				r, err = m.store.Transition(uid, func(r *Run) error {
 					old := r.Steps[index]
-					if old.Herdr != nil {
+					if old.Kind == "prompt" {
+						// Retain even a live shared occupant before nextAttempt
+						// clears its submitted state. The retry can hold before
+						// another prompt is sent, while the first still counts.
 						retainAgent(r, index)
-					} else if exitedPrompt {
-						retainAgent(r, index)
+					}
+					if old.Herdr == nil && exitedPrompt {
+						retainSharedAgentRefs(r)
 						report := r.Herdr.ReportBin
 						r.Herdr = HerdrRef{ReportBin: report}
 					}

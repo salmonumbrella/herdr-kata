@@ -753,6 +753,13 @@ func AbandonProject(ctx context.Context, cfg config.Config, k Kata, guard RouteC
 		}
 		now := time.Now().UTC()
 		o = kata.Observation{JobUID: current.JobUID, DefinitionEventUID: current.DefinitionEventUID, WorkflowUID: current.WorkflowUID, WorkflowDefinitionEventUID: current.WorkflowDefinitionEventUID, OccurrenceKey: current.OccurrenceKey, IssueUID: current.IssueUID, Actor: current.Actor, ExecutorLabel: current.ExecutorLabel, Teammate: current.Teammate, Status: "unknown", Summary: kata.Summary{Version: 1, Message: "local state lost"}, StartedAt: current.StartedAt, EndedAt: &now, ExpectedRevision: current.Revision}
+		o.Transcripts = current.Transcripts
+		// Local loss prevents proving whether all attempts were represented.
+		o.TranscriptsIncomplete = true
+		o, e = prepareObservation(ctx, k, o)
+		if e != nil {
+			return false, e
+		}
 		pending.Version = 1
 		pending.Target = target
 		pending.Observation = o
@@ -765,7 +772,7 @@ func AbandonProject(ctx context.Context, cfg config.Config, k Kata, guard RouteC
 	if pending.Version != 1 || !sameTarget(pending.Target, target) || o.WorkflowUID != current.WorkflowUID || o.WorkflowDefinitionEventUID != current.WorkflowDefinitionEventUID || o.IssueUID != current.IssueUID || o.JobUID != current.JobUID || o.DefinitionEventUID != current.DefinitionEventUID || o.OccurrenceKey != current.OccurrenceKey || o.Actor != target.Identity.Actor || o.ExecutorLabel != target.Executor || o.Status != "unknown" || o.Summary.Message != "local state lost" {
 		return false, fmt.Errorf("abandon request identity differs")
 	}
-	if current.Status == o.Status && current.Summary == o.Summary && sameTime(current.StartedAt, o.StartedAt) && sameTime(current.EndedAt, o.EndedAt) && sameOptionalString(current.Teammate, o.Teammate) && current.Revision > o.ExpectedRevision {
+	if observationProvenance(current, &o) && current.Status == o.Status && current.Summary == o.Summary && sameTime(current.StartedAt, o.StartedAt) && sameTime(current.EndedAt, o.EndedAt) && sameOptionalString(current.Teammate, o.Teammate) && current.Revision > o.ExpectedRevision {
 		gone, e := reportAbandoned(ctx, k, guard, fsys, l, pinLayout, target, current)
 		if e != nil {
 			return false, e

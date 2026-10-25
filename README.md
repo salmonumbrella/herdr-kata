@@ -92,6 +92,11 @@ and the existing runtime inbox. Ordinary notifications remain non-executable.
 
 ## Limits
 
+Native cron session reports retain up to 64 unique Codex/Claude sessions and
+mark missing or excess sessions incomplete. They require a Kata CLI and
+daemon advertising session support; older combinations still report
+outcomes. See [native session links](docs/reference/reporting.md#native-session-links).
+
 Retiring a removed lane needs its original Kata route and credentials, and
 resolved identities for configured projects; see
 [Remove a project](docs/guide/multiple-projects.md#remove-a-project).

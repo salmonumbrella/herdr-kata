@@ -402,3 +402,81 @@ func TestGuardedPlanningDatesRefusedRouteSendsNothing(t *testing.T) {
 		t.Fatal("refused route returned planning dates")
 	}
 }
+
+func TestObservationTranscriptsCLIStdinAndReadback(t *testing.T) {
+	const links = `[{"agent":"codex","session_id":"00000000-0000-4000-8000-000000000001"},{"agent":"claude","session_id":"00000000-0000-4000-8000-000000000002","url":"https://agent.example/session/2"}]`
+	c := fakeCLI(t, `{"run":{"uid":"run","revision":2,"transcripts":`+links+`}}`, func(_ context.Context, argv, _ []string, _ string, body []byte) {
+		var fields map[string]json.RawMessage
+		requireNoError(t, json.Unmarshal(body, &fields))
+		if string(fields["transcripts"]) != links {
+			t.Fatalf("CLI stdin lost explicit sessions: %s", body)
+		}
+		if !reflect.DeepEqual(argv[len(argv)-6:], []string{"cron", "run", "observe", "run", "--json-input", "-"}) {
+			t.Fatal(argv)
+		}
+	})
+	var observation Observation
+	requireNoError(t, json.Unmarshal([]byte(`{"status":"succeeded","summary":{"version":1,"message":"finished"},"transcripts":`+links+`}`), &observation))
+	got, _, err := c.Observe(t.Context(), "run", observation)
+	requireNoError(t, err)
+	wire, err := json.Marshal(got)
+	requireNoError(t, err)
+	var fields map[string]json.RawMessage
+	requireNoError(t, json.Unmarshal(wire, &fields))
+	if string(fields["transcripts"]) != links {
+		t.Fatalf("CLI readback lost explicit sessions: %s", wire)
+	}
+}
+
+func TestObservationTranscriptCapabilityGate(t *testing.T) {
+	for _, tc := range []struct {
+		name, reply string
+		supported   bool
+	}{
+		{"both", `{"event_features":["cron_v1","cron_run_sessions_v1"],"cli_features":["cron_run_sessions_v1"]}`, true},
+		{"old-cli", `{"event_features":["cron_v1","cron_run_sessions_v1"]}`, false},
+		{"old-daemon", `{"event_features":["cron_v1"],"cli_features":["cron_run_sessions_v1"]}`, false},
+		{"old-both", `{"event_features":["cron_v1"]}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			probes, sends := 0, 0
+			c := New(config.Kata{Bin: "/bin/kata", Project: "example-project", Actor: "worker"}, "/state", func(_ context.Context, argv, _ []string, _ string, body []byte) ([]byte, []byte, int, error) {
+				if body == nil {
+					probes++
+					if !reflect.DeepEqual(argv[len(argv)-2:], []string{"cron", "capabilities"}) {
+						t.Fatal(argv)
+					}
+					return []byte(tc.reply), nil, 0, nil
+				}
+				sends++
+				if !reflect.DeepEqual(argv[len(argv)-6:], []string{"cron", "run", "observe", "run", "--json-input", "-"}) {
+					t.Fatal(argv)
+				}
+				var fields map[string]json.RawMessage
+				requireNoError(t, json.Unmarshal(body, &fields))
+				_, hasLinks := fields["transcripts"]
+				_, hasIncomplete := fields["transcripts_incomplete"]
+				if hasLinks != tc.supported || hasIncomplete != tc.supported {
+					t.Fatalf("unsupported provenance reached CLI stdin: %s", body)
+				}
+				var wire Observation
+				requireNoError(t, json.Unmarshal(body, &wire))
+				if wire.Status != "failed" || wire.ExpectedRevision != 4 || wire.Summary.InputTokens != 23 || wire.Summary.OutputTokens != 7 {
+					t.Fatalf("compatibility changed outcome or saved usage: %s", body)
+				}
+				return []byte(`{"run":{"uid":"run","revision":5,"status":"failed","summary":{"version":1,"message":"finished","input_tokens":23,"output_tokens":7}}}`), nil, 0, nil
+			}, nil)
+			original := Observation{Status: "failed", Transcripts: []Transcript{{Agent: "codex", SessionID: "00000000-0000-4000-8000-000000000001"}}, TranscriptsIncomplete: true, ExpectedRevision: 4, Summary: Summary{Version: 1, Message: "finished", InputTokens: 23, OutputTokens: 7}}
+			got, err := c.PrepareObservation(t.Context(), original)
+			requireNoError(t, err)
+			_, _, err = c.Observe(t.Context(), "run", got)
+			requireNoError(t, err)
+			if probes != 1 || sends != 1 {
+				t.Fatalf("probes=%d sends=%d", probes, sends)
+			}
+			if len(original.Transcripts) != 1 || !original.TranscriptsIncomplete {
+				t.Fatal("compatibility mutated caller's observation")
+			}
+		})
+	}
+}

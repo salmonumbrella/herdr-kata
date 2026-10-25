@@ -1,7 +1,7 @@
 ---
 title: Kata adapter contract
 description: Normative scheduling, admission, transport and native-child rules for the current adapter.
-last_edited: 2026-10-20
+last_edited: 2026-10-25
 ---
 
 # Kata adapter contract
@@ -241,6 +241,17 @@ a probe attempt's deadline. These limits and the probe deadline are internal
 constants, with no configuration keys.
 
 Every route must use Kata 0.19.0 or later.
+
+Native session links additionally require the installed CLI's
+`cli_features` and the daemon's `event_features` in `cron capabilities`
+to both contain `cron_run_sessions_v1`. The CLI marker describes its local
+JSON input support; the daemon cannot supply it on the CLI's behalf. The
+runtime checks both before freezing an unsent terminal observation, omits
+optional provenance on unsupported routes, and never changes a sent payload.
+The [reporting reference](reporting.md#native-session-links) owns the session
+format, incomplete marker, ordering and bounds. Older CLI/daemon combinations
+continue reporting outcomes without session links.
+
 Runtime checks require storage `schema_version >= 33`; `doctor` also prints
 the daemon version. Schema alone cannot identify a build's contract, so CI
 verifies the released test archive against its pinned SHA-256. The configured route is trusted:

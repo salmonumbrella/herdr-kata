@@ -21,6 +21,7 @@ type Route struct {
 type Capabilities struct {
 	ProjectUID    string   `json:"project_uid"`
 	EventFeatures []string `json:"event_features"`
+	CLIFeatures   []string `json:"cli_features,omitempty"`
 }
 type Job struct {
 	Author             string          `json:"-"`
@@ -58,40 +59,50 @@ type Summary struct {
 	InputTokens  int64  `json:"input_tokens,omitempty"`
 	OutputTokens int64  `json:"output_tokens,omitempty"`
 }
+type Transcript struct {
+	Agent     string `json:"agent"`
+	SessionID string `json:"session_id"`
+	URL       string `json:"url,omitempty"`
+}
+
 type Observation struct {
-	JobUID                     string     `json:"job_uid,omitempty"`
-	DefinitionEventUID         string     `json:"definition_event_uid,omitempty"`
-	WorkflowUID                string     `json:"workflow_uid,omitempty"`
-	WorkflowDefinitionEventUID string     `json:"workflow_definition_event_uid,omitempty"`
-	OccurrenceKey              string     `json:"occurrence_key,omitempty"`
-	IssueUID                   string     `json:"issue_uid,omitempty"`
-	Actor                      string     `json:"actor,omitempty"`
-	ExecutorLabel              string     `json:"executor_label,omitempty"`
-	Status                     string     `json:"status"`
-	Teammate                   *string    `json:"teammate,omitempty"`
-	Summary                    Summary    `json:"summary"`
-	StartedAt                  *time.Time `json:"started_at,omitempty"`
-	EndedAt                    *time.Time `json:"ended_at,omitempty"`
-	ExpectedRevision           int64      `json:"expected_revision"`
+	Transcripts                []Transcript `json:"transcripts,omitempty"`
+	TranscriptsIncomplete      bool         `json:"transcripts_incomplete,omitempty"`
+	JobUID                     string       `json:"job_uid,omitempty"`
+	DefinitionEventUID         string       `json:"definition_event_uid,omitempty"`
+	WorkflowUID                string       `json:"workflow_uid,omitempty"`
+	WorkflowDefinitionEventUID string       `json:"workflow_definition_event_uid,omitempty"`
+	OccurrenceKey              string       `json:"occurrence_key,omitempty"`
+	IssueUID                   string       `json:"issue_uid,omitempty"`
+	Actor                      string       `json:"actor,omitempty"`
+	ExecutorLabel              string       `json:"executor_label,omitempty"`
+	Status                     string       `json:"status"`
+	Teammate                   *string      `json:"teammate,omitempty"`
+	Summary                    Summary      `json:"summary"`
+	StartedAt                  *time.Time   `json:"started_at,omitempty"`
+	EndedAt                    *time.Time   `json:"ended_at,omitempty"`
+	ExpectedRevision           int64        `json:"expected_revision"`
 }
 type Run struct {
-	CreatedAt                  time.Time  `json:"created_at"`
-	UpdatedAt                  time.Time  `json:"updated_at"`
-	UID                        string     `json:"uid"`
-	JobUID                     string     `json:"job_uid"`
-	DefinitionEventUID         string     `json:"definition_event_uid"`
-	WorkflowUID                string     `json:"workflow_uid"`
-	WorkflowDefinitionEventUID string     `json:"workflow_definition_event_uid"`
-	OccurrenceKey              string     `json:"occurrence_key"`
-	IssueUID                   string     `json:"issue_uid"`
-	Actor                      string     `json:"actor"`
-	ExecutorLabel              string     `json:"executor_label"`
-	Status                     string     `json:"status"`
-	Teammate                   *string    `json:"teammate"`
-	Revision                   int64      `json:"revision"`
-	Summary                    Summary    `json:"summary"`
-	StartedAt                  *time.Time `json:"started_at"`
-	EndedAt                    *time.Time `json:"ended_at"`
+	Transcripts                []Transcript `json:"transcripts,omitempty"`
+	TranscriptsIncomplete      bool         `json:"transcripts_incomplete,omitempty"`
+	CreatedAt                  time.Time    `json:"created_at"`
+	UpdatedAt                  time.Time    `json:"updated_at"`
+	UID                        string       `json:"uid"`
+	JobUID                     string       `json:"job_uid"`
+	DefinitionEventUID         string       `json:"definition_event_uid"`
+	WorkflowUID                string       `json:"workflow_uid"`
+	WorkflowDefinitionEventUID string       `json:"workflow_definition_event_uid"`
+	OccurrenceKey              string       `json:"occurrence_key"`
+	IssueUID                   string       `json:"issue_uid"`
+	Actor                      string       `json:"actor"`
+	ExecutorLabel              string       `json:"executor_label"`
+	Status                     string       `json:"status"`
+	Teammate                   *string      `json:"teammate"`
+	Revision                   int64        `json:"revision"`
+	Summary                    Summary      `json:"summary"`
+	StartedAt                  *time.Time   `json:"started_at"`
+	EndedAt                    *time.Time   `json:"ended_at"`
 }
 type CommentReq struct {
 	Ref, Body, IdempotencyKey, ReplyTo, Kind string
