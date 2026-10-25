@@ -291,10 +291,14 @@ func TestReleaseDuringSettlementSerialized(t *testing.T) {
 func TestAbandonLostRunReplaysFrozenObservation(t *testing.T) {
 	f := newAdmission(t)
 	var seen []kata.Observation
+	links := []kata.Transcript{{Agent: "codex", SessionID: "00000000-0000-4000-8000-000000000001"}}
 	f.k.run = func(context.Context, string) (kata.Run, error) {
-		return kata.Run{UID: f.uid, JobUID: "job", DefinitionEventUID: "event", OccurrenceKey: "manual:" + f.uid, Actor: "worker", ExecutorLabel: f.cfg.Executor, Status: "running", Revision: 3}, nil
+		return kata.Run{UID: f.uid, JobUID: "job", DefinitionEventUID: "event", OccurrenceKey: "manual:" + f.uid, Actor: "worker", ExecutorLabel: f.cfg.Executor, Status: "running", Revision: 3, Transcripts: links}, nil
 	}
 	f.k.observe = func(_ context.Context, _ string, o kata.Observation) (kata.Run, bool, error) {
+		if len(o.Transcripts) != 1 || o.Transcripts[0] != links[0] || !o.TranscriptsIncomplete {
+			t.Fatalf("lost-state abandonment dropped sessions: %+v", o)
+		}
 		seen = append(seen, o)
 		if len(seen) == 1 {
 			return kata.Run{}, false, lostReply
@@ -699,6 +703,7 @@ func TestAbandonAppliedLostReplyConverges(t *testing.T) {
 		}
 		current.Revision++
 		current.Status, current.Summary, current.StartedAt, current.EndedAt, current.Teammate = o.Status, o.Summary, o.StartedAt, o.EndedAt, o.Teammate
+		current.Transcripts, current.TranscriptsIncomplete = o.Transcripts, o.TranscriptsIncomplete
 		return kata.Run{}, false, lostReply
 	}
 	if e := Abandon(t.Context(), f.cfg, f.k, f.g, f.s.fsys, f.s.layout, f.uid); e == nil {

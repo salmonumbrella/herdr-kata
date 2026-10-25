@@ -15,6 +15,7 @@ require (
 	github.com/netresearch/go-cron v0.16.1
 	go.kenn.io/kit v0.38.0
 	golang.org/x/sys v0.49.0
+	hegel.dev/go/hegel v0.9.20
 )
 
 require (

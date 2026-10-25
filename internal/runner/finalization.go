@@ -44,7 +44,7 @@ func (q *Queue) recoverFinal(ctx context.Context, r *Run) error {
 		if !observationIdentity(got, r.UID, want) {
 			continue
 		}
-		landed := got.Status == want.Status && got.Summary == want.Summary && sameTime(got.StartedAt, want.StartedAt) && sameTime(got.EndedAt, want.EndedAt) && got.Revision > want.ExpectedRevision
+		landed := observationProvenance(got, want) && got.Status == want.Status && got.Summary == want.Summary && sameTime(got.StartedAt, want.StartedAt) && sameTime(got.EndedAt, want.EndedAt) && got.Revision > want.ExpectedRevision
 		retry := got.Status == "running" && got.Revision == want.ExpectedRevision
 		if !landed && !retry {
 			continue
