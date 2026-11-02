@@ -62,6 +62,7 @@ func postRequest(ctx context.Context, args []string, st *journal.Store, out io.W
 		defer cancel()
 		poll := time.NewTicker(100 * time.Millisecond)
 		defer poll.Stop()
+		ended := false
 		for {
 			done, reason, err := q.Result(r.ID)
 			if err != nil {
@@ -75,10 +76,16 @@ func postRequest(ctx context.Context, args []string, st *journal.Store, out io.W
 				}
 				return 0
 			}
+			if ended {
+				if reason == "" {
+					reason = "waiting for worker"
+				}
+				fmt.Fprintln(out, "pending:", reason)
+				return 1
+			}
 			select {
 			case <-ctx.Done():
-				fmt.Fprintln(out, "request remains queued; worker has not responded:", ctx.Err())
-				return 1
+				ended = true
 			case <-poll.C:
 			}
 		}

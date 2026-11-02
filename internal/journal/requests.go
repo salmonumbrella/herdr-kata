@@ -16,6 +16,7 @@ type Request struct {
 	ID, Kind, Project, JobUID, Run, Input string
 	InputSet                              bool
 	Reason                                string
+	PendingReason                         string
 }
 type Requests struct{ Dir string }
 
@@ -106,6 +107,30 @@ func (q Requests) Reject(id, reason string) error {
 	return q.rejectFile(id+".json", reason)
 }
 
+func (q Requests) Block(id, reason string) error {
+	if !safeID(id) {
+		return fmt.Errorf("invalid request id")
+	}
+	path := filepath.Join(q.Dir, id+".json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var r Request
+	if err = json.Unmarshal(b, &r); err != nil {
+		return err
+	}
+	if r.ID != id {
+		return fmt.Errorf("request identity mismatch")
+	}
+	reason = strings.Join(strings.Fields(reason), " ")
+	if r.PendingReason == reason {
+		return nil
+	}
+	r.PendingReason = reason
+	return state.WriteJSON(path, r)
+}
+
 func (q Requests) Result(id string) (done bool, reason string, err error) {
 	if !safeID(id) {
 		return false, "", fmt.Errorf("invalid request id")
@@ -121,7 +146,16 @@ func (q Requests) Result(id string) (done bool, reason string, err error) {
 	}
 	_, err = os.Stat(filepath.Join(q.Dir, id+".done"))
 	if os.IsNotExist(err) {
-		return false, "", nil
+		b, err = os.ReadFile(filepath.Join(q.Dir, id+".json"))
+		if os.IsNotExist(err) {
+			return false, "", nil
+		}
+		if err != nil {
+			return false, "", err
+		}
+		var r Request
+		err = json.Unmarshal(b, &r)
+		return false, r.PendingReason, err
 	}
 	return err == nil, "", err
 }

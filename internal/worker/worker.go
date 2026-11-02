@@ -29,18 +29,19 @@ import (
 )
 
 type Worker struct {
-	Config      config.Config
-	Store       *journal.Store
-	HC          hc.HC
-	Clients     map[string]kata.Kata
-	Bin         string
-	Unsupported map[string][]string
-	installed   time.Time
-	lastTick    time.Time
+	Config       config.Config
+	Store        *journal.Store
+	HC           hc.HC
+	Clients      map[string]kata.Kata
+	Bin          string
+	Unsupported  map[string][]string
+	installed    time.Time
+	StartedAt    time.Time
+	SeenRequests map[string]bool
 }
 
 func New(c config.Config, st *journal.Store, h hc.HC, clients map[string]kata.Kata, bin string) *Worker {
-	return &Worker{Config: c, Store: st, HC: h, Clients: clients, Bin: bin, Unsupported: make(map[string][]string)}
+	return &Worker{Config: c, Store: st, HC: h, Clients: clients, Bin: bin, Unsupported: make(map[string][]string), SeenRequests: make(map[string]bool)}
 }
 func (w *Worker) init(now time.Time) error {
 	if !w.installed.IsZero() {
@@ -120,6 +121,13 @@ func (w *Worker) prepare(k kata.Kata, project config.Project, p defs.Plan, key, 
 	}
 	return err
 }
+
+func (w *Worker) acknowledgePreparation(q journal.Requests, req journal.Request, key string, prepareErr error) (bool, error) {
+	if prepareErr != nil && !w.Store.Exists(key) {
+		return false, prepareErr
+	}
+	return true, errors.Join(prepareErr, q.Done(req.ID))
+}
 func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched.Checkpoint, error) {
 	c := sched.Checkpoint{Version: 1, JobUID: job.UID, Through: w.installed}
 	if job.CreatedAt.After(c.Through) {
@@ -143,13 +151,12 @@ func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched
 		}
 	}
 	policy := p.Catchup
-	cutoff := now.Add(-p.Grace)
+	cutoff := c.Through
+	if w.StartedAt.After(cutoff) {
+		cutoff = w.StartedAt
+	}
+	cutoff = cutoff.Add(-p.Grace)
 	if policy == "skip" {
-		// A checkpoint from this process's previous tick proves a live scan.
-		// Restarted or stale scans retain normal downtime catchup filtering.
-		if !w.lastTick.IsZero() && c.Through.Equal(w.lastTick) {
-			cutoff = c.Through.Add(-p.Grace)
-		}
 		policy = "latest"
 	}
 	due := sched.Occurrences(job.Definition.Trigger, job.CreatedAt, c.Through, now, policy, p.Grace)
@@ -157,7 +164,7 @@ func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched
 	if p.Catchup != "all" && len(c.Pending) > 1 {
 		c.Pending = c.Pending[len(c.Pending)-1:]
 	}
-	if p.Catchup == "skip" && len(c.Pending) > 0 && c.Pending[0].At.Before(cutoff) {
+	if p.Catchup == "skip" && len(c.Pending) > 0 && (!c.Pending[0].At.After(cutoff) || now.Sub(c.Pending[0].At) > p.Grace+2*time.Minute) {
 		c.Pending = nil
 	}
 	return c, state.WriteJSON(w.Store.Layout.Job(job.UID), c)
@@ -188,26 +195,36 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	if err := w.init(now); err != nil {
 		return err
 	}
-	defer func() { w.lastTick = now.UTC() }()
+	if w.StartedAt.IsZero() {
+		w.StartedAt = now.UTC()
+	}
 	ctx = report.WithNow(ctx, now)
 	var errs []error
 	q := journal.Requests{Dir: w.Store.Layout.Requests()}
 	requests, err := q.Pending()
+	for _, req := range requests {
+		w.SeenRequests[req.ID] = true
+	}
 	if err != nil {
 		errs = append(errs, err)
 	}
 	consumed := make(map[string]bool)
+	matched := make(map[string]bool)
+	allRead := true
 	reasons := make(map[string]string)
+	permanent := make(map[string]string)
 	for _, req := range requests {
-		reasons[req.ID] = "job is unknown, disabled or deleted"
+		reasons[req.ID] = "waiting for project definitions"
 	}
-	rejectReason := func(project, job, reason string) {
+	setReason := func(destination map[string]string, project, job, reason string) {
 		for _, req := range requests {
 			if req.Kind == "run" && (req.Project == "" || req.Project == project) && (job == "" || req.JobUID == job) {
-				reasons[req.ID] = reason
+				destination[req.ID] = reason
 			}
 		}
 	}
+	rejectReason := func(project, job, reason string) { setReason(permanent, project, job, reason) }
+	pendingReason := func(project, job, reason string) { setReason(reasons, project, job, reason) }
 	for _, req := range requests {
 		if req.Kind != "run" {
 			continue
@@ -222,15 +239,10 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			}
 			if _, e := w.Store.Load(key); e != nil {
 				errs = append(errs, e)
-				consumed[req.ID] = true
-				if e = q.Reject(req.ID, "existing run journal is unreadable"); e != nil {
-					errs = append(errs, e)
-				}
-			} else {
-				consumed[req.ID] = true
-				if e = q.Done(req.ID); e != nil {
-					errs = append(errs, e)
-				}
+			}
+			consumed[req.ID] = true
+			if e := q.Done(req.ID); e != nil {
+				errs = append(errs, e)
 			}
 			break
 		}
@@ -246,25 +258,41 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	for _, project := range w.Config.Projects {
 		k := w.Clients[project.Name]
 		if k == nil {
-			rejectReason(project.Name, "", "project client is unavailable")
+			allRead = false
+			pendingReason(project.Name, "", "project client is unavailable")
 			errs = append(errs, fmt.Errorf("client missing for %s", project.Name))
 			continue
 		}
 		jobs, e := k.Jobs()
 		if e != nil {
-			rejectReason(project.Name, "", "project definitions are unavailable")
+			allRead = false
+			pendingReason(project.Name, "", "project definitions are unavailable")
 			errs = append(errs, fmt.Errorf("%s definitions: %w", project.Name, e))
 			continue
 		}
+		for _, job := range jobs {
+			for _, req := range requests {
+				if req.Kind == "run" && req.JobUID == job.UID && (req.Project == "" || req.Project == project.Name) {
+					matched[req.ID] = true
+				}
+			}
+			if job.DeletedAt != nil {
+				rejectReason(project.Name, job.UID, "job is deleted")
+			} else if !job.Definition.Enabled {
+				rejectReason(project.Name, job.UID, "job is disabled")
+			}
+		}
 		workflows, e := k.Workflows()
 		if e != nil {
-			rejectReason(project.Name, "", "project workflows are unavailable")
+			allRead = false
+			pendingReason(project.Name, "", "project workflows are unavailable")
 			errs = append(errs, e)
 			continue
 		}
 		ready, e := k.Ready()
 		if e != nil {
-			rejectReason(project.Name, "", "project readiness is unavailable")
+			allRead = false
+			pendingReason(project.Name, "", "project readiness is unavailable")
 			errs = append(errs, e)
 			continue
 		}
@@ -300,27 +328,27 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				}
 				can, e := w.capacity(project, job.UID, p.Overlap)
 				if e != nil {
-					rejectReason(project.Name, job.UID, "run capacity could not be checked")
+					pendingReason(project.Name, job.UID, "run capacity could not be checked")
 					errs = append(errs, e)
 					continue
 				}
 				if !can {
-					rejectReason(project.Name, job.UID, "run capacity or overlap gate is unavailable")
+					pendingReason(project.Name, job.UID, "run capacity or overlap gate is unavailable")
 					continue
 				}
 				manual := p
 				if req.InputSet || req.Input != "" {
 					manual.Input = req.Input
 				}
-				if e = w.prepare(k, project, manual, key, "manual:"+req.ID, req.ID, now); e != nil {
-					rejectReason(project.Name, job.UID, "could not prepare run: "+e.Error())
+				prepared, e := w.acknowledgePreparation(q, req, key, w.prepare(k, project, manual, key, "manual:"+req.ID, req.ID, now))
+				if e != nil {
+					pendingReason(project.Name, job.UID, "could not prepare run: "+e.Error())
 					errs = append(errs, e)
+				}
+				if !prepared {
 					continue
 				}
 				consumed[req.ID] = true
-				if e = q.Done(req.ID); e != nil {
-					errs = append(errs, e)
-				}
 			}
 			trig := job.Definition.Trigger
 			if trig.Kind == "manual" {
@@ -390,7 +418,15 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	}
 	for _, req := range requests {
 		if req.Kind == "run" && !consumed[req.ID] {
-			if e := q.Reject(req.ID, reasons[req.ID]); e != nil {
+			var e error
+			if reason := permanent[req.ID]; reason != "" {
+				e = q.Reject(req.ID, reason)
+			} else if !matched[req.ID] && allRead {
+				e = q.Reject(req.ID, "job is unknown")
+			} else {
+				e = q.Block(req.ID, reasons[req.ID])
+			}
+			if e != nil {
 				errs = append(errs, e)
 			}
 		}

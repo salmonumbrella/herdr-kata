@@ -33,14 +33,21 @@ type fakeKata struct {
 	ready     map[string]bool
 	date      *kata.DateValue
 	err       error
+	failures  map[string]error
 	createErr error
 	creates   int
 	bodies    [][]byte
 }
 
-func (k *fakeKata) Jobs() ([]kata.CronJob, error)                 { return k.jobs, k.err }
-func (k *fakeKata) Workflows() ([]kata.CronWorkflow, error)       { return k.workflows, k.err }
-func (k *fakeKata) Ready() (map[string]bool, error)               { return k.ready, k.err }
+func (k *fakeKata) Jobs() ([]kata.CronJob, error) {
+	return k.jobs, errors.Join(k.err, k.failures["jobs"])
+}
+func (k *fakeKata) Workflows() ([]kata.CronWorkflow, error) {
+	return k.workflows, errors.Join(k.err, k.failures["workflows"])
+}
+func (k *fakeKata) Ready() (map[string]bool, error) {
+	return k.ready, errors.Join(k.err, k.failures["ready"])
+}
 func (k *fakeKata) PlanningDates(string) (*kata.DateValue, error) { return k.date, k.err }
 func (k *fakeKata) IssueTitle(string) (string, error)             { return "Existing fixture issue", nil }
 func (k *fakeKata) CreateIssue(string, string, string) (string, string, error) {
@@ -356,7 +363,7 @@ func TestManualRun(t *testing.T) {
 }
 
 func TestRunRequestRejectedOnFirstTick(t *testing.T) {
-	for _, kind := range []string{"unknown", "disabled", "deleted", "unsupported", "not-ready", "capacity"} {
+	for _, kind := range []string{"unknown", "disabled", "deleted", "unsupported", "not-ready"} {
 		t.Run(kind, func(t *testing.T) {
 			w, _, k := fixture(t)
 			uid := k.jobs[0].UID
@@ -371,9 +378,6 @@ func TestRunRequestRejectedOnFirstTick(t *testing.T) {
 				k.jobs[0].Definition.Options = map[string]any{"adapter": "other"}
 			case "not-ready":
 				k.jobs[0].Definition.Issue = &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}
-			case "capacity":
-				request(t, w, journal.Request{ID: "first", Kind: "run", JobUID: uid})
-				tick(t, w, at)
 			}
 			request(t, w, journal.Request{ID: "rejected", Kind: "run", JobUID: uid})
 			_ = w.Tick(context.Background(), at)

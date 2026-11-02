@@ -18,6 +18,15 @@ type requestReply struct {
 }
 
 func respondToRequest(l state.Layout, reason string) <-chan requestReply {
+	return respondToRequestWith(l, func(q journal.Requests, r journal.Request) error {
+		if reason != "" {
+			return q.Reject(r.ID, reason)
+		}
+		return q.Done(r.ID)
+	})
+}
+
+func respondToRequestWith(l state.Layout, respond func(journal.Requests, journal.Request) error) <-chan requestReply {
 	out := make(chan requestReply, 1)
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -33,11 +42,7 @@ func respondToRequest(l state.Layout, reason string) <-chan requestReply {
 			}
 			if len(requests) > 0 {
 				r := requests[0]
-				if reason != "" {
-					err = q.Reject(r.ID, reason)
-				} else {
-					err = q.Done(r.ID)
-				}
+				err = respond(q, r)
 				out <- requestReply{Request: r, Err: err}
 				return
 			}
@@ -50,6 +55,29 @@ func respondToRequest(l state.Layout, reason string) <-chan requestReply {
 		}
 	}()
 	return out
+}
+
+func TestRunReportsPendingReasonWhenWaitEnds(t *testing.T) {
+	_, l := operatorFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	reply := respondToRequestWith(l, func(q journal.Requests, r journal.Request) error {
+		err := state.WriteJSON(filepath.Join(q.Dir, r.ID+".json"), map[string]any{"ID": r.ID, "Kind": r.Kind, "JobUID": r.JobUID, "PendingReason": "run capacity unavailable"})
+		cancel()
+		return err
+	})
+	var out bytes.Buffer
+	code := postRequest(ctx, []string{"run", "01J00000000000000000000010"}, journal.New(l), &out)
+	result := <-reply
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	if code != 1 || !strings.Contains(out.String(), "pending: run capacity unavailable") {
+		t.Fatalf("pending request: exit=%d output=%q", code, out.String())
+	}
+	if pending, err := (journal.Requests{Dir: l.Requests()}).Pending(); err != nil || len(pending) != 1 {
+		t.Fatalf("pending request lost: %v %v", pending, err)
+	}
 }
 
 func TestRunWaitsForRejection(t *testing.T) {

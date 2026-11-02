@@ -25,6 +25,7 @@ func serve(ctx context.Context, c config.Config, st *journal.Store, h hc.HC, cli
 	}
 	defer func() { _ = os.Remove(st.Layout.PID()) }()
 	w := worker.New(c, st, h, clients, bin)
+	w.StartedAt = time.Now().UTC()
 	advance := func() {
 		if err := w.Tick(ctx, time.Now().UTC()); err != nil {
 			fmt.Fprintln(out, err)
@@ -42,13 +43,24 @@ func serve(ctx context.Context, c config.Config, st *journal.Store, h hc.HC, cli
 		case <-ticks.C:
 			advance()
 		case <-requests.C:
-			pending, e := (journal.Requests{Dir: st.Layout.Requests()}).Pending()
-			if e != nil {
-				fmt.Fprintln(out, e)
-			}
-			if len(pending) > 0 {
-				advance()
-			}
+			pollNewRequests(journal.Requests{Dir: st.Layout.Requests()}, w.SeenRequests, advance, out)
 		}
+	}
+}
+
+func pollNewRequests(q journal.Requests, seen map[string]bool, advance func(), out io.Writer) {
+	pending, err := q.Pending()
+	if err != nil {
+		fmt.Fprintln(out, err)
+	}
+	fresh := false
+	for _, req := range pending {
+		if !seen[req.ID] {
+			fresh = true
+			seen[req.ID] = true
+		}
+	}
+	if fresh {
+		advance()
 	}
 }

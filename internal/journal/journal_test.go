@@ -219,3 +219,22 @@ func TestMalformedRequestRejectedWithoutHidingHealthyRequest(t *testing.T) {
 		t.Fatal("malformed request not rejected:", err)
 	}
 }
+
+func TestPendingRequestReasonIsNotRejection(t *testing.T) {
+	q := Requests{Dir: t.TempDir()}
+	r := Request{ID: "waiting", Kind: "run", JobUID: "fixture", Input: "Keep this input"}
+	if err := q.Write(r); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.WriteJSON(filepath.Join(q.Dir, "waiting.json"), map[string]any{"ID": r.ID, "Kind": r.Kind, "JobUID": r.JobUID, "Input": r.Input, "PendingReason": "run capacity unavailable"}); err != nil {
+		t.Fatal(err)
+	}
+	done, reason, err := q.Result(r.ID)
+	if err != nil || done || reason != "run capacity unavailable" {
+		t.Fatalf("pending result: done=%v reason=%q err=%v", done, reason, err)
+	}
+	pending, err := q.Pending()
+	if err != nil || len(pending) != 1 || pending[0].Input != r.Input {
+		t.Fatalf("pending request consumed or changed: %v %v", pending, err)
+	}
+}
