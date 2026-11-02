@@ -8,6 +8,9 @@ last_edited: 2026-11-02
 
 ## Unreleased
 
+- Read the project-wide `kata ready` list only when an enabled job uses an
+  existing issue or an `issue-scheduled` trigger. Projects with only per-run
+  jobs no longer stall a tick when that large read times out.
 - Support job-level `options.run_parent`: each per-run issue is created as a
   child of that issue UID. Steps also receive `KATA_PROJECT`.
 - Preserve committed progress and the original interval anchor across job edits

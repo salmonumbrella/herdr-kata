@@ -27,6 +27,8 @@ anchor, then follow the job's catch-up policy, as Kata's native scheduler does.
 
 An `issue-scheduled` job uses an existing issue's current raw schedule value
 as its occurrence identity and requires the issue in `kata ready --limit 0`.
+The worker reads that list only when an enabled job needs it: an
+`issue-scheduled` trigger or an `existing` issue policy.
 Clearing or changing the date changes unprepared work. `overlap: forbid`
 blocks another occurrence while a prepared, running or held run exists.
 `herdr-kata run <full-job-uid> [--input <text>]` posts a local manual request;

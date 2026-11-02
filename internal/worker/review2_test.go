@@ -138,6 +138,12 @@ func TestManualRequestsWaitForTransientReads(t *testing.T) {
 	for _, failure := range []string{"jobs", "workflows", "ready"} {
 		t.Run(failure, func(t *testing.T) {
 			w, h, k := fixture(t)
+			if failure == "ready" {
+				// Only jobs bound to an existing issue read the ready list.
+				issue := "01J00000000000000000000099"
+				k.jobs[0].Definition.Issue = &kata.IssuePolicy{Kind: "existing", UID: &issue}
+				k.ready = map[string]bool{issue: true}
+			}
 			request(t, w, journal.Request{ID: "waiting", Kind: "run", JobUID: k.jobs[0].UID})
 			k.failures = map[string]error{failure: &kata.Error{Code: 7}}
 			_ = w.Tick(context.Background(), at)
