@@ -182,9 +182,20 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	q := journal.Requests{Dir: w.Store.Layout.Requests()}
 	requests, err := q.Pending()
 	if err != nil {
-		return err
+		errs = append(errs, err)
 	}
 	consumed := make(map[string]bool)
+	reasons := make(map[string]string)
+	for _, req := range requests {
+		reasons[req.ID] = "job is unknown, disabled or deleted"
+	}
+	rejectReason := func(project, job, reason string) {
+		for _, req := range requests {
+			if req.Kind == "run" && (req.Project == "" || req.Project == project) && (job == "" || req.JobUID == job) {
+				reasons[req.ID] = reason
+			}
+		}
+	}
 	for _, req := range requests {
 		if req.Kind != "run" {
 			continue
@@ -199,6 +210,10 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			}
 			if _, e := w.Store.Load(key); e != nil {
 				errs = append(errs, e)
+				consumed[req.ID] = true
+				if e = q.Reject(req.ID, "existing run journal is unreadable"); e != nil {
+					errs = append(errs, e)
+				}
 			} else {
 				consumed[req.ID] = true
 				if e = q.Done(req.ID); e != nil {
@@ -219,21 +234,25 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	for _, project := range w.Config.Projects {
 		k := w.Clients[project.Name]
 		if k == nil {
+			rejectReason(project.Name, "", "project client is unavailable")
 			errs = append(errs, fmt.Errorf("client missing for %s", project.Name))
 			continue
 		}
 		jobs, e := k.Jobs()
 		if e != nil {
+			rejectReason(project.Name, "", "project definitions are unavailable")
 			errs = append(errs, fmt.Errorf("%s definitions: %w", project.Name, e))
 			continue
 		}
 		workflows, e := k.Workflows()
 		if e != nil {
+			rejectReason(project.Name, "", "project workflows are unavailable")
 			errs = append(errs, e)
 			continue
 		}
 		ready, e := k.Ready()
 		if e != nil {
+			rejectReason(project.Name, "", "project readiness is unavailable")
 			errs = append(errs, e)
 			continue
 		}
@@ -248,9 +267,11 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			p, reasons := defs.Freeze(job, wfs, w.Config, project.Name, exec.LookPath)
 			if len(reasons) > 0 {
 				w.Unsupported[job.UID] = reasons
+				rejectReason(project.Name, job.UID, "unsupported job: "+strings.Join(reasons, ", "))
 				continue
 			}
 			if p.Issue.Kind == "existing" && !ready[p.Issue.UID] {
+				rejectReason(project.Name, job.UID, "existing issue is not ready")
 				continue
 			}
 			for _, req := range requests {
@@ -259,6 +280,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				}
 				key := journal.ManualKey(w.Config.Executor, project.Name, req.ID)
 				if w.Store.Exists(key) {
+					consumed[req.ID] = true
 					if e = q.Done(req.ID); e != nil && !os.IsNotExist(e) {
 						errs = append(errs, e)
 					}
@@ -266,10 +288,12 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				}
 				can, e := w.capacity(project, job.UID, p.Overlap)
 				if e != nil {
+					rejectReason(project.Name, job.UID, "run capacity could not be checked")
 					errs = append(errs, e)
 					continue
 				}
 				if !can {
+					rejectReason(project.Name, job.UID, "run capacity or overlap gate is unavailable")
 					continue
 				}
 				manual := p
@@ -277,9 +301,11 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					manual.Input = req.Input
 				}
 				if e = w.prepare(k, project, manual, key, "manual:"+req.ID, req.ID, now); e != nil {
+					rejectReason(project.Name, job.UID, "could not prepare run: "+e.Error())
 					errs = append(errs, e)
 					continue
 				}
+				consumed[req.ID] = true
 				if e = q.Done(req.ID); e != nil {
 					errs = append(errs, e)
 				}
@@ -347,6 +373,13 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					errs = append(errs, e)
 					break
 				}
+			}
+		}
+	}
+	for _, req := range requests {
+		if req.Kind == "run" && !consumed[req.ID] {
+			if e := q.Reject(req.ID, reasons[req.ID]); e != nil {
+				errs = append(errs, e)
 			}
 		}
 	}

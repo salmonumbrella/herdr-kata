@@ -1,14 +1,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/oklog/ulid/v2"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"io"
+	"time"
 )
 
-func postRequest(args []string, st *journal.Store, out io.Writer) int {
+func postRequest(ctx context.Context, args []string, st *journal.Store, out io.Writer) int {
 	if len(args) < 2 {
 		fmt.Fprintln(out, "target required")
 		return 2
@@ -49,10 +51,37 @@ func postRequest(args []string, st *journal.Store, out io.Writer) int {
 		}
 		r.Run = run.RunUID
 	}
-	if err := (journal.Requests{Dir: st.Layout.Requests()}).Write(r); err != nil {
+	q := journal.Requests{Dir: st.Layout.Requests()}
+	if err := q.Write(r); err != nil {
 		fmt.Fprintln(out, err)
 		return 1
 	}
 	fmt.Fprintln(out, "queued", r.ID)
+	if r.Kind == "run" {
+		ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+		poll := time.NewTicker(100 * time.Millisecond)
+		defer poll.Stop()
+		for {
+			done, reason, err := q.Result(r.ID)
+			if err != nil {
+				fmt.Fprintln(out, err)
+				return 1
+			}
+			if done {
+				if reason != "" {
+					fmt.Fprintln(out, "rejected:", reason)
+					return 3
+				}
+				return 0
+			}
+			select {
+			case <-ctx.Done():
+				fmt.Fprintln(out, "request remains queued; worker has not responded:", ctx.Err())
+				return 1
+			case <-poll.C:
+			}
+		}
+	}
 	return 0
 }

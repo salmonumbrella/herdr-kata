@@ -1,10 +1,12 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -328,6 +330,40 @@ func TestManualRun(t *testing.T) {
 	pending, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Pending()
 	if err != nil || len(pending) != 0 || r.Plan.Input != "manual context" || r.RequestID != "request" {
 		t.Fatal(r, pending, err)
+	}
+}
+
+func TestRunRequestRejectedOnFirstTick(t *testing.T) {
+	for _, kind := range []string{"unknown", "disabled", "deleted", "unsupported", "not-ready", "capacity"} {
+		t.Run(kind, func(t *testing.T) {
+			w, _, k := fixture(t)
+			uid := k.jobs[0].UID
+			switch kind {
+			case "unknown":
+				uid = "01J00000000000000000000099"
+			case "disabled":
+				k.jobs[0].Definition.Enabled = false
+			case "deleted":
+				k.jobs[0].DeletedAt = new(at)
+			case "unsupported":
+				k.jobs[0].Definition.Options = map[string]any{"adapter": "other"}
+			case "not-ready":
+				k.jobs[0].Definition.Issue = &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}
+			case "capacity":
+				request(t, w, journal.Request{ID: "first", Kind: "run", JobUID: uid})
+				tick(t, w, at)
+			}
+			request(t, w, journal.Request{ID: "rejected", Kind: "run", JobUID: uid})
+			_ = w.Tick(context.Background(), at)
+			pending, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Pending()
+			if err != nil || len(pending) != 0 {
+				t.Fatalf("request still pending: %v %v", pending, err)
+			}
+			b, err := os.ReadFile(filepath.Join(w.Store.Layout.Requests(), "rejected.rejected"))
+			if err != nil || !bytes.Contains(b, []byte("Reason")) {
+				t.Fatalf("missing rejection reason: %s %v", b, err)
+			}
+		})
 	}
 }
 func TestRelease(t *testing.T) {

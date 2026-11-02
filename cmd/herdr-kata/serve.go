@@ -45,7 +45,8 @@ func serve(ctx context.Context, c config.Config, st *journal.Store, h hc.HC, cli
 			pending, e := (journal.Requests{Dir: st.Layout.Requests()}).Pending()
 			if e != nil {
 				fmt.Fprintln(out, e)
-			} else if len(pending) > 0 {
+			}
+			if len(pending) > 0 {
 				advance()
 			}
 		}

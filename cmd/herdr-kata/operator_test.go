@@ -2,13 +2,69 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+type requestReply struct {
+	Request journal.Request
+	Err     error
+}
+
+func respondToRequest(l state.Layout, reason string) <-chan requestReply {
+	out := make(chan requestReply, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		poll := time.NewTicker(10 * time.Millisecond)
+		defer poll.Stop()
+		q := journal.Requests{Dir: l.Requests()}
+		for {
+			requests, err := q.Pending()
+			if err != nil {
+				out <- requestReply{Err: err}
+				return
+			}
+			if len(requests) > 0 {
+				r := requests[0]
+				if reason != "" {
+					err = q.Reject(r.ID, reason)
+				} else {
+					err = q.Done(r.ID)
+				}
+				out <- requestReply{Request: r, Err: err}
+				return
+			}
+			select {
+			case <-ctx.Done():
+				out <- requestReply{Err: ctx.Err()}
+				return
+			case <-poll.C:
+			}
+		}
+	}()
+	return out
+}
+
+func TestRunWaitsForRejection(t *testing.T) {
+	config, l := operatorFixture(t)
+	reply := respondToRequest(l, "unsupported job")
+	var out bytes.Buffer
+	code := run([]string{"--config", config, "--state", l.Root, "run", "01J00000000000000000000010"}, &out)
+	result := <-reply
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	if code != 3 || !strings.Contains(out.String(), "unsupported job") {
+		t.Fatalf("rejected request: exit=%d output=%q", code, out.String())
+	}
+}
 
 func operatorFixture(t *testing.T) (string, state.Layout) {
 	t.Helper()
@@ -30,14 +86,15 @@ actor="worker"
 }
 func TestRunOnlyPostsLocalRequest(t *testing.T) {
 	config, l := operatorFixture(t)
+	reply := respondToRequest(l, "")
 	var out bytes.Buffer
 	code := run([]string{"--config", config, "--state", l.Root, "run", "01J00000000000000000000010", "--input", "manual context"}, &out)
 	if code != 0 {
 		t.Fatalf("run %d: %s", code, &out)
 	}
-	requests, err := (journal.Requests{Dir: l.Requests()}).Pending()
-	if err != nil || len(requests) != 1 || requests[0].Input != "manual context" || requests[0].JobUID != "01J00000000000000000000010" {
-		t.Fatal(requests, err)
+	result := <-reply
+	if result.Err != nil || result.Request.Input != "manual context" || result.Request.JobUID != "01J00000000000000000000010" {
+		t.Fatal(result)
 	}
 }
 func localRun(t *testing.T, l state.Layout, phase string) journal.Run {
@@ -94,12 +151,13 @@ func TestServeSecondLockRejected(t *testing.T) {
 
 func TestExplicitEmptyInputPreserved(t *testing.T) {
 	config, l := operatorFixture(t)
+	reply := respondToRequest(l, "")
 	var out bytes.Buffer
 	if code := run([]string{"--config", config, "--state", l.Root, "run", "01J00000000000000000000010", "--input", ""}, &out); code != 0 {
 		t.Fatalf("run %d %s", code, &out)
 	}
-	requests, err := (journal.Requests{Dir: l.Requests()}).Pending()
-	if err != nil || len(requests) != 1 || !requests[0].InputSet || requests[0].Input != "" {
-		t.Fatal(requests, err)
+	result := <-reply
+	if result.Err != nil || !result.Request.InputSet || result.Request.Input != "" {
+		t.Fatal(result)
 	}
 }

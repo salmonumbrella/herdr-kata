@@ -86,7 +86,7 @@ func operatorCommand(args []string, configPath, root string, out io.Writer) int 
 	}
 	switch args[0] {
 	case "run", "release":
-		return postRequest(args, st, out)
+		return postRequest(ctx, args, st, out)
 	case "logs":
 		return logs(ctx, args, st, h, out)
 	case "up":

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -182,7 +183,8 @@ func (s *Store) All() ([]Run, error) {
 		}
 		r, err := s.Load(e.Name())
 		if err != nil {
-			return nil, fmt.Errorf("run %s: %w", e.Name(), err)
+			slog.Error("skip unreadable run journal", "key", e.Name(), "error", err)
+			continue
 		}
 		out = append(out, r)
 	}

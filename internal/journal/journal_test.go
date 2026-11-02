@@ -183,3 +183,39 @@ func TestJournalRoundTrip(t *testing.T) {
 		}
 	})
 }
+
+func TestUnreadableJournalDoesNotHideHealthyRun(t *testing.T) {
+	st := New(state.Layout{Root: t.TempDir()})
+	r := sample()
+	if err := st.Create(r); err != nil {
+		t.Fatal(err)
+	}
+	bad := ManualKey("executor", "example-project", "bad")
+	if err := state.WriteFile(filepath.Join(st.Layout.Run(bad), "run.json"), []byte("{")); err != nil {
+		t.Fatal(err)
+	}
+	runs, err := st.Active()
+	if err != nil || len(runs) != 1 || runs[0].RunUID != r.RunUID {
+		t.Fatalf("bad file blocks healthy run: %v %v", runs, err)
+	}
+	if !st.Exists(bad) {
+		t.Fatal("corrupt run lost dedup barrier")
+	}
+}
+
+func TestMalformedRequestRejectedWithoutHidingHealthyRequest(t *testing.T) {
+	q := Requests{Dir: t.TempDir()}
+	if err := q.Write(Request{ID: "healthy", Kind: "run", JobUID: "fixture"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(q.Dir, "bad.json"), []byte("{"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	requests, err := q.Pending()
+	if err != nil || len(requests) != 1 || requests[0].ID != "healthy" {
+		t.Fatalf("malformed request blocks healthy request: %v %v", requests, err)
+	}
+	if _, err := os.Stat(filepath.Join(q.Dir, "bad.rejected")); err != nil {
+		t.Fatal("malformed request not rejected:", err)
+	}
+}
