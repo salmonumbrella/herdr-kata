@@ -32,7 +32,7 @@ func SyncDir(path string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return f.Sync()
 }
 
@@ -42,6 +42,10 @@ func WriteJSON(path string, v any) error {
 	if err != nil {
 		return err
 	}
+	return WriteFile(path, append(b, '\n'))
+}
+func WriteFile(path string, b []byte) error {
+	var err error
 	if err = EnsureDir(filepath.Dir(path)); err != nil {
 		return err
 	}
@@ -51,7 +55,7 @@ func WriteJSON(path string, v any) error {
 	}
 	name := f.Name()
 	defer func() { _ = os.Remove(name) }()
-	if _, err = f.Write(append(b, '\n')); err != nil {
+	if _, err = f.Write(b); err != nil {
 		_ = f.Close()
 		return err
 	}

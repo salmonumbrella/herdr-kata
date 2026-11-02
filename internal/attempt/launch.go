@@ -8,13 +8,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
@@ -83,7 +83,7 @@ func Launch(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	a.Nonce = hex.EncodeToString(entropy[:])
 	a.CoreID = core
 	a.Name = Name(spec.Labels["kata.executor"], r.RunUID, a.Step, a.N, a.Nonce)
-	a.LaunchedAt = time.Now().UTC()
+	a.LaunchedAt = clock.Now(ctx)
 	spec.Name = a.Name
 	spec.Labels = maps.Clone(spec.Labels)
 	if spec.Labels == nil {
@@ -130,6 +130,9 @@ func Recover(ctx context.Context, h hc.HC, st *journal.Store, key string, idx in
 	if a.Address != "" {
 		return nil
 	}
+	if a.Nonce == "" || a.CoreID == "" || a.Name == "" || a.Spec.Labels["kata.nonce"] != a.Nonce {
+		return hold(st, key, idx, "launch_ambiguous")
+	}
 	core, err := h.CoreID(ctx)
 	if err != nil {
 		return err
@@ -141,6 +144,9 @@ func Recover(ctx context.Context, h hc.HC, st *journal.Store, key string, idx in
 	if len(found) == 0 {
 		if core != a.CoreID {
 			return hold(st, key, idx, "launch_unproven")
+		}
+		if !r.ExpiresAt.IsZero() && !clock.Now(ctx).Before(r.ExpiresAt) {
+			return hold(st, key, idx, "timeout")
 		}
 		if err = st.Update(key, func(r *journal.Run) error { r.Attempts[idx].Nonce = ""; return nil }); err != nil {
 			return err

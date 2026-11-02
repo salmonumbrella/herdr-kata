@@ -186,6 +186,9 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		if e != nil || json.Unmarshal(b, &receipt) != nil || receipt.StartedAt.Before(a.LaunchedAt) || receipt.StartedAt.IsZero() || receipt.EndedAt.Before(receipt.StartedAt) {
 			return held(st, key, idx, lost)
 		}
+		if !r.ExpiresAt.IsZero() && receipt.EndedAt.After(r.ExpiresAt) {
+			return held(st, key, idx, "timeout")
+		}
 		note := ""
 		b, e = prompt.ReadRegular(filepath.Join(dir, "note.txt"), 282)
 		if e == nil {

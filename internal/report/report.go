@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	runclock "github.com/salmonumbrella/herdr-kata/internal/clock"
 	"reflect"
 	"slices"
 	"strings"
@@ -15,16 +16,11 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
 )
 
-type timeKey struct{}
-
 func WithNow(ctx context.Context, at time.Time) context.Context {
-	return context.WithValue(ctx, timeKey{}, at)
+	return runclock.WithNow(ctx, at)
 }
 func clock(ctx context.Context) time.Time {
-	if at, ok := ctx.Value(timeKey{}).(time.Time); ok {
-		return at.UTC()
-	}
-	return time.Now().UTC()
+	return runclock.Now(ctx)
 }
 func bounded(s string) string {
 	if len(s) > 4096 {

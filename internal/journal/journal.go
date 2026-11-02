@@ -41,6 +41,7 @@ type Attempt struct {
 	TurnEndedAt, IdleSince, ResultStableSince               *time.Time
 }
 type Run struct {
+	IssueTitle                                                                string
 	Actor, Executor, Detail                                                   string
 	DeadlineDone, ReportDone, ReportRefused                                   bool
 	ReportBody                                                                []byte
@@ -144,6 +145,19 @@ func (s *Store) Update(key string, fn func(*Run) error) error {
 	return state.WriteJSON(filepath.Join(s.Layout.Run(key), "run.json"), r)
 }
 func (s *Store) Active() ([]Run, error) {
+	runs, err := s.All()
+	if err != nil {
+		return nil, err
+	}
+	out := runs[:0]
+	for _, r := range runs {
+		if r.Phase != "reported" && r.Phase != "released" {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+func (s *Store) All() ([]Run, error) {
 	entries, err := os.ReadDir(filepath.Join(s.Layout.Root, "runs"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -160,9 +174,22 @@ func (s *Store) Active() ([]Run, error) {
 		if err != nil {
 			return nil, fmt.Errorf("run %s: %w", e.Name(), err)
 		}
-		if r.Phase != "reported" && r.Phase != "released" {
-			out = append(out, r)
-		}
+		out = append(out, r)
 	}
 	return out, nil
+}
+func (s *Store) Find(ref string) (Run, error) {
+	if validKey(ref) {
+		return s.Load(ref)
+	}
+	runs, err := s.All()
+	if err != nil {
+		return Run{}, err
+	}
+	for _, r := range runs {
+		if r.RunUID == ref {
+			return r, nil
+		}
+	}
+	return Run{}, os.ErrNotExist
 }

@@ -205,3 +205,14 @@ func TestControlArgv(t *testing.T) {
 		})
 	}
 }
+
+func TestExecArgv(t *testing.T) {
+	h, args := stub(t, "read", "0")
+	got, err := h.Exec(context.Background(), []string{"env", "-u", "HC_SOCKET", "/usr/local/bin/kata", "whoami"})
+	if err != nil || got != "{\"complete\":true,\"how\":\"history\",\"text\":\"example output\"}\n" {
+		t.Fatalf("exec %q %v", got, err)
+	}
+	if !reflect.DeepEqual(args(), []string{"exec", "--", "env", "-u", "HC_SOCKET", "/usr/local/bin/kata", "whoami"}) {
+		t.Fatal(args())
+	}
+}

@@ -89,6 +89,15 @@ func TestObserveRevisionMismatchRefused(t *testing.T) {
 	}
 }
 
+func TestIssueTitle(t *testing.T) {
+	k, args := stub(t, "create", "0")
+	got, err := k.IssueTitle("01J00000000000000000000020")
+	if err != nil || got != "Example scheduled work" {
+		t.Fatalf("title %q %v", got, err)
+	}
+	assertArgs(t, args(), "show", "01J00000000000000000000020")
+}
+
 func TestObserveReplay(t *testing.T) {
 	k, args := stub(t, "observe-replay", "0")
 	body := []byte("{\n  \"expected_revision\":0,\"status\":\"running\",\"summary\":{\"version\":1}\n}\n")

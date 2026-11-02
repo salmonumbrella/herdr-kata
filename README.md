@@ -5,7 +5,7 @@ schedules, issues and run evidence. Use Kata's Jobs and Runs tabs to inspect
 work. This adapter launches fresh agents and command steps, keeps a local
 recovery journal, and records observations in Kata.
 
-Status: v2 under construction. The current CLI is a skeleton.
+Status: v2 worker and operator CLI implemented; isolated live checks pending.
 
 ## Requirements
 
@@ -55,6 +55,14 @@ unset_env = []
 the config. `hc_session` defaults to `default`. Kata environment overrides
 allow only `KATA_SERVER`, `KATA_HOME` and `XDG_*`; never put tokens in config.
 State defaults to `$XDG_STATE_HOME/herdr-kata/`.
+
+## Running work
+
+Start the worker with `herdr-kata up` and check its execution environment with
+`herdr-kata doctor`. `herdr-kata run <job-uid> --input <text>` queues a local
+request. Use `herdr-kata logs <run-uid>` to read output and
+`herdr-kata release <run-uid>` to free a held run's slot and overlap gate.
+`herdr-kata stop` stops the worker; job terminals continue for recovery.
 
 ## Starting at login
 

@@ -56,6 +56,7 @@ type Kata interface {
 	Workflows() ([]CronWorkflow, error)
 	Ready() (map[string]bool, error)
 	PlanningDates(string) (*DateValue, error)
+	IssueTitle(string) (string, error)
 	CreateIssue(string, string, string) (string, string, error)
 	SetDeadline(string, time.Time) error
 	Notify(string, string, string) error
@@ -139,6 +140,11 @@ func (c *cli) PlanningDates(uid string) (*DateValue, error) {
 	}
 	err := c.call(nil, &v, "show", uid, "--planning-dates")
 	return v.Scheduled, err
+}
+func (c *cli) IssueTitle(uid string) (string, error) {
+	var v struct{ Issue struct{ Title string } }
+	err := c.call(nil, &v, "show", uid)
+	return v.Issue.Title, err
 }
 func (c *cli) CreateIssue(title, body, key string) (string, string, error) {
 	var v struct {

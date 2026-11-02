@@ -10,7 +10,10 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
-type Request struct{ ID, Kind, Project, JobUID, Run, Input string }
+type Request struct {
+	ID, Kind, Project, JobUID, Run, Input string
+	InputSet                              bool
+}
 type Requests struct{ Dir string }
 
 func safeID(s string) bool {

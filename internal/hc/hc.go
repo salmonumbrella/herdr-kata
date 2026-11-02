@@ -51,6 +51,8 @@ type HC interface {
 	Kill(context.Context, string) error
 	Remove(context.Context, string) error
 	CoreID(context.Context) (string, error)
+	Info(context.Context) (ServerInfo, error)
+	Exec(context.Context, []string) (string, error)
 }
 type cli struct{ bin, session string }
 
@@ -184,16 +186,36 @@ func (c *cli) Remove(ctx context.Context, target string) error {
 	return err
 }
 func (c *cli) CoreID(ctx context.Context) (string, error) {
+	v, err := c.Info(ctx)
+	return v.CoreID, err
+}
+
+type ServerInfo struct {
+	CoreID, Version string
+	PID             int
+	UptimeMs        int64
+}
+
+func (c *cli) Exec(ctx context.Context, argv []string) (string, error) {
+	b, err := c.call(ctx, append([]string{"exec", "--"}, argv...)...)
+	return string(b), err
+}
+func (c *cli) Info(ctx context.Context) (ServerInfo, error) {
 	b, err := c.call(ctx, "server", "status", "--json")
 	if err != nil {
-		return "", err
+		return ServerInfo{}, err
 	}
-	var v struct{ Core struct{ ID string } }
+	var v struct {
+		Core     struct{ ID string }
+		Version  string
+		PID      int
+		UptimeMs int64 `json:"uptime_ms"`
+	}
 	err = json.Unmarshal(b, &v)
 	if err == nil && v.Core.ID == "" {
 		err = errors.New("hc status has no core id")
 	}
-	return v.Core.ID, err
+	return ServerInfo{CoreID: v.Core.ID, Version: v.Version, PID: v.PID, UptimeMs: v.UptimeMs}, err
 }
 
 // EnvPrefix carries values as argv elements without shell interpolation.

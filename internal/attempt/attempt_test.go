@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
@@ -107,7 +108,7 @@ func saveResult(t *testing.T, st *journal.Store, r journal.Run, status string) {
 func advance(t *testing.T, st *journal.Store, f *fakeHC, r journal.Run, at time.Time) Outcome {
 	t.Helper()
 	for n := 0; n < 5; n++ {
-		out, err := Settle(context.Background(), f, st, r.Key, 0, at)
+		out, err := Settle(clock.WithNow(context.Background(), now), f, st, r.Key, 0, at)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -136,7 +137,7 @@ func TestIntentSavedBeforeRun(t *testing.T) {
 		}
 	}
 	spec := hc.RunSpec{Cwd: "/srv/projects/example", Labels: map[string]string{"kata.executor": "executor"}, Argv: []string{"/usr/local/bin/agent"}}
-	if err := Launch(context.Background(), f, st, r.Key, 0, spec); err != nil {
+	if err := Launch(clock.WithNow(context.Background(), now), f, st, r.Key, 0, spec); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Load(r.Key)
@@ -148,7 +149,7 @@ func intent(t *testing.T) (*journal.Store, *fakeHC, journal.Run) {
 	st, f, r := setup(t, "prompt")
 	f.runErr = errors.New("reply lost")
 	_ = st.Update(r.Key, func(r *journal.Run) error { r.Attempts[0] = journal.Attempt{Step: "main", N: 1}; return nil })
-	_ = Launch(context.Background(), f, st, r.Key, 0, hc.RunSpec{Cwd: "/srv/projects/example", Labels: map[string]string{"kata.executor": "executor"}, Argv: []string{"/usr/local/bin/agent"}})
+	_ = Launch(clock.WithNow(context.Background(), now), f, st, r.Key, 0, hc.RunSpec{Cwd: "/srv/projects/example", Labels: map[string]string{"kata.executor": "executor"}, Argv: []string{"/usr/local/bin/agent"}})
 	f.runErr = nil
 	got, _ := st.Load(r.Key)
 	return st, f, got
@@ -157,7 +158,7 @@ func TestRecoverAdoptsExactlyOne(t *testing.T) {
 	st, f, r := intent(t)
 	a := r.Attempts[0]
 	f.terms = map[string]hc.Terminal{"t2": {Address: "t2", Name: a.Name, State: "finished", CreatedMs: 200, PID: 202, Labels: a.Spec.Labels, Argv: a.Spec.Argv}}
-	if err := Recover(context.Background(), f, st, r.Key, 0); err != nil {
+	if err := Recover(clock.WithNow(context.Background(), now), f, st, r.Key, 0); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Load(r.Key)
@@ -168,7 +169,7 @@ func TestRecoverAdoptsExactlyOne(t *testing.T) {
 func TestRecoverZeroSameCoreRelaunchesWithNewNonce(t *testing.T) {
 	st, f, r := intent(t)
 	old := r.Attempts[0].Nonce
-	if err := Recover(context.Background(), f, st, r.Key, 0); err != nil {
+	if err := Recover(clock.WithNow(context.Background(), now), f, st, r.Key, 0); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Load(r.Key)
@@ -179,7 +180,7 @@ func TestRecoverZeroSameCoreRelaunchesWithNewNonce(t *testing.T) {
 func TestRecoverZeroNewCoreHoldsUnproven(t *testing.T) {
 	st, f, r := intent(t)
 	f.core = "core-two"
-	if err := Recover(context.Background(), f, st, r.Key, 0); err != nil {
+	if err := Recover(clock.WithNow(context.Background(), now), f, st, r.Key, 0); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Load(r.Key)
@@ -197,7 +198,7 @@ func TestRecoverManyOrMismatchHoldsAmbiguous(t *testing.T) {
 			if many {
 				f.terms["t3"] = term
 			}
-			if err := Recover(context.Background(), f, st, r.Key, 0); err != nil {
+			if err := Recover(clock.WithNow(context.Background(), now), f, st, r.Key, 0); err != nil {
 				t.Fatal(err)
 			}
 			got, _ := st.Load(r.Key)
@@ -231,7 +232,7 @@ func TestGuardBlocksKill(t *testing.T) {
 		}
 		return v, nil
 	}
-	out, err := Settle(context.Background(), f, st, r.Key, 0, now)
+	out, err := Settle(clock.WithNow(context.Background(), now), f, st, r.Key, 0, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -254,7 +255,7 @@ func TestPromptPendingAndErrors(t *testing.T) {
 			v.Reported = tt.reported
 			v.Turn = tt.turn
 			f.terms["t1"] = v
-			out, err := Settle(context.Background(), f, st, r.Key, 0, now)
+			out, err := Settle(clock.WithNow(context.Background(), now), f, st, r.Key, 0, now)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -274,7 +275,7 @@ func TestNoActivityAfterFiveMinutes(t *testing.T) {
 	v.Reported = true
 	v.Status = "idle"
 	f.terms["t1"] = v
-	_, _ = Settle(context.Background(), f, st, r.Key, 0, now)
+	_, _ = Settle(clock.WithNow(context.Background(), now), f, st, r.Key, 0, now)
 	out := advance(t, st, f, r, now.Add(5*time.Minute))
 	if h, ok := out.(Held); !ok || h.Reason != "no_activity" {
 		t.Fatal(out)
@@ -282,7 +283,7 @@ func TestNoActivityAfterFiveMinutes(t *testing.T) {
 }
 func TestNeverReportingAgentNotNoActivity(t *testing.T) {
 	st, f, r := setup(t, "prompt")
-	_, _ = Settle(context.Background(), f, st, r.Key, 0, now)
+	_, _ = Settle(clock.WithNow(context.Background(), now), f, st, r.Key, 0, now)
 	if out := advance(t, st, f, r, now.Add(6*time.Minute)); reflect.TypeOf(out) != reflect.TypeFor[Pending]() {
 		t.Fatal(out)
 	}
@@ -476,7 +477,7 @@ func TestLaunchPrefixHasPathHomeAndAbsoluteArgv(t *testing.T) {
 			t.Fatal(s)
 		}
 	}
-	if err := Launch(context.Background(), f, st, r.Key, 0, hc.RunSpec{Prefix: got, Argv: []string{"/usr/local/bin/agent"}, Labels: map[string]string{"kata.executor": "executor"}}); err != nil {
+	if err := Launch(clock.WithNow(context.Background(), now), f, st, r.Key, 0, hc.RunSpec{Prefix: got, Argv: []string{"/usr/local/bin/agent"}, Labels: map[string]string{"kata.executor": "executor"}}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -528,7 +529,7 @@ func TestCleanupSurvivesMissingTerminalAfterRemove(t *testing.T) {
 	v.Status = "done"
 	v.Turn = 1
 	f.terms["t1"] = v
-	_, err := Settle(context.Background(), f, st, r.Key, 0, now)
+	_, err := Settle(clock.WithNow(context.Background(), now), f, st, r.Key, 0, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,12 +568,32 @@ func TestGuardReadFailureDefers(t *testing.T) {
 		}
 		return term, nil
 	}
-	out, err := Settle(context.Background(), f, st, r.Key, 0, now)
+	out, err := Settle(clock.WithNow(context.Background(), now), f, st, r.Key, 0, now)
 	if !errors.Is(err, unavailable) {
 		t.Fatalf("outcome %+v error %v", out, err)
 	}
 	got, _ := st.Load(r.Key)
 	if got.Attempts[0].Hold != "" || len(f.calls) != 0 {
 		t.Fatalf("unavailability became a hold: %+v", got.Attempts[0])
+	}
+}
+
+func TestCommandCompletedAfterExpiryHolds(t *testing.T) {
+	st, f, r := command(t, 0)
+	if err := state.WriteJSON(filepath.Join(st.Layout.Attempt(r.Key, "main", 1), "receipt.json"), journal.Receipt{ExitCode: 0, StartedAt: now, EndedAt: r.ExpiresAt.Add(time.Second)}); err != nil {
+		t.Fatal(err)
+	}
+	out := advance(t, st, f, r, r.ExpiresAt.Add(2*time.Second))
+	if h, ok := out.(Held); !ok || h.Reason != "timeout" {
+		t.Fatal(out)
+	}
+}
+func TestRecoverMissingIntentHolds(t *testing.T) {
+	st, f, r := setup(t, "prompt")
+	_ = st.Update(r.Key, func(r *journal.Run) error { a := &r.Attempts[0]; a.Address = ""; a.Nonce = ""; return nil })
+	_ = Recover(clock.WithNow(context.Background(), now), f, st, r.Key, 0)
+	got, _ := st.Load(r.Key)
+	if got.Attempts[0].Hold != "launch_ambiguous" || f.runs != 0 {
+		t.Fatal(got.Attempts, f.runs)
 	}
 }

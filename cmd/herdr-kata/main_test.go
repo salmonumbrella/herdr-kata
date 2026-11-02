@@ -13,15 +13,6 @@ func TestUnknownCommandExit2(t *testing.T) {
 	}
 }
 
-func TestSkeletonCommands(t *testing.T) {
-	for _, cmd := range []string{"up", "serve", "stop", "run", "release", "logs", "doctor"} {
-		var out bytes.Buffer
-		if code := run([]string{cmd}, &out); code != 2 || !strings.Contains(out.String(), "not implemented") {
-			t.Fatalf("%s: %d %s", cmd, code, &out)
-		}
-	}
-}
-
 func TestVersion(t *testing.T) {
 	var out bytes.Buffer
 	if code := run([]string{"version"}, &out); code != 0 || !strings.Contains(out.String(), "herdr-kata v2") {

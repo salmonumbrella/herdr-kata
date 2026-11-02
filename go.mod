@@ -10,5 +10,6 @@ require (
 require (
 	github.com/ebitengine/purego v0.12.0-alpha.1.0.20261015130536-d456b1bb95e8 // indirect
 	github.com/netresearch/go-cron v0.16.1 // indirect
+	github.com/oklog/ulid/v2 v2.1.2 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )
