@@ -19,6 +19,13 @@ the same lifetime lock. Definitions and scheduling are refreshed every
 process has not seen. Known pending requests, including releases waiting for
 Kata, retry on the regular 30-second tick.
 
+A manual run is rejected rather than queued when its existing issue is not
+ready or a required host profile executable or checkout mapping is missing;
+rerun it once the condition clears.
+
+A worker badly stalled by hc or Kata timeouts across many runs can still drop
+a `skip` occurrence once lateness exceeds grace plus 2 minutes.
+
 ## Held runs
 
 Unknown or ambiguous execution holds a run, reserves its capacity and keeps

@@ -123,10 +123,20 @@ func (w *Worker) prepare(k kata.Kata, project config.Project, p defs.Plan, key, 
 }
 
 func (w *Worker) acknowledgePreparation(q journal.Requests, req journal.Request, key string, prepareErr error) (bool, error) {
-	if prepareErr != nil && !w.Store.Exists(key) {
-		return false, prepareErr
+	if prepareErr != nil {
+		if !w.Store.Exists(key) {
+			return false, prepareErr
+		}
+		return true, errors.Join(prepareErr, w.acknowledgeExisting(q, req, key))
 	}
-	return true, errors.Join(prepareErr, q.Done(req.ID))
+	return true, q.Done(req.ID)
+}
+
+func (w *Worker) acknowledgeExisting(q journal.Requests, req journal.Request, key string) error {
+	if _, err := w.Store.Load(key); err != nil {
+		return errors.Join(err, q.Reject(req.ID, "existing run journal is unreadable"))
+	}
+	return q.Done(req.ID)
 }
 func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched.Checkpoint, error) {
 	c := sched.Checkpoint{Version: 1, JobUID: job.UID, Through: w.installed}
@@ -172,7 +182,7 @@ func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched
 func (w *Worker) release(q journal.Requests, req journal.Request) error {
 	r, err := w.Store.Find(req.Run)
 	if err != nil {
-		return err
+		return w.releaseLookupFailure(q, req, err)
 	}
 	if r.Phase == "released" {
 		return q.Done(req.ID)
@@ -187,6 +197,16 @@ func (w *Worker) release(q journal.Requests, req journal.Request) error {
 		return err
 	}
 	return q.Done(req.ID)
+}
+
+func (w *Worker) releaseLookupFailure(q journal.Requests, req journal.Request, err error) error {
+	if temporary, ok := errors.AsType[interface {
+		error
+		Temporary() bool
+	}](err); ok && temporary.Temporary() {
+		return err
+	}
+	return errors.Join(err, q.Reject(req.ID, err.Error()))
 }
 func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	if err := ctx.Err(); err != nil {
@@ -237,11 +257,8 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			if !w.Store.Exists(key) {
 				continue
 			}
-			if _, e := w.Store.Load(key); e != nil {
-				errs = append(errs, e)
-			}
 			consumed[req.ID] = true
-			if e := q.Done(req.ID); e != nil {
+			if e := w.acknowledgeExisting(q, req, key); e != nil {
 				errs = append(errs, e)
 			}
 			break
@@ -321,7 +338,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				key := journal.ManualKey(w.Config.Executor, project.Name, req.ID)
 				if w.Store.Exists(key) {
 					consumed[req.ID] = true
-					if e = q.Done(req.ID); e != nil && !os.IsNotExist(e) {
+					if e = w.acknowledgeExisting(q, req, key); e != nil && !os.IsNotExist(e) {
 						errs = append(errs, e)
 					}
 					continue

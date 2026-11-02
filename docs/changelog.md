@@ -8,6 +8,9 @@ last_edited: 2026-11-02
 
 ## Unreleased
 
+- Reject requests backed by unreadable run journals and release requests whose
+  target cannot be found or read. Transient release lookup failures still wait
+  for a later tick.
 - Keep manual requests pending through capacity, overlap and transient read
   failures. Report the known blocker when the CLI wait ends. Known pending
   requests retry on regular ticks rather than triggering repeated fast ticks.
