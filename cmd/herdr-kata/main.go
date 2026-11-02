@@ -14,10 +14,14 @@ func run(args []string, out io.Writer) int {
 		return 2
 	}
 	switch args[0] {
+	case "report":
+		return report(args[1:], out)
+	case "exec-step":
+		return execStep(args[1:])
 	case "version":
 		fmt.Fprintln(out, "herdr-kata v2")
 		return 0
-	case "up", "serve", "stop", "run", "release", "logs", "report", "exec-step", "doctor":
+	case "up", "serve", "stop", "run", "release", "logs", "doctor":
 		fmt.Fprintln(out, "not implemented")
 		return 2
 	default:
