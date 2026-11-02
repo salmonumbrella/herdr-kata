@@ -8,6 +8,9 @@ last_edited: 2026-11-02
 
 ## Unreleased
 
+- Keep notification intent when Kata reports that a mutation may have
+  committed. Set deadlines conditionally and read back an ambiguous result.
+  Failure and hold observations put their reason code alone on the first line.
 - Keep accepted agent summaries in Kata's final run evidence, including
   after a worker restart. Publish complete run journals atomically so an
   interrupted preparation does not block unrelated work.

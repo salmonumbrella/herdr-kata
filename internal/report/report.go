@@ -221,16 +221,20 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 				}
 			}
 		}
+		separator := "; "
+		if status != "succeeded" {
+			separator = "\n"
+		}
 		if r.Detail != "" {
-			message += "; " + bounded(r.Detail)
+			message += separator + bounded(r.Detail)
 		}
 		for _, a := range r.Attempts {
 			if a.Summary != "" {
-				message += "; " + a.Step + ": " + bounded(a.Summary)
+				message += separator + a.Step + ": " + bounded(a.Summary)
 			}
 		}
 		if len(r.Attempts) > 0 && r.Attempts[len(r.Attempts)-1].Note != "" {
-			message += "; " + r.Attempts[len(r.Attempts)-1].Note
+			message += separator + r.Attempts[len(r.Attempts)-1].Note
 		}
 		if r.EndedAt == nil {
 			r.EndedAt = new(clock(ctx))

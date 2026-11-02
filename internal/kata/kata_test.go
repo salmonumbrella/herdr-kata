@@ -82,6 +82,54 @@ func TestClassifyExitCodes(t *testing.T) {
 	}
 }
 
+func TestClassifyUnknownMutationExitSeven(t *testing.T) {
+	k, _ := stub(t, "exit7", "7")
+	path := filepath.Join(t.TempDir(), "reply.json")
+	if err := os.WriteFile(path, []byte(`{"error":{"message":"daemon connection lost; mutation result may be unknown"}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HK_TEST_REPLY", path)
+	// Construct again so the child receives the replacement response path.
+	k = New(k.(*cli).bin, "fixture", nil, "example-project", "worker")
+	if err := k.Notify("abcd", "worker", "held"); err == nil || Classify(err) != Uncertain {
+		t.Fatalf("unknown write is retryable: %v (%s)", err, Classify(err))
+	}
+}
+
+func TestDeadlineReadsBackUnknownMutation(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "kata")
+	flag := filepath.Join(dir, "written")
+	calls := filepath.Join(dir, "calls")
+	script := `#!/bin/sh
+case " $* " in
+ *" show "*)
+  if [ -f "$FIXTURE_WRITTEN" ]; then printf '%s\n' '{"revision":3,"deadline_on":{"instant":"2026-11-03T09:00:00Z"}}'; else printf '%s\n' '{"revision":2,"deadline_on":null}'; fi;;
+ *" deadline "*)
+  case " $* " in *" --if-match 2 "*) ;; *) exit 3;; esac
+  printf 'write\n' >> "$FIXTURE_CALLS"
+  touch "$FIXTURE_WRITTEN"
+  printf '%s\n' 'mutation result may be unknown' >&2; exit 7;;
+esac
+`
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("FIXTURE_WRITTEN", flag)
+	t.Setenv("FIXTURE_CALLS", calls)
+	k := New(bin, "fixture", nil, "example-project", "worker")
+	at := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+	for range 2 {
+		if err := k.SetDeadline("abcd", at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b, err := os.ReadFile(calls)
+	if err != nil || string(b) != "write\n" {
+		t.Fatalf("deadline was retried: %q %v", b, err)
+	}
+}
+
 func TestObserveRevisionMismatchRefused(t *testing.T) {
 	k, _ := stub(t, "observe", "0")
 	if _, _, err := k.Observe("01J00000000000000000000001", []byte(`{"expected_revision":0}`), 1); err == nil || Classify(err) != Definitive {
@@ -155,12 +203,16 @@ func TestDefinitionsParse(t *testing.T) {
 func TestWriteAndProbeArgv(t *testing.T) {
 	for _, method := range []string{"deadline", "notify", "whoami", "capabilities", "show"} {
 		t.Run(method, func(t *testing.T) {
-			k, args := stub(t, "run-show", "0")
+			fixture := "run-show"
+			if method == "deadline" {
+				fixture = "dates"
+			}
+			k, args := stub(t, fixture, "0")
 			var err error
 			switch method {
 			case "deadline":
 				err = k.SetDeadline("wp51", time.Date(2026, 11, 3, 9, 0, 0, 0, time.FixedZone("offset", 3600)))
-				assertArgs(t, args(), "deadline", "wp51", "2026-11-03T08:00:00Z")
+				assertArgs(t, args(), "deadline", "wp51", "2026-11-03T08:00:00Z", "--if-match", "2")
 			case "notify":
 				err = k.Notify("wp51", "worker", "held: timeout")
 				assertArgs(t, args(), "notify", "wp51", "--to", "worker", "--message", "held: timeout")

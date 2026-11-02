@@ -193,6 +193,19 @@ func TestNotifyUncertainNotRetried(t *testing.T) {
 		t.Fatal(k.notifies)
 	}
 }
+
+func TestNotifyUnknownMutationExitSevenNotRetried(t *testing.T) {
+	ctx, st, k, r := setup(t)
+	if err := Admit(ctx, k, st, r.Key); err != nil {
+		t.Fatal(err)
+	}
+	k.notifyErr = &kata.Error{Code: 7, Message: "daemon response lost; mutation result may be unknown"}
+	_ = NotifyOnce(ctx, k, st, r.Key, "blocked:main:1:1", "blocked")
+	_ = NotifyOnce(ctx, k, journal.New(st.Layout), r.Key, "blocked:main:1:1", "blocked")
+	if k.notifies != 1 {
+		t.Fatalf("uncertain exit 7 notification sent %d times", k.notifies)
+	}
+}
 func TestExistingIssueGetsNoWrites(t *testing.T) {
 	ctx, st, k, r := setup(t)
 	_ = st.Update(r.Key, func(r *journal.Run) error {
@@ -248,6 +261,43 @@ func TestHoldReporting(t *testing.T) {
 	last := body(t, k.bodies[1])
 	if last.Status != "unknown" || last.Summary.Message == nil || !strings.Contains(*last.Summary.Message, "reason: agent_lost") || k.notifies != 1 || len(k.bodies) != 2 {
 		t.Fatal(k.bodies, k.notifies)
+	}
+}
+
+func TestReasonAloneOnFirstLine(t *testing.T) {
+	for _, phase := range []string{"held", "settled"} {
+		t.Run(phase, func(t *testing.T) {
+			ctx, st, k, r := setup(t)
+			if err := Admit(ctx, k, st, r.Key); err != nil {
+				t.Fatal(err)
+			}
+			if err := st.Update(r.Key, func(r *journal.Run) error {
+				r.Phase = phase
+				r.Outcome = "failed"
+				r.Hold = "timeout"
+				r.Detail = "Fixture detail"
+				r.Attempts = []journal.Attempt{{Step: "main", Summary: "Fixture summary", Note: "Fixture note"}}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			want := "reason: failed"
+			if phase == "held" {
+				err = Hold(ctx, k, st, r.Key)
+				want = "reason: timeout"
+			} else {
+				err = Final(ctx, k, st, r.Key)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg := *body(t, k.bodies[len(k.bodies)-1]).Summary.Message
+			lines := strings.SplitN(msg, "\n", 2)
+			if len(lines) != 2 || lines[0] != want || !strings.Contains(lines[1], "Fixture detail\nmain: Fixture summary\nFixture note") {
+				t.Fatalf("reason/details format: %q", msg)
+			}
+		})
 	}
 }
 func TestAdmitSecondOccurrenceCreates(t *testing.T) {

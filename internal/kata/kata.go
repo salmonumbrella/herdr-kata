@@ -34,6 +34,9 @@ func Classify(err error) Class {
 	code := -1
 	if e, ok := errors.AsType[*Error](err); ok {
 		code = e.Code
+		if code == 7 && strings.Contains(e.Message, "mutation result may be unknown") {
+			return Uncertain
+		}
 	} else if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 		code = exit.ExitCode()
 	}
@@ -154,7 +157,30 @@ func (c *cli) CreateIssue(title, body, key string) (string, string, error) {
 	return v.Issue.Ref, v.Issue.UID, err
 }
 func (c *cli) SetDeadline(ref string, at time.Time) error {
-	return c.call(nil, nil, "deadline", ref, at.UTC().Format(time.RFC3339))
+	read := func() (int64, bool, error) {
+		var v struct {
+			Revision int64
+			Deadline *DateValue `json:"deadline_on"`
+		}
+		err := c.call(nil, &v, "show", ref, "--planning-dates")
+		return v.Revision, v.Deadline != nil && v.Deadline.Instant.Equal(at), err
+	}
+	rev, same, err := read()
+	if err != nil || same {
+		return err
+	}
+	if rev <= 0 {
+		return &Error{Code: 3, Message: "deadline read omitted revision"}
+	}
+	err = c.call(nil, nil, "deadline", ref, at.UTC().Format(time.RFC3339), "--if-match", fmt.Sprint(rev))
+	if err != nil && Classify(err) == Uncertain {
+		_, same, readErr := read()
+		if readErr == nil && same {
+			return nil
+		}
+		return errors.Join(err, readErr)
+	}
+	return err
 }
 func (c *cli) Notify(ref, to, msg string) error {
 	return c.call(nil, nil, "notify", ref, "--to", to, "--message", msg)
