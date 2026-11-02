@@ -18,6 +18,11 @@ installation does not backfill earlier occurrences. Catchup scans at most
 7 days and retains at most 100 occurrences; `all`, `latest` and `skip` with
 `grace_seconds` control selection. Changed definition events supersede
 unprepared occurrences. Prepared runs retain their frozen definitions.
+For `skip`, a live scan keeps occurrences at or after its preceding
+checkpoint, even with zero grace. On restart or after a stale scan, catchup
+grace is measured from the current tick.
+Editing or re-enabling a job resets its checkpoint to now, so missed
+occurrences are not caught up.
 
 An `issue-scheduled` job uses an existing issue's current raw schedule value
 as its occurrence identity and requires the issue in `kata ready --limit 0`.
@@ -25,6 +30,13 @@ Clearing or changing the date changes unprepared work. `overlap: forbid`
 blocks another occurrence while a prepared, running or held run exists.
 `herdr-kata run <full-job-uid> [--input <text>]` posts a local manual request;
 each invocation has its own request identity.
+The command waits up to 15 seconds for the worker to prepare or reject it.
+Rejections print a one-line reason and exit 3. Unavailable capacity, overlap,
+unsupported jobs and existing issues that are not ready reject immediately.
+If the worker does not answer, the command exits 1 and the request remains
+queued. Keep its printed request ID; submitting again creates another request.
+Malformed request files move to `.rejected`; unreadable run journals are logged
+and skipped so other work can continue. Their dedup barriers remain intact.
 
 ## Actions and issues
 
@@ -73,6 +85,7 @@ Doctor reports these reasons. Unsupported jobs are never launched.
 | Another adapter | `adapter: <name>` | The selected adapter |
 
 Missing profiles, checkouts or workflows and disabled commands also appear
-in doctor. There is no resume, remote execution, issue-request executor,
+in doctor. Triggers that cannot compile appear as `invalid_trigger`.
+There is no resume, remote execution, issue-request executor,
 token accounting, quota classification or custom issue metadata. See
 [operations](operations.md) for held runs.

@@ -8,6 +8,14 @@ last_edited: 2026-11-02
 
 ## Unreleased
 
+- Reject unavailable manual run requests with a local reason and exit 3.
+  Malformed request files and unreadable journals no longer block healthy work.
+- Keep on-time `skip` occurrences between live ticks, accept embedded cron
+  time zones, and report invalid triggers. Scheduled issue dates before a
+  job's creation no longer fire.
+- Distinguish invalid workflows and prompt validation from transient
+  attempt-directory errors. Preserve observed hold reasons after notification
+  refusal, and identify missing terminals at expiry as lost agents.
 - Keep notification intent when Kata reports that a mutation may have
   committed. Set deadlines conditionally and read back an ambiguous result.
   Failure and hold observations put their reason code alone on the first line.

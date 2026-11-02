@@ -5,7 +5,7 @@ schedules, issues and run evidence. Use Kata's Jobs and Runs tabs to inspect
 work. This adapter launches fresh agents and command steps, keeps a local
 recovery journal, and records observations in Kata.
 
-Status: v2 headless worker and operator CLI; 3,872 lines of non-test Go.
+Status: v2 headless worker and operator CLI; 4,070 lines of non-test Go.
 The live suite covers hc 0.1.15 and 0.1.16, including a real Codex prompt.
 
 ## Requirements
@@ -61,7 +61,7 @@ State defaults to `$XDG_STATE_HOME/herdr-kata/`.
 
 Start the worker with `herdr-kata up` and check its execution environment with
 `herdr-kata doctor`. `herdr-kata run <job-uid> --input <text>` queues a local
-request. Use `herdr-kata logs <run-uid>` to read output and
+request and waits for the worker's decision. Use `herdr-kata logs <run-uid>` to read output and
 `herdr-kata release <run-uid>` to free a held run's slot and overlap gate.
 `herdr-kata stop` stops the worker; job terminals continue for recovery.
 

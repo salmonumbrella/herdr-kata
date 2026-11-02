@@ -22,6 +22,8 @@ the same lifetime lock. Definitions and scheduling are refreshed every
 Unknown or ambiguous execution holds a run, reserves its capacity and keeps
 its terminal for inspection. The hold is immediately reported to Kata as
 `unknown`, or `failed` when a step certainly failed, with `reason: <code>`.
+The reason code stands alone on the first line; detail and step summaries
+follow on later lines.
 Per-run issues receive one notification. A blocked agent gets one
 notification per blocked spell, rather than an attention metadata write.
 Existing-policy issues receive no adapter writes, including notifications.
@@ -32,11 +34,12 @@ Existing-policy issues receive no adapter writes, including notifications.
 | `launch_unproven` | The core changed and absence cannot prove no launch happened |
 | `occupant_changed` | Terminal identity no longer matches the saved execution |
 | `agent_lost` | The agent disappeared without a provable outcome |
-| `no_result` | A completed turn or exit has no valid result after its grace period |
+| `no_result` | A completed reported turn has no valid result after its grace period |
 | `no_activity` | A reported agent stayed idle at turn zero for 5 minutes |
 | `timeout` | The frozen run deadline expired |
 | `command_outcome_unknown` | A command lacks a valid ordinary-exit receipt |
 | `invalid_prompt` | Prompt validation failed before launch |
+| `invalid_workflow` | Workflow dependencies cannot be resolved |
 | `invalid_note` | A command note is too long, malformed or unreadable |
 | `agent_error` | The agent explicitly reported an error state |
 | `report_refused` | Kata definitively refused a write or read-back differs |
@@ -50,15 +53,17 @@ request. Once the hold has been observed or reporting has been refused,
 release frees the slot and overlap gate. It preserves the outcome and does
 not rerun the attempt, remove its terminal or prove that work succeeded.
 
-An agent reporting `needs-human` ends the run as `unknown`, keeps its
-terminal and sends one notification for a per-run issue. A lost or killed
-agent cannot be assumed successful from its exit code. Never-reporting
+An agent reporting `needs-human` ends the run as `unknown` and keeps its
+terminal. A lost or killed agent cannot be assumed successful from its exit
+code. Never-reporting
 agents can settle from an ordinary exit with a valid result, or a result
 stable for 30 seconds. Reported idle/done agents require a completed turn;
 a missing result has a 10-second grace period. Valid result files are regular
 UTF-8 JSON files no larger than 64 KiB, with matching run/step/attempt
 identity, status and a one-line note of at most 280 bytes. The prompt gives
 the agent the exact `herdr-kata report` command.
+Attempt-directory I/O errors are retried on later ticks rather than reported
+as prompt validation failures.
 
 ## Recovery and isolation
 
