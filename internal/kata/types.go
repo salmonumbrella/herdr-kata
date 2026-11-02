@@ -1,5 +1,3 @@
-// Package kata implements the pinned Kata CLI contract without a shell, the
-// route pin and guard, and the event loop.
 package kata
 
 import (
@@ -7,193 +5,118 @@ import (
 	"time"
 )
 
-type Identity struct {
-	InstanceUID string   `json:"instance_uid"`
-	ProjectUID  string   `json:"project_uid"`
-	Actor       string   `json:"actor"`
-	Features    []string `json:"features"`
-}
-type Route struct {
-	Bin, Daemon             string
-	Env                     map[string]string
-	Endpoint, DiagnoseState string
-}
-type Capabilities struct {
-	ProjectUID    string   `json:"project_uid"`
-	EventFeatures []string `json:"event_features"`
-	CLIFeatures   []string `json:"cli_features,omitempty"`
-}
-type Job struct {
-	Author             string          `json:"-"`
-	ProjectUID         string          `json:"-"`
-	Project            string          `json:"-"`
-	UID                string          `json:"uid"`
-	Name               string          `json:"name"`
-	DefinitionEventUID string          `json:"definition_event_uid"`
+// These wire types follow go.kenn.io/kata v0.20.0's generated models.
+// The generated package also imports a validator beyond the oapi runtime;
+// local copies keep this CLI adapter independent of that dependency graph.
+type CronJob struct {
+	Author             string          `json:"author"`
 	CreatedAt          time.Time       `json:"created_at"`
-	UpdatedAt          time.Time       `json:"updated_at"`
+	Definition         JobDefinition   `json:"definition"`
+	DefinitionEventUID string          `json:"definition_event_uid"`
+	DefinitionHlc      json.RawMessage `json:"definition_hlc"`
 	DeletedAt          *time.Time      `json:"deleted_at,omitempty"`
-	Definition         json.RawMessage `json:"definition"`
+	ID                 int64           `json:"id"`
+	Name               string          `json:"name"`
+	ProjectID          int64           `json:"project_id"`
+	Revision           int64           `json:"revision"`
+	UID                string          `json:"uid"`
+	UpdatedAt          time.Time       `json:"updated_at"`
 }
-
-// UnmarshalJSON retains live author provenance without adding it to frozen
-// run/definition snapshots. Automatic scheduling always reads fresh envelopes.
-func (j *Job) UnmarshalJSON(data []byte) error {
-	type envelope Job
-	var wire struct {
-		envelope
-		Author string `json:"author"`
-	}
-	if err := json.Unmarshal(data, &wire); err != nil {
-		return err
-	}
-	*j = Job(wire.envelope)
-	j.Author = wire.Author
-	return nil
+type JobDefinition struct {
+	Action         Action            `json:"action"`
+	Catchup        string            `json:"catchup"`
+	CheckoutKey    *string           `json:"checkout_key,omitempty"`
+	Enabled        bool              `json:"enabled"`
+	GraceSeconds   *int64            `json:"grace_seconds,omitempty"`
+	Issue          *IssuePolicy      `json:"issue,omitempty"`
+	Kind           string            `json:"kind"`
+	Options        map[string]any    `json:"options,omitempty"`
+	Overlap        string            `json:"overlap"`
+	SecretRefs     map[string]string `json:"secret_refs,omitempty"`
+	TimeoutSeconds *int64            `json:"timeout_seconds,omitempty"`
+	Trigger        Trigger           `json:"trigger"`
+	Version        int64             `json:"version"`
 }
-
-type Workflow Job
+type Action struct {
+	Kind        string  `json:"kind"`
+	Message     *string `json:"message,omitempty"`
+	Prompt      *string `json:"prompt,omitempty"`
+	Recipient   *string `json:"recipient,omitempty"`
+	WorkflowUID *string `json:"workflow_uid,omitempty"`
+}
+type IssuePolicy struct {
+	Body                   *string `json:"body,omitempty"`
+	DeadlineOffsetSeconds  *int64  `json:"deadline_offset_seconds,omitempty"`
+	Kind                   string  `json:"kind"`
+	ParentUID              *string `json:"parent_uid,omitempty"`
+	ScheduledOffsetSeconds *int64  `json:"scheduled_offset_seconds,omitempty"`
+	Title                  *string `json:"title,omitempty"`
+	UID                    *string `json:"uid,omitempty"`
+}
+type Trigger struct {
+	At              *string `json:"at,omitempty"`
+	Cron            *string `json:"cron,omitempty"`
+	IntervalSeconds *int64  `json:"interval_seconds,omitempty"`
+	IssueUID        *string `json:"issue_uid,omitempty"`
+	Kind            string  `json:"kind"`
+	LeadSeconds     *int64  `json:"lead_seconds,omitempty"`
+	Timezone        *string `json:"timezone,omitempty"`
+}
+type CronWorkflow struct {
+	Author             string             `json:"author"`
+	CreatedAt          time.Time          `json:"created_at"`
+	Definition         WorkflowDefinition `json:"definition"`
+	DefinitionEventUID string             `json:"definition_event_uid"`
+	DefinitionHlc      json.RawMessage    `json:"definition_hlc"`
+	DeletedAt          *time.Time         `json:"deleted_at,omitempty"`
+	ID                 int64              `json:"id"`
+	Name               string             `json:"name"`
+	ProjectID          int64              `json:"project_id"`
+	Revision           int64              `json:"revision"`
+	UID                string             `json:"uid"`
+	UpdatedAt          time.Time          `json:"updated_at"`
+}
+type WorkflowDefinition struct {
+	About   *string        `json:"about,omitempty"`
+	Input   *string        `json:"input,omitempty"`
+	Options map[string]any `json:"options,omitempty"`
+	Steps   []WorkflowStep `json:"steps"`
+	Version int64          `json:"version"`
+}
+type WorkflowStep struct {
+	After   []string       `json:"after,omitempty"`
+	Command *string        `json:"command,omitempty"`
+	Key     string         `json:"key"`
+	Kind    string         `json:"kind"`
+	Options map[string]any `json:"options,omitempty"`
+	Prompt  *string        `json:"prompt,omitempty"`
+	Retries *int64         `json:"retries,omitempty"`
+}
+type ObserveCronRunBody struct {
+	Actor                      *string    `json:"actor,omitempty"`
+	DefinitionEventUID         *string    `json:"definition_event_uid,omitempty"`
+	EndedAt                    *time.Time `json:"ended_at,omitempty"`
+	ExecutorLabel              *string    `json:"executor_label,omitempty"`
+	ExpectedRevision           int64      `json:"expected_revision"`
+	IssueUID                   *string    `json:"issue_uid,omitempty"`
+	JobUID                     *string    `json:"job_uid,omitempty"`
+	OccurrenceKey              *string    `json:"occurrence_key,omitempty"`
+	StartedAt                  *time.Time `json:"started_at,omitempty"`
+	Status                     string     `json:"status"`
+	Summary                    Summary    `json:"summary"`
+	Teammate                   *string    `json:"teammate,omitempty"`
+	WorkflowDefinitionEventUID *string    `json:"workflow_definition_event_uid,omitempty"`
+	WorkflowUID                *string    `json:"workflow_uid,omitempty"`
+}
 type Summary struct {
-	Version      int    `json:"version"`
-	Message      string `json:"message"`
-	InputTokens  int64  `json:"input_tokens,omitempty"`
-	OutputTokens int64  `json:"output_tokens,omitempty"`
+	InputTokens  *int64  `json:"input_tokens,omitempty"`
+	Message      *string `json:"message,omitempty"`
+	OutputTokens *int64  `json:"output_tokens,omitempty"`
+	Version      int64   `json:"version"`
 }
-type Transcript struct {
-	Agent     string `json:"agent"`
-	SessionID string `json:"session_id"`
-	URL       string `json:"url,omitempty"`
-}
-
-type Observation struct {
-	Transcripts                []Transcript `json:"transcripts,omitempty"`
-	TranscriptsIncomplete      bool         `json:"transcripts_incomplete,omitempty"`
-	JobUID                     string       `json:"job_uid,omitempty"`
-	DefinitionEventUID         string       `json:"definition_event_uid,omitempty"`
-	WorkflowUID                string       `json:"workflow_uid,omitempty"`
-	WorkflowDefinitionEventUID string       `json:"workflow_definition_event_uid,omitempty"`
-	OccurrenceKey              string       `json:"occurrence_key,omitempty"`
-	IssueUID                   string       `json:"issue_uid,omitempty"`
-	Actor                      string       `json:"actor,omitempty"`
-	ExecutorLabel              string       `json:"executor_label,omitempty"`
-	Status                     string       `json:"status"`
-	Teammate                   *string      `json:"teammate,omitempty"`
-	Summary                    Summary      `json:"summary"`
-	StartedAt                  *time.Time   `json:"started_at,omitempty"`
-	EndedAt                    *time.Time   `json:"ended_at,omitempty"`
-	ExpectedRevision           int64        `json:"expected_revision"`
-}
-type Run struct {
-	Transcripts                []Transcript `json:"transcripts,omitempty"`
-	TranscriptsIncomplete      bool         `json:"transcripts_incomplete,omitempty"`
-	CreatedAt                  time.Time    `json:"created_at"`
-	UpdatedAt                  time.Time    `json:"updated_at"`
-	UID                        string       `json:"uid"`
-	JobUID                     string       `json:"job_uid"`
-	DefinitionEventUID         string       `json:"definition_event_uid"`
-	WorkflowUID                string       `json:"workflow_uid"`
-	WorkflowDefinitionEventUID string       `json:"workflow_definition_event_uid"`
-	OccurrenceKey              string       `json:"occurrence_key"`
-	IssueUID                   string       `json:"issue_uid"`
-	Actor                      string       `json:"actor"`
-	ExecutorLabel              string       `json:"executor_label"`
-	Status                     string       `json:"status"`
-	Teammate                   *string      `json:"teammate"`
-	Revision                   int64        `json:"revision"`
-	Summary                    Summary      `json:"summary"`
-	StartedAt                  *time.Time   `json:"started_at"`
-	EndedAt                    *time.Time   `json:"ended_at"`
-}
-type CommentReq struct {
-	Ref, Body, IdempotencyKey, ReplyTo, Kind string
-}
-type Comment struct {
-	ReplyToUID string `json:"reply_to_uid"`
-	ReplyKind  string `json:"reply_kind"`
-	UID        string `json:"uid"`
-	Body       string `json:"body"`
-	Author     string `json:"author"`
-	Teammate   string `json:"teammate"`
-}
-type IssueView struct {
-	Comments    []Comment                  `json:"comments"`
-	UID         string                     `json:"uid"`
-	ShortID     string                     `json:"short_id"`
-	QualifiedID string                     `json:"qualified_id"`
-	ProjectUID  string                     `json:"project_uid"`
-	Title       string                     `json:"title"`
-	Body        string                     `json:"body"`
-	Status      string                     `json:"status"`
-	Owner       string                     `json:"owner"`
-	Author      string                     `json:"author"`
-	Revision    int64                      `json:"revision"`
-	Labels      []string                   `json:"labels"`
-	Metadata    map[string]json.RawMessage `json:"metadata"`
-	ParentUID   string                     `json:"parent_uid"`
-	Links       []Link                     `json:"links"`
-}
-type LinkPeer struct {
-	UID         string `json:"uid"`
-	ShortID     string `json:"short_id"`
-	Project     string `json:"project"`
-	QualifiedID string `json:"qualified_id"`
-}
-type Link struct {
-	Type string   `json:"type"`
-	From LinkPeer `json:"from"`
-	To   LinkPeer `json:"to"`
-}
-type InboxRequest struct {
-	Ref      string `json:"ref"`
-	Project  string `json:"project"`
-	Title    string `json:"title"`
-	From     string `json:"from"`
-	Teammate string `json:"teammate"`
-	Message  string `json:"message"`
-}
-type Health struct {
-	Version       string `json:"version"`
-	SchemaVersion int    `json:"schema_version"`
-}
-type RootSigning struct {
-	Projects []string `json:"projects"`
-}
-type Diagnosis struct {
-	ProjectUID      string       `json:"project_uid,omitempty"`
-	FederationRole  string       `json:"federation_role,omitempty"`
-	HubOrigin       string       `json:"hub_origin,omitempty"`
-	RootSigning     *RootSigning `json:"root_signing,omitempty"`
-	State, Endpoint string
-	Authoritative   bool // Informational; admission does not require a federation role.
-	Raw             json.RawMessage
-}
-type CreateReq struct {
-	Parent                      string   `json:",omitempty"`
-	Labels                      []string `json:",omitempty"`
-	Title, Body, IdempotencyKey string
-	Meta                        map[string]string
-	ForceNew                    bool
-}
-type CloseReq struct {
-	Ref, Reason, Message, IfMatch, IdempotencyKey string
-	Evidence                                      []string
-}
-type Cond struct {
-	IfMatch   string
-	IfAbsent  bool
-	IfValue   *string
-	JSONValue bool
-}
-type Event struct {
-	EventID  int64           `json:"event_id"`
-	Type     string          `json:"type"`
-	IssueUID string          `json:"issue_uid"`
-	Payload  json.RawMessage `json:"payload"`
-}
-type Reset struct{ AfterID int64 }
-
-// TailItem is one wire line; Reset is non-nil only for a transport reset.
-type TailItem struct {
-	Event Event
-	Reset *Reset
+type DateValue struct {
+	Field    string    `json:"field"`
+	Value    string    `json:"value"`
+	Timezone string    `json:"timezone"`
+	Instant  time.Time `json:"instant"`
 }

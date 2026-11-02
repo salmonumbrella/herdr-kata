@@ -1,10 +1,8 @@
 package kata
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
-	"errors"
-	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,471 +10,272 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salmonumbrella/herdr-kata/internal/config"
+	"hegel.dev/go/hegel"
 )
 
-func fakeCLI(t *testing.T, reply string, check func(context.Context, []string, []string, string, []byte)) *CLI {
+func stub(t *testing.T, fixture, code string) (Kata, func() []string) {
 	t.Helper()
-	return New(config.Kata{Bin: "/bin/kata", Project: "demo", Actor: "worker", Daemon: "local"}, "/state", func(ctx context.Context, argv, env []string, dir string, stdin []byte) ([]byte, []byte, int, error) {
-		if check != nil {
-			check(ctx, argv, env, dir, stdin)
-		}
-		return []byte(reply), []byte("Definition UID: ignored"), 0, nil
-	}, nil)
-}
-
-func TestArgvCommonFlags(t *testing.T) {
-	c := fakeCLI(t, `{"project_uid":"p","event_features":["cron_v1"],"future":true}`, func(_ context.Context, argv, _ []string, dir string, _ []byte) {
-		want := []string{"/bin/kata", "--json", "--project", "demo", "--as", "worker", "--teammate", "herdr-kata", "--daemon", "local", "cron", "capabilities"}
-		if !reflect.DeepEqual(argv, want) || dir != "/state" {
-			t.Fatalf("argv=%q dir=%q", argv, dir)
-		}
-	})
-	x, err := c.Capabilities(t.Context())
-	if err != nil || x.ProjectUID != "p" {
-		t.Fatalf("%+v %v", x, err)
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "kata")
+	script := `#!/bin/sh
+printf '%s\n' "$@" > "$HK_TEST_ARGS"
+printf '%s\n%s\n' "$KATA_HOME" "${KATA_AUTH_TOKEN-unset}" > "$HK_TEST_ENV"
+cat > "$HK_TEST_INPUT"
+if [ "$HK_TEST_CODE" = killed ]; then kill -TERM $$; fi
+if [ "$HK_TEST_CODE" = 0 ]; then cat "$HK_TEST_REPLY"; else cat "$HK_TEST_REPLY" >&2; fi
+exit "$HK_TEST_CODE"
+`
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestEnvAllowlistDropsAmbient(t *testing.T) {
-	t.Setenv("KATA_SERVER", "ambient")
-	t.Setenv("KATA_AUTH_TOKEN", "secret")
-	t.Setenv("OTHER_SECRET", "secret")
-	t.Setenv("XDG_STATE_HOME", "/xdg")
-	c := New(config.Kata{Env: map[string]string{"KATA_HOME": "/isolated", "KATA_HTTP_TIMEOUT": "9h"}}, "", nil, nil)
-	env := strings.Join(c.Env(), "\n")
-	for _, key := range []string{"KATA_SERVER=", "KATA_AUTH_TOKEN=", "OTHER_SECRET="} {
-		if strings.Contains(env, key) {
-			t.Fatal(env)
-		}
-	}
-	for _, pair := range []string{"KATA_HOME=/isolated", "KATA_HTTP_TIMEOUT=45s", "XDG_STATE_HOME=/xdg"} {
-		if !strings.Contains(env, pair) {
-			t.Fatal(env)
-		}
-	}
-}
-
-func TestEnvCredentialPassthrough(t *testing.T) {
-	t.Setenv("TEST_CREDENTIAL", "value")
-	c := New(config.Kata{CredentialEnv: "TEST_CREDENTIAL"}, "", nil, nil)
-	if !strings.Contains(strings.Join(c.Env(), "\n"), "TEST_CREDENTIAL=value") {
-		t.Fatal(c.Env())
-	}
-}
-
-func TestRouteOmitsCredentialValues(t *testing.T) {
-	c := New(config.Kata{CredentialEnv: "KATA_CREDENTIAL", Env: map[string]string{"KATA_CREDENTIAL": "secret", "KATA_HOME": "/isolated"}}, "", nil, nil)
-	route := c.ResolveRoute()
-	if _, present := route.Env["KATA_CREDENTIAL"]; present || route.Env["KATA_HOME"] != "/isolated" {
-		t.Fatal("credential leaked into route")
-	}
-}
-
-func TestFiniteDeadline60s(t *testing.T) {
-	c := fakeCLI(t, `{}`, func(ctx context.Context, _, _ []string, _ string, _ []byte) {
-		at, ok := ctx.Deadline()
-		d := time.Until(at)
-		if !ok || d > time.Minute || d < 59*time.Second {
-			t.Fatalf("deadline %v %v", d, ok)
-		}
-	})
-	_, _ = c.Capabilities(t.Context())
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	defer cancel()
-	c.runner = func(got context.Context, _, _ []string, _ string, _ []byte) ([]byte, []byte, int, error) {
-		want, _ := ctx.Deadline()
-		at, _ := got.Deadline()
-		if !at.Equal(want) {
-			t.Fatal(at, want)
-		}
-		return []byte(`{}`), nil, 0, nil
-	}
-	_, _ = c.Capabilities(ctx)
-}
-
-func TestObserveBodyOnStdinKeepsZeroExpectedRevision(t *testing.T) {
-	c := fakeCLI(t, `{"run":{"uid":"r","revision":1},"replayed":true}`, func(_ context.Context, argv, _ []string, _ string, body []byte) {
-		if !reflect.DeepEqual(argv[len(argv)-6:], []string{"cron", "run", "observe", "r", "--json-input", "-"}) {
-			t.Fatal(argv)
-		}
-		var fields map[string]json.RawMessage
-		requireNoError(t, json.Unmarshal(body, &fields))
-		if string(fields["expected_revision"]) != "0" || string(fields["teammate"]) != `"herdr-kata"` {
-			t.Fatal(string(body))
-		}
-	})
-	r, replay, err := c.Observe(t.Context(), "r", Observation{Status: "running", Summary: Summary{Version: 1, Message: "admitted"}})
-	if err != nil || !replay || r.UID != "r" {
-		t.Fatal(r, replay, err)
-	}
-}
-
-func TestShowEnvelopeDecodesParentLinksLabels(t *testing.T) {
-	c := fakeCLI(t, `{"issue":{"uid":"child","short_id":"abcd","project_uid":"p","owner":null,"revision":3,"labels":["review"],"metadata":{"cron.occurrence":{"version":1}}},"parent":{"uid":"parent"},"links":[{"type":"blocked-by","from":{"uid":"child"},"to":{"uid":"blocker"}}],"labels":[{"label":"review","author":"worker"}]}`, nil)
-	i, err := c.ShowIssue(t.Context(), "abcd")
-	if err != nil || i.ParentUID != "parent" || i.QualifiedID != "demo#abcd" || len(i.Links) != 1 || i.Links[0].To.UID != "blocker" || !reflect.DeepEqual(i.Labels, []string{"review"}) || i.Owner != "" {
-		t.Fatalf("%+v %v", i, err)
-	}
-}
-
-func TestErrorCandidatesExtracted(t *testing.T) {
-	for _, file := range []string{"duplicate_candidates", "idempotency_mismatch", "validation", "daemon_unavailable"} {
-		t.Run(file, func(t *testing.T) {
-			body, err := os.ReadFile("testdata/" + file + ".json")
-			requireNoError(t, err)
-			c := fakeCLI(t, "", nil)
-			c.runner = func(context.Context, []string, []string, string, []byte) ([]byte, []byte, int, error) {
-				return nil, body, 5, nil
-			}
-			_, err = c.CreateIssue(t.Context(), CreateReq{Title: "title"})
-			var e *Error
-			if !errors.As(err, &e) || len(e.Raw) == 0 {
-				t.Fatal(err)
-			}
-			want := Fatal
-			if file == "duplicate_candidates" || file == "idempotency_mismatch" {
-				want = Conflict
-				if len(e.CandidateUIDs) != 1 {
-					t.Fatal(e)
-				}
-			}
-			if file == "daemon_unavailable" {
-				want = Retry
-			}
-			if Class(err) != want {
-				t.Fatal(e, Class(err))
-			}
-		})
-	}
-}
-
-func TestDeadlineGuardedArgv(t *testing.T) {
-	c := fakeCLI(t, `{}`, func(_ context.Context, argv, _ []string, _ string, _ []byte) {
-		want := []string{"deadline", "--if-match", "7", "--", "abcd", "2030-01-01T00:00:00Z"}
-		if !reflect.DeepEqual(argv[len(argv)-len(want):], want) {
-			t.Fatal(argv)
-		}
-	})
-	requireNoError(t, c.Deadline(t.Context(), "abcd", "2030-01-01T00:00:00Z", Cond{IfMatch: "7"}))
-}
-
-func TestSafetyTable(t *testing.T) {
-	for k, want := range map[string]Safety{"observe": ReplaySafe, "create": ReplaySafe, "comment": ReplaySafe, "close": ReplaySafe, "meta": Guarded, "deadline": Guarded, "notify": Unguarded, "label": Unguarded, "claim": ReadBack} {
-		if got := SafetyOf(k); got != want {
-			t.Fatalf("%s: %v != %v", k, got, want)
-		}
-	}
-	if SafetyOf("unknown") != ReadBack {
-		t.Fatal("unknown operations must not be replayed")
-	}
-}
-
-// JSON encoding must preserve every string verbatim, including hostile text.
-func FuzzObservationMessageRoundTrip(f *testing.F) {
-	f.Add("summary\nwith quotes \" and $()", int64(0))
-	f.Add("", int64(8))
-	f.Fuzz(func(t *testing.T, message string, revision int64) {
-		// encoding/json replaces invalid UTF-8, so compare its canonical string.
-		canonical, _ := json.Marshal(message)
-		var want string
-		_ = json.Unmarshal(canonical, &want)
-		c := fakeCLI(t, `{"run":{}}`, func(_ context.Context, _, _ []string, _ string, body []byte) {
-			var decoded Observation
-			requireNoError(t, json.Unmarshal(body, &decoded))
-			if decoded.Summary.Message != want || decoded.ExpectedRevision != revision {
-				t.Fatal(string(body))
-			}
-		})
-		if _, _, err := c.Observe(t.Context(), "run", Observation{Summary: Summary{Version: 1, Message: message}, ExpectedRevision: revision}); err != nil {
-			t.Fatal(err)
-		}
-	})
-}
-
-func requireNoError(t *testing.T, err error) {
-	t.Helper()
+	reply, err := filepath.Abs(filepath.Join("testdata", fixture+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	for key, val := range map[string]string{"HK_TEST_ARGS": filepath.Join(dir, "args"), "HK_TEST_ENV": filepath.Join(dir, "env"), "HK_TEST_INPUT": filepath.Join(dir, "input"), "HK_TEST_REPLY": reply, "HK_TEST_CODE": code} {
+		t.Setenv(key, val)
+	}
+	return New(bin, "fixture", map[string]string{"KATA_HOME": "/srv/kata-home"}, "example-project", "worker"), func() []string {
+		b, err := os.ReadFile(filepath.Join(dir, "args"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
+	}
 }
 
-func TestDiagnosisSigningAndReplicaHint(t *testing.T) {
-	c := fakeCLI(t, `{"state":"ready","endpoint":"local","project_uid":"p","federation_role":"spoke","hub_origin":"https://hub.example","root_signing":{"projects":["p"]}}`, nil)
-	d, err := c.DaemonDiagnose(t.Context(), "p")
-	if err != nil || d.Authoritative {
-		t.Fatal(d, err)
-	}
-	if d.HubOrigin != "https://hub.example" || d.RootSigning == nil || len(d.RootSigning.Projects) != 1 || d.RootSigning.Projects[0] != "p" {
-		t.Fatal("diagnosis omitted signing/replica evidence", d)
+var prefix = []string{"--project", "example-project", "--daemon", "fixture", "--as", "worker", "--teammate", "herdr-kata", "--json"}
+
+func assertArgs(t *testing.T, got []string, tail ...string) {
+	t.Helper()
+	want := append(append([]string{}, prefix...), tail...)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("argv %q != %q", got, want)
 	}
 }
 
-func TestDefinitionsListRequiresCompleteEnvelope(t *testing.T) {
-	for _, body := range []string{`{}`, `{"jobs":null,"workflows":null}`} {
-		t.Run(body, func(t *testing.T) {
-			c := fakeCLI(t, body, nil)
-			if _, err := c.ListJobs(t.Context()); err == nil {
-				t.Fatal("incomplete jobs response supplied absence proof")
+func TestCreateAlwaysForceNewAndKey(t *testing.T) {
+	k, args := stub(t, "create", "0")
+	ref, uid, err := k.CreateIssue("Example scheduled work", "Fixture body", "cron-worker:fixture:issue")
+	if err != nil || ref != "wp51" || uid != "01M6E4T4BKT5ZHTF2CHFZVWP51" {
+		t.Fatalf("create: %q %q %v", ref, uid, err)
+	}
+	assertArgs(t, args(), "create", "Example scheduled work", "--body", "Fixture body", "--force-new", "--idempotency-key", "cron-worker:fixture:issue")
+}
+
+func TestClassifyExitCodes(t *testing.T) {
+	for _, tt := range []struct {
+		code string
+		want Class
+	}{{"1", Uncertain}, {"2", Definitive}, {"3", Definitive}, {"4", Definitive}, {"5", Conflict}, {"6", Definitive}, {"7", Unavailable}, {"8", Uncertain}, {"killed", Uncertain}} {
+		t.Run(tt.code, func(t *testing.T) {
+			fixture := "exit" + tt.code
+			if tt.code == "killed" {
+				fixture = "exit1"
 			}
-			if _, err := c.ListWorkflows(t.Context()); err == nil {
-				t.Fatal("incomplete workflows response supplied absence proof")
+			k, _ := stub(t, fixture, tt.code)
+			err := k.Whoami()
+			if err == nil || Classify(err) != tt.want {
+				t.Fatalf("class %v for %v", Classify(err), err)
 			}
 		})
 	}
-	c := fakeCLI(t, `{"jobs":[],"workflows":[]}`, nil)
-	if _, err := c.ListJobs(t.Context()); err != nil {
-		t.Fatal("complete empty list rejected", err)
-	}
-	if _, err := c.ListWorkflows(t.Context()); err != nil {
-		t.Fatal("complete empty list rejected", err)
-	}
 }
 
-func TestAccessLossWritesOnlyItsLaneStatus(t *testing.T) {
-	root := t.TempDir()
-	lane := filepath.Join(root, "projects", "project-a")
-	if err := state.WriteJSON(state.OSFS{}, filepath.Join(lane, "state.json"), map[string]any{"version": 1, "project_uid": "project-a"}); err != nil {
+func TestClassifyUnknownMutationExitSeven(t *testing.T) {
+	k, _ := stub(t, "exit7", "7")
+	path := filepath.Join(t.TempDir(), "reply.json")
+	if err := os.WriteFile(path, []byte(`{"error":{"message":"daemon connection lost; mutation result may be unknown"}}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	k := New(config.Kata{Bin: "/bin/kata", Project: "example-project", Actor: "worker"}, root, func(context.Context, []string, []string, string, []byte) ([]byte, []byte, int, error) {
-		return []byte(`{"error":{"code":"not_found","message":"access withheld"}}`), nil, 1, nil
-	}, nil)
-	guard := NewRouteGuard(config.Config{Kata: config.Kata{Project: "example-project"}}, k, state.OSFS{}, state.Layout{Root: lane})
-	if e := guard.ProbeAccess(t.Context()); e == nil {
-		t.Fatal("lost access accepted")
-	}
-	var row map[string]any
-	if e := state.ReadJSON(state.OSFS{}, filepath.Join(lane, "route.json"), 65536, &row); e != nil || row["access_lost"] != true || row["project"] != "example-project" {
-		t.Fatal(row, e)
-	}
-	if _, e := os.Stat(filepath.Join(root, "route.json")); !os.IsNotExist(e) {
-		t.Fatal("lane refusal overwrote global status", e)
+	t.Setenv("HK_TEST_REPLY", path)
+	// Construct again so the child receives the replacement response path.
+	k = New(k.(*cli).bin, "fixture", nil, "example-project", "worker")
+	if err := k.Notify("abcd", "worker", "held"); err == nil || Classify(err) != Uncertain {
+		t.Fatalf("unknown write is retryable: %v (%s)", err, Classify(err))
 	}
 }
 
-func TestRemoteAccessProbeUsesPinnedProject(t *testing.T) {
-	for _, project := range []string{"project-a", "project-b"} {
-		t.Run(project, func(t *testing.T) {
-			root := t.TempDir()
-			lane := filepath.Join(root, "projects", "project-a")
-			if err := state.WriteJSON(state.OSFS{}, filepath.Join(lane, "state.json"), map[string]any{"version": 1, "project_uid": "project-a"}); err != nil {
-				t.Fatal(err)
+func TestDeadlineReadsBackUnknownMutation(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "kata")
+	flag := filepath.Join(dir, "written")
+	calls := filepath.Join(dir, "calls")
+	script := `#!/bin/sh
+case " $* " in
+ *" show "*)
+  if [ -f "$FIXTURE_WRITTEN" ]; then printf '%s\n' '{"revision":3,"deadline_on":{"instant":"2026-11-03T09:00:00Z"}}'; else printf '%s\n' '{"revision":2,"deadline_on":null}'; fi;;
+ *" deadline "*)
+  case " $* " in *" --if-match 2 "*) ;; *) exit 3;; esac
+  printf 'write\n' >> "$FIXTURE_CALLS"
+  touch "$FIXTURE_WRITTEN"
+  printf '%s\n' 'mutation result may be unknown' >&2; exit 7;;
+esac
+`
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("FIXTURE_WRITTEN", flag)
+	t.Setenv("FIXTURE_CALLS", calls)
+	k := New(bin, "fixture", nil, "example-project", "worker")
+	at := time.Date(2026, 11, 3, 9, 0, 0, 123456789, time.UTC)
+	for range 2 {
+		if err := k.SetDeadline("abcd", at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b, err := os.ReadFile(calls)
+	if err != nil || string(b) != "write\n" {
+		t.Fatalf("deadline was retried: %q %v", b, err)
+	}
+}
+
+func TestObserveRevisionMismatchRefused(t *testing.T) {
+	k, _ := stub(t, "observe", "0")
+	if _, _, err := k.Observe("01J00000000000000000000001", []byte(`{"expected_revision":0}`), 1); err == nil || Classify(err) != Definitive {
+		t.Fatalf("mismatch: %v", err)
+	}
+}
+
+func TestIssueTitle(t *testing.T) {
+	k, args := stub(t, "create", "0")
+	got, err := k.IssueTitle("01J00000000000000000000020")
+	if err != nil || got != "Example scheduled work" {
+		t.Fatalf("title %q %v", got, err)
+	}
+	assertArgs(t, args(), "show", "01J00000000000000000000020")
+}
+
+func TestObserveReplay(t *testing.T) {
+	k, args := stub(t, "observe-replay", "0")
+	body := []byte("{\n  \"expected_revision\":0,\"status\":\"running\",\"summary\":{\"version\":1}\n}\n")
+	rev, replayed, err := k.Observe("01J00000000000000000000001", body, 0)
+	if err != nil || rev != 1 || !replayed {
+		t.Fatalf("observe: %d %v %v", rev, replayed, err)
+	}
+	assertArgs(t, args(), "cron", "run", "observe", "01J00000000000000000000001", "--json-input", "-")
+	got, err := os.ReadFile(os.Getenv("HK_TEST_INPUT"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, body) {
+		t.Fatalf("mutated observation: %q", got)
+	}
+}
+
+func TestReadyParse(t *testing.T) {
+	k, args := stub(t, "ready", "0")
+	got, err := k.Ready()
+	if err != nil || !reflect.DeepEqual(got, map[string]bool{"01M6E4T4BKT5ZHTF2CHFZVWP51": true}) {
+		t.Fatalf("ready: %v %v", got, err)
+	}
+	assertArgs(t, args(), "ready", "--limit", "0")
+}
+
+func TestPlanningDatesParse(t *testing.T) {
+	k, args := stub(t, "dates", "0")
+	got, err := k.PlanningDates("01M6E4T4BKT5ZHTF2CHFZVWP51")
+	if err != nil || got == nil || got.Value != "2026-11-03T09:00:00Z" || got.Timezone != "UTC" || !got.Instant.Equal(time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)) {
+		t.Fatalf("date: %+v %v", got, err)
+	}
+	assertArgs(t, args(), "show", "01M6E4T4BKT5ZHTF2CHFZVWP51", "--planning-dates")
+}
+
+func TestDefinitionsParse(t *testing.T) {
+	t.Run("jobs", func(t *testing.T) {
+		k, args := stub(t, "jobs", "0")
+		got, err := k.Jobs()
+		if err != nil || len(got) != 1 || got[0].UID != "01J00000000000000000000010" || got[0].Definition.Action.Kind != "execute" {
+			t.Fatalf("jobs: %+v %v", got, err)
+		}
+		assertArgs(t, args(), "cron", "job", "list")
+	})
+	t.Run("workflows", func(t *testing.T) {
+		k, args := stub(t, "workflows", "0")
+		got, err := k.Workflows()
+		if err != nil || len(got) != 1 || got[0].UID != "01J00000000000000000000011" || got[0].Definition.Steps[0].Key != "main" {
+			t.Fatalf("workflows: %+v %v", got, err)
+		}
+		assertArgs(t, args(), "cron", "workflow", "list")
+	})
+}
+
+func TestWriteAndProbeArgv(t *testing.T) {
+	for _, method := range []string{"deadline", "notify", "whoami", "capabilities", "show"} {
+		t.Run(method, func(t *testing.T) {
+			fixture := "run-show"
+			if method == "deadline" {
+				fixture = "dates"
 			}
-			statusPath := filepath.Join(lane, "route.json")
-			if err := state.WriteJSON(state.OSFS{}, statusPath, map[string]any{"allowed": true}); err != nil {
-				t.Fatal(err)
-			}
-			calls := 0
-			k := New(config.Kata{Bin: "/bin/kata", Project: "example-project", Actor: "worker"}, root, func(_ context.Context, args, _ []string, _ string, _ []byte) ([]byte, []byte, int, error) {
-				calls++
-				switch strings.Join(args[8:], " ") {
-				case "daemon diagnose --expect-project-uid project-a":
-					return []byte(`{"state":"project_unverifiable","endpoint":"https://hub.example"}`), nil, 0, nil
-				case "cron capabilities":
-					return []byte(`{"project_uid":"` + project + `","event_features":["cron_v1"]}`), nil, 0, nil
-				default:
-					t.Fatalf("unexpected probe command %v", args)
-					return nil, nil, 1, nil
+			k, args := stub(t, fixture, "0")
+			var err error
+			switch method {
+			case "deadline":
+				err = k.SetDeadline("wp51", time.Date(2026, 11, 3, 9, 0, 0, 0, time.FixedZone("offset", 3600)))
+				assertArgs(t, args(), "deadline", "wp51", "2026-11-03T08:00:00Z", "--if-match", "2")
+			case "notify":
+				err = k.Notify("wp51", "worker", "held: timeout")
+				assertArgs(t, args(), "notify", "wp51", "--to", "worker", "--message", "held: timeout")
+			case "whoami":
+				err = k.Whoami()
+				assertArgs(t, args(), "whoami")
+			case "capabilities":
+				err = k.Capabilities()
+				assertArgs(t, args(), "cron", "capabilities")
+			case "show":
+				var rev int
+				var b []byte
+				rev, b, err = k.ShowRun("01J00000000000000000000001")
+				if rev != 1 || !bytes.Contains(b, []byte(`"status":"running"`)) {
+					t.Fatalf("show: %d %s", rev, b)
 				}
-			}, nil)
-			guard := NewRouteGuard(config.Config{Kata: config.Kata{Project: "example-project"}}, k, state.OSFS{}, state.Layout{Root: lane})
-			if _, err := k.DaemonDiagnose(t.Context(), "project-a"); err != nil {
+				assertArgs(t, args(), "cron", "run", "show", "01J00000000000000000000001")
+			}
+			if err != nil {
 				t.Fatal(err)
-			}
-			err := guard.ProbeAccess(t.Context())
-			if (err != nil) != (project == "project-b") {
-				t.Fatal("access probe did not compare capabilities with pin", err)
-			}
-			var row struct {
-				Allowed    bool   `json:"allowed"`
-				AccessLost bool   `json:"access_lost"`
-				Error      string `json:"error"`
-				Project    string `json:"project"`
-			}
-			if err := state.ReadJSON(state.OSFS{}, statusPath, 65536, &row); err != nil {
-				t.Fatal(err)
-			}
-			if calls != 2 || row.Allowed != (project == "project-a") || row.AccessLost != (project == "project-b") {
-				t.Fatal("access status did not follow the pinned project", calls, row)
 			}
 		})
 	}
 }
 
-func TestProjectViewsKeepOtherCredentialsOutOfKata(t *testing.T) {
-	t.Setenv("KATA_TOKEN_A", "process-a")
-	t.Setenv("KATA_TOKEN_B", "process-b")
-	cfg := config.Config{Kata: config.Kata{Bin: "/bin/kata", Env: map[string]string{"KATA_HOME": "/tmp/example", "KATA_TOKEN_A": "shared-a", "KATA_TOKEN_B": "shared-b"}}, Projects: []config.Project{{Name: "project-a", Actor: "actor-a", Daemon: "hub-a", CredentialEnv: "KATA_TOKEN_A"}, {Name: "project-b", Actor: "actor-b", Daemon: "hub-b", CredentialEnv: "KATA_TOKEN_B"}}}
-	for _, entry := range cfg.Projects {
-		view := cfg.View(entry)
-		k := New(view.Kata, t.TempDir(), func(_ context.Context, args, env []string, _ string, _ []byte) ([]byte, []byte, int, error) {
-			own, other := "KATA_TOKEN_A=process-a", "KATA_TOKEN_B="
-			if entry.Name == "project-b" {
-				own, other = "KATA_TOKEN_B=process-b", "KATA_TOKEN_A="
-			}
-			found := false
-			for _, item := range env {
-				if item == own {
-					found = true
-				}
-				if strings.HasPrefix(item, other) {
-					t.Error("another project's credential reached Kata")
-				}
-			}
-			if !found {
-				t.Error("own credential missing")
-			}
-			joined := " " + strings.Join(args, " ") + " "
-			for _, flag := range []string{" --project " + entry.Name + " ", " --as " + entry.Actor + " ", " --daemon " + entry.Daemon + " "} {
-				if !strings.Contains(joined, flag) {
-					t.Error("wrong lane arguments", args)
-				}
-			}
-			return []byte(`{"project_uid":"project","event_features":["cron_v1"]}`), nil, 0, nil
-		}, nil)
-		if _, e := k.Capabilities(t.Context()); e != nil {
-			t.Fatal(e)
-		}
+func TestKataChildEnvironment(t *testing.T) {
+	t.Setenv("KATA_AUTH_TOKEN", "poisoned")
+	k, _ := stub(t, "whoami", "0")
+	if err := k.Whoami(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(os.Getenv("HK_TEST_ENV"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != "/srv/kata-home\nunset\n" {
+		t.Fatalf("env: %q", b)
+	}
+	if os.Getenv("KATA_AUTH_TOKEN") != "poisoned" {
+		t.Fatal("mutated parent")
 	}
 }
 
-func TestProjectCredentialExcludesAmbientXDGAllowlist(t *testing.T) {
-	t.Setenv("XDG_PROJECT_A_TOKEN", "process-a")
-	t.Setenv("XDG_PROJECT_B_TOKEN", "process-b")
-	cfg := config.Config{Projects: []config.Project{{Name: "project-a", CredentialEnv: "XDG_PROJECT_A_TOKEN"}, {Name: "project-b", CredentialEnv: "XDG_PROJECT_B_TOKEN"}}}
-	for _, entry := range cfg.Projects {
-		other := "XDG_PROJECT_B_TOKEN="
-		if entry.Name == "project-b" {
-			other = "XDG_PROJECT_A_TOKEN="
+// Raw observation whitespace and arbitrary summaries survive the CLI boundary.
+func TestObserveBytesStable(t *testing.T) {
+	hegel.Test(t, func(ht *hegel.T) {
+		text := hegel.Draw(ht, hegel.Text())
+		k, _ := stub(t, "observe-replay", "0")
+		payload, err := json.Marshal(map[string]any{"expected_revision": 0, "status": "running", "summary": map[string]any{"version": 1, "message": text}})
+		if err != nil {
+			ht.Fatal(err)
 		}
-		cli := New(cfg.View(entry).Kata, t.TempDir(), func(_ context.Context, _, env []string, _ string, _ []byte) ([]byte, []byte, int, error) {
-			own := false
-			for _, pair := range env {
-				if strings.HasPrefix(pair, other) {
-					t.Error("ambient allowlist leaked another project's credential")
-				}
-				own = own || strings.HasPrefix(pair, entry.CredentialEnv+"=")
-			}
-			if !own {
-				t.Error("selected project's credential missing")
-			}
-			return []byte(`{}`), nil, 0, nil
-		}, nil)
-		if _, e := cli.Capabilities(t.Context()); e != nil {
-			t.Fatal(e)
+		body := append([]byte("\n "), payload...)
+		body = append(body, '\n')
+		if _, _, err := k.Observe("01J00000000000000000000001", body, 0); err != nil {
+			ht.Fatal(err)
 		}
-	}
-}
-
-func TestPlanningDatesDecodesScheduledInstant(t *testing.T) {
-	c := fakeCLI(t, `{"kata_api_version":1,"project_id":2,"issue_uid":"child","revision":2,"scheduled_on":{"field":"scheduled_on","value":"2026-12-01","timezone":"Europe/Paris","instant":"2026-11-30T23:00:00Z"},"deadline_on":null}`, func(_ context.Context, argv, _ []string, _ string, _ []byte) {
-		want := []string{"show", "--planning-dates", "--", "abcd"}
-		if !reflect.DeepEqual(argv[len(argv)-len(want):], want) {
-			t.Fatal(argv)
+		got, err := os.ReadFile(os.Getenv("HK_TEST_INPUT"))
+		if err != nil {
+			ht.Fatal(err)
+		}
+		if !bytes.Equal(got, body) {
+			ht.Fatal("observation bytes changed")
 		}
 	})
-	p, err := c.PlanningDates(t.Context(), "abcd")
-	if err != nil || p.IssueUID != "child" || p.Revision != 2 || p.Scheduled == nil {
-		t.Fatalf("%+v %v", p, err)
-	}
-	if p.Scheduled.Value != "2026-12-01" || p.Scheduled.Timezone != "Europe/Paris" || !p.Scheduled.Instant.Equal(time.Date(2026, 11, 30, 23, 0, 0, 0, time.UTC)) {
-		t.Fatalf("%+v", *p.Scheduled)
-	}
-}
-
-func TestPlanningDatesWithoutScheduleIsNil(t *testing.T) {
-	c := fakeCLI(t, `{"issue_uid":"child","revision":1,"scheduled_on":null,"deadline_on":null}`, nil)
-	p, err := c.PlanningDates(t.Context(), "abcd")
-	if err != nil || p.Scheduled != nil {
-		t.Fatalf("%+v %v", p, err)
-	}
-}
-
-func TestGuardedPlanningDatesRefusedRouteSendsNothing(t *testing.T) {
-	c := fakeCLI(t, `{}`, func(context.Context, []string, []string, string, []byte) {
-		t.Fatal("refused route read reached Kata")
-	})
-	r := GuardedReader{CLI: c, Guard: &RouteGuard{}}
-	if _, err := r.PlanningDates(t.Context(), "abcd"); err == nil {
-		t.Fatal("refused route returned planning dates")
-	}
-}
-
-func TestObservationTranscriptsCLIStdinAndReadback(t *testing.T) {
-	const links = `[{"agent":"codex","session_id":"00000000-0000-4000-8000-000000000001"},{"agent":"claude","session_id":"00000000-0000-4000-8000-000000000002","url":"https://agent.example/session/2"}]`
-	c := fakeCLI(t, `{"run":{"uid":"run","revision":2,"transcripts":`+links+`}}`, func(_ context.Context, argv, _ []string, _ string, body []byte) {
-		var fields map[string]json.RawMessage
-		requireNoError(t, json.Unmarshal(body, &fields))
-		if string(fields["transcripts"]) != links {
-			t.Fatalf("CLI stdin lost explicit sessions: %s", body)
-		}
-		if !reflect.DeepEqual(argv[len(argv)-6:], []string{"cron", "run", "observe", "run", "--json-input", "-"}) {
-			t.Fatal(argv)
-		}
-	})
-	var observation Observation
-	requireNoError(t, json.Unmarshal([]byte(`{"status":"succeeded","summary":{"version":1,"message":"finished"},"transcripts":`+links+`}`), &observation))
-	got, _, err := c.Observe(t.Context(), "run", observation)
-	requireNoError(t, err)
-	wire, err := json.Marshal(got)
-	requireNoError(t, err)
-	var fields map[string]json.RawMessage
-	requireNoError(t, json.Unmarshal(wire, &fields))
-	if string(fields["transcripts"]) != links {
-		t.Fatalf("CLI readback lost explicit sessions: %s", wire)
-	}
-}
-
-func TestObservationTranscriptCapabilityGate(t *testing.T) {
-	for _, tc := range []struct {
-		name, reply string
-		supported   bool
-	}{
-		{"both", `{"event_features":["cron_v1","cron_run_sessions_v1"],"cli_features":["cron_run_sessions_v1"]}`, true},
-		{"old-cli", `{"event_features":["cron_v1","cron_run_sessions_v1"]}`, false},
-		{"old-daemon", `{"event_features":["cron_v1"],"cli_features":["cron_run_sessions_v1"]}`, false},
-		{"old-both", `{"event_features":["cron_v1"]}`, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			probes, sends := 0, 0
-			c := New(config.Kata{Bin: "/bin/kata", Project: "example-project", Actor: "worker"}, "/state", func(_ context.Context, argv, _ []string, _ string, body []byte) ([]byte, []byte, int, error) {
-				if body == nil {
-					probes++
-					if !reflect.DeepEqual(argv[len(argv)-2:], []string{"cron", "capabilities"}) {
-						t.Fatal(argv)
-					}
-					return []byte(tc.reply), nil, 0, nil
-				}
-				sends++
-				if !reflect.DeepEqual(argv[len(argv)-6:], []string{"cron", "run", "observe", "run", "--json-input", "-"}) {
-					t.Fatal(argv)
-				}
-				var fields map[string]json.RawMessage
-				requireNoError(t, json.Unmarshal(body, &fields))
-				_, hasLinks := fields["transcripts"]
-				_, hasIncomplete := fields["transcripts_incomplete"]
-				if hasLinks != tc.supported || hasIncomplete != tc.supported {
-					t.Fatalf("unsupported provenance reached CLI stdin: %s", body)
-				}
-				var wire Observation
-				requireNoError(t, json.Unmarshal(body, &wire))
-				if wire.Status != "failed" || wire.ExpectedRevision != 4 || wire.Summary.InputTokens != 23 || wire.Summary.OutputTokens != 7 {
-					t.Fatalf("compatibility changed outcome or saved usage: %s", body)
-				}
-				return []byte(`{"run":{"uid":"run","revision":5,"status":"failed","summary":{"version":1,"message":"finished","input_tokens":23,"output_tokens":7}}}`), nil, 0, nil
-			}, nil)
-			original := Observation{Status: "failed", Transcripts: []Transcript{{Agent: "codex", SessionID: "00000000-0000-4000-8000-000000000001"}}, TranscriptsIncomplete: true, ExpectedRevision: 4, Summary: Summary{Version: 1, Message: "finished", InputTokens: 23, OutputTokens: 7}}
-			got, err := c.PrepareObservation(t.Context(), original)
-			requireNoError(t, err)
-			_, _, err = c.Observe(t.Context(), "run", got)
-			requireNoError(t, err)
-			if probes != 1 || sends != 1 {
-				t.Fatalf("probes=%d sends=%d", probes, sends)
-			}
-			if len(original.Transcripts) != 1 || !original.TranscriptsIncomplete {
-				t.Fatal("compatibility mutated caller's observation")
-			}
-		})
-	}
 }

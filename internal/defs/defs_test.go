@@ -2,266 +2,146 @@ package defs
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
-	"reflect"
-	"strings"
+	"errors"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/salmonumbrella/herdr-kata/internal/config"
+	"github.com/salmonumbrella/herdr-kata/internal/kata"
+	"hegel.dev/go/hegel"
 )
 
-func fixture(t *testing.T, name string) JobDef {
-	t.Helper()
-	b, e := os.ReadFile("testdata/" + name + ".json")
-	if e != nil {
-		t.Fatal(e)
-	}
-	j, e := DecodeJob(b)
-	if e != nil {
-		t.Fatal(e)
-	}
-	return j
+func fixture() (kata.CronJob, map[string]kata.CronWorkflow, config.Config) {
+	job := kata.CronJob{UID: "01J00000000000000000000010", DefinitionEventUID: "event-job", Name: "example-job", Definition: kata.JobDefinition{Version: 1, Kind: "job", Enabled: true, Trigger: kata.Trigger{Kind: "manual"}, Action: kata.Action{Kind: "execute", Prompt: new("Example {{input}}")}, Issue: &kata.IssuePolicy{Kind: "per-run", Title: new("Example issue")}, Overlap: "forbid", Catchup: "latest", CheckoutKey: new("example-project"), Options: map[string]any{"agent": "default", "input": "context"}}}
+	cfg := config.Config{Projects: []config.Project{{Name: "example-project", Commands: true}}, Checkouts: map[string]string{"example-project": "/srv/projects/example"}, Profiles: map[string]config.Profile{"default": {Argv: []string{"agent", "--no-daemon"}}}, Limits: config.Limits{DefaultTimeout: 2 * time.Hour, MaxTimeout: 24 * time.Hour}}
+	return job, map[string]kata.CronWorkflow{}, cfg
 }
-func cfg() config.Config {
-	return config.Config{Checkouts: map[string]string{"repo": "/repo"}, Profiles: map[string]config.Profile{"default": {Kind: "codex"}, "other": {Kind: "claude"}}}
+func look(s string) (string, error) {
+	if s == "agent" {
+		return "/usr/local/bin/agent", nil
+	}
+	return "", errors.New("binary unavailable")
 }
-func TestDecodeJobDocExample(t *testing.T) {
-	j := fixture(t, "job")
-	owner, s := Classify(j, nil, cfg())
-	if owner != Adapter || !s.Supported {
-		t.Fatalf("%v %+v", owner, s)
-	}
-	if j.Action.Prompt != "Review the changes" || j.CheckoutKey != "repo" {
-		t.Fatalf("%+v", j)
-	}
-}
-func TestDecodeJob540Shape(t *testing.T) {
-	j := fixture(t, "native")
-	if j.Issue.ParentUID != "01M4TADGDFRMAC38MX3NZCW1K5" || j.Action.Recipient != "actor/runtime" {
-		t.Fatalf("%+v", j)
-	}
-	b, _ := json.Marshal(j)
-	round, e := DecodeJob(b)
-	if e != nil || !reflect.DeepEqual(round, j) {
-		t.Fatal(e, round)
-	}
-}
-func TestClassifyNative(t *testing.T) {
-	j := fixture(t, "native")
-	owner, s := Classify(j, nil, cfg())
-	if owner != Native || !s.Supported {
-		t.Fatalf("%v %+v", owner, s)
-	}
-	j.Enabled = false
-	owner, _ = Classify(j, nil, cfg())
-	if owner != Ignored {
-		t.Fatal(owner)
-	}
-}
-func TestClassifyNativeWithoutMessage(t *testing.T) {
-	j := fixture(t, "native")
-	j.Action.Message = ""
-	owner, support := Classify(j, nil, cfg())
-	if owner != Native || !support.Supported || len(support.Warnings) != 0 {
-		t.Fatalf("native recurring delivery rejected: %v %+v", owner, support)
-	}
-	// Omitted messages are still invalid for an explicit adapter recipient.
-	j.Issue = &IssuePolicy{Kind: "existing", UID: "issue"}
-	owner, support = Classify(j, nil, cfg())
-	if owner != Adapter || support.Supported {
-		t.Fatal("adapter notify accepted an omitted message", owner, support)
-	}
-}
-func TestClassifyUnsupportedTable(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		edit   func(*JobDef)
-		reason string
+
+func TestUnsupportedReasons(t *testing.T) {
+	for _, tt := range []struct {
+		name, reason string
+		change       func(*kata.CronJob, map[string]kata.CronWorkflow)
 	}{
-		{"trigger", func(j *JobDef) { j.Trigger.Kind = "issue-scheduled" }, "trigger"},
-		{"secret", func(j *JobDef) { j.SecretRefs = map[string]string{"key": "ref"} }, "unmapped secret"},
-		{"checkout", func(j *JobDef) { j.CheckoutKey = "missing" }, "checkout"},
-		{"agent", func(j *JobDef) { j.Options = json.RawMessage(`{"agent":"missing"}`) }, "profile"},
-		{"scheduled", func(j *JobDef) { n := int64(0); j.Issue.ScheduledOffsetSeconds = &n }, "scheduled_offset_seconds"},
-		{"timezone", func(j *JobDef) {
-			j.Trigger = Trigger{Kind: "cron", Cron: "CRON_TZ=America/New_York 0 * * * *", Timezone: "UTC"}
-		}, "timezone"},
-		{"workflow", func(j *JobDef) { j.Action.Prompt = ""; j.Action.WorkflowUID = "missing" }, "workflow"},
-		{"version", func(j *JobDef) { j.Version = 2 }, "version"},
-		{"interval", func(j *JobDef) { j.Trigger.IntervalSeconds = 0 }, "interval"},
-		{"options", func(j *JobDef) { j.Options = json.RawMessage(`{"agent":42}`) }, "agent"},
+		{"notify", "notify_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
+			j.Definition.Action.Kind = "notify"
+			j.Definition.Issue = &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}
+		}},
+		{"loops", "loops_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
+			j.Definition.Options["on_fail"] = map[string]any{"to": "main"}
+		}},
+		{"findings", "loops_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) { j.Definition.Options["findings"] = true }},
+		{"park", "park_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) { j.Definition.Options["on_failure"] = "park" }},
+		{"secrets", "secrets_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
+			j.Definition.SecretRefs = map[string]string{"TOKEN": "secret"}
+		}},
+		{"mode", "agent_mode_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) { j.Definition.Options["agent_mode"] = "resume" }},
+		{"scheduled offset", "scheduled_offset_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
+			j.Definition.Issue.ScheduledOffsetSeconds = new(int64(0))
+		}},
+		{"run parent", "run_parent_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
+			j.Definition.Options["run_parent"] = "01J00000000000000000000020"
+		}},
+		{"per-run notify", "per-run notify belongs to the hub", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) { j.Definition.Action.Kind = "notify" }},
+		{"adapter", "adapter: other", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) { j.Definition.Options["adapter"] = "other" }},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			j := fixture(t, "job")
-			tc.edit(&j)
-			_, s := Classify(j, nil, cfg())
-			if s.Supported || !strings.Contains(strings.Join(s.Reasons, " "), tc.reason) {
-				t.Fatalf("%+v", s)
+		t.Run(tt.name, func(t *testing.T) {
+			j, w, c := fixture()
+			tt.change(&j, w)
+			_, reasons := Freeze(j, w, c, "example-project", look)
+			if !slices.Contains(reasons, tt.reason) {
+				t.Fatalf("reasons: %v, want %s", reasons, tt.reason)
 			}
 		})
 	}
-	j := fixture(t, "job")
-	j.Action.Prompt = ""
-	j.Action.WorkflowUID = "wf"
-	w := WorkflowDef{Version: 1, Steps: []Step{{Key: "main", Kind: "prompt", Prompt: "work", Options: json.RawMessage(`{"agent":"missing"}`)}}}
-	_, s := Classify(j, &w, cfg())
-	if s.Supported {
-		t.Fatal("unmapped step profile accepted")
+}
+
+func TestFreezeAbsoluteArgv(t *testing.T) {
+	j, w, c := fixture()
+	p, reasons := Freeze(j, w, c, "example-project", look)
+	if len(reasons) != 0 {
+		t.Fatal(reasons)
 	}
-	w.Steps[0].Options = nil
-	_, s = Classify(j, &w, cfg())
-	if !s.Supported {
-		t.Fatal(s)
+	if p.Steps[0].Argv[0] != "/usr/local/bin/agent" || p.CheckoutPath != "/srv/projects/example" || p.Input != "context" || p.JobEventUID != "event-job" {
+		t.Fatalf("plan: %+v", p)
 	}
-	j.Options = json.RawMessage(`{"future":true}`)
-	_, s = Classify(j, &w, cfg())
-	if !s.Supported || len(s.Warnings) != 1 {
-		t.Fatal(s)
+	c.Profiles["default"].Argv[0] = "changed"
+	*j.Definition.Issue.Title = "changed"
+	if p.Steps[0].Argv[0] != "/usr/local/bin/agent" || p.Issue.Title != "Example issue" {
+		t.Fatal("frozen plan aliases input")
 	}
 }
-func TestTopoOrderTiesCycleUnknownAfter(t *testing.T) {
-	steps := []Step{{Key: "c", After: []string{"a"}}, {Key: "b"}, {Key: "a"}}
-	order, e := TopoOrder(steps)
-	if e != nil || !reflect.DeepEqual(order, []string{"b", "a", "c"}) {
-		t.Fatal(order, e)
+
+func TestTimeoutCappedByMax(t *testing.T) {
+	j, w, c := fixture()
+	j.Definition.TimeoutSeconds = new(int64(1 << 62))
+	p, reasons := Freeze(j, w, c, "example-project", look)
+	if len(reasons) != 0 || p.Timeout != 24*time.Hour {
+		t.Fatalf("timeout %s reasons %v", p.Timeout, reasons)
 	}
-	for _, bad := range [][]Step{{{Key: "a", After: []string{"b"}}, {Key: "b", After: []string{"a"}}}, {{Key: "a", After: []string{"missing"}}}, {{Key: "a"}, {Key: "a"}}, {{Key: "../bad"}}} {
-		if _, e := TopoOrder(bad); e == nil {
-			t.Fatal(bad)
+	j.Definition.TimeoutSeconds = nil
+	p, _ = Freeze(j, w, c, "example-project", look)
+	if p.Timeout != 2*time.Hour {
+		t.Fatal(p.Timeout)
+	}
+}
+
+func TestInvalidTriggerReportedUnsupported(t *testing.T) {
+	for _, trig := range []kata.Trigger{{Kind: "cron", Cron: new("not a schedule")}, {Kind: "cron", Cron: new("CRON_TZ=America/New_York 0 9 * * *"), Timezone: new("UTC")}, {Kind: "cron", Cron: new("0 9 * * *"), Timezone: new("Invalid/Zone")}} {
+		j, w, c := fixture()
+		j.Definition.Trigger = trig
+		_, reasons := Freeze(j, w, c, "example-project", look)
+		if !slices.Contains(reasons, "invalid_trigger") {
+			t.Fatalf("invalid trigger disappeared: %v", reasons)
 		}
 	}
 }
-func FuzzTopoOrder(t *testing.F) {
-	t.Add([]byte{0, 1, 2, 3})
-	t.Fuzz(func(t *testing.T, b []byte) {
-		if len(b) > 40 {
-			b = b[:40]
+
+func TestWorkflowFrozen(t *testing.T) {
+	j, w, c := fixture()
+	j.Definition.Action.Prompt = nil
+	j.Definition.Action.WorkflowUID = new("01J00000000000000000000011")
+	w["01J00000000000000000000011"] = kata.CronWorkflow{UID: "01J00000000000000000000011", DefinitionEventUID: "event-workflow", Name: "example-workflow", Definition: kata.WorkflowDefinition{Version: 1, About: new("About {{input}}"), Input: new("Input description"), Steps: []kata.WorkflowStep{{Key: "gate", Kind: "command", Command: new("exit 7"), Options: map[string]any{"skip_exit": json.Number("7")}}, {Key: "work", Kind: "prompt", Prompt: new("Task"), After: []string{"gate"}, Retries: new(int64(2))}}}}
+	p, reasons := Freeze(j, w, c, "example-project", look)
+	if len(reasons) != 0 || p.WorkflowEventUID != "event-workflow" || p.WorkflowName != "example-workflow" || p.About != "About {{input}}" || len(p.Steps) != 2 || p.Steps[0].SkipExit != 7 || p.Steps[1].Retries != 2 || p.Steps[1].After[0] != "gate" {
+		t.Fatalf("plan %+v reasons %v", p, reasons)
+	}
+	for _, opt := range []struct {
+		key   string
+		value any
+		want  string
+	}{{"on_fail", true, "loops_unsupported"}, {"agent_mode", "resume", "agent_mode_unsupported"}, {"on_failure", "park", "park_unsupported"}} {
+		wf := w["01J00000000000000000000011"]
+		wf.Definition.Steps[1].Options = map[string]any{opt.key: opt.value}
+		w[wf.UID] = wf
+		_, got := Freeze(j, w, c, "example-project", look)
+		if !slices.Contains(got, opt.want) {
+			t.Fatalf("workflow option %s: %v", opt.key, got)
 		}
-		steps := make([]Step, len(b))
-		for i := range steps {
-			steps[i].Key = fmt.Sprint("step", i)
-			if i > 0 {
-				steps[i].After = []string{steps[int(b[i])%i].Key}
-			}
+	}
+}
+
+func TestFrozenTimeoutBound(t *testing.T) {
+	hegel.Test(t, func(ht *hegel.T) {
+		n := hegel.Draw(ht, hegel.Integers[int64](1, 1<<63-1))
+		j, w, c := fixture()
+		j.Definition.TimeoutSeconds = &n
+		p, reasons := Freeze(j, w, c, "example-project", look)
+		if len(reasons) != 0 {
+			ht.Fatal(reasons)
 		}
-		order, e := TopoOrder(steps)
-		if e != nil {
-			t.Fatal(e)
+		want := 24 * time.Hour
+		if n < int64(want/time.Second) {
+			want = time.Duration(n) * time.Second
 		}
-		pos := map[string]int{}
-		for i, k := range order {
-			pos[k] = i
-		}
-		if len(pos) != len(steps) {
-			t.Fatal(order)
-		}
-		for _, s := range steps {
-			for _, a := range s.After {
-				if pos[a] >= pos[s.Key] {
-					t.Fatal(order)
-				}
-			}
+		if p.Timeout != want {
+			ht.Fatalf("seconds %d: timeout %s want %s", n, p.Timeout, want)
 		}
 	})
-}
-func TestDecodeRejectsNonObjects(t *testing.T) {
-	for _, b := range []string{"null", "[]", "42", "true"} {
-		if _, e := DecodeJob([]byte(b)); e == nil {
-			t.Fatal("accepted", b)
-		}
-		if _, e := DecodeWorkflow([]byte(b)); e == nil {
-			t.Fatal("accepted", b)
-		}
-	}
-}
-func TestClassifySupportedCronVariants(t *testing.T) {
-	for _, trigger := range []Trigger{{Kind: "cron", Cron: "0 9 * * MON", Timezone: "UTC"}, {Kind: "cron", Cron: "@hourly"}, {Kind: "cron", Cron: "CRON_TZ=America/New_York 0 9 * * MON", Timezone: "America/New_York"}, {Kind: "cron", Cron: "TZ=UTC @daily", Timezone: "UTC"}} {
-		j := fixture(t, "job")
-		j.Trigger = trigger
-		owner, support := Classify(j, nil, cfg())
-		if owner != Adapter || !support.Supported || len(support.Reasons) != 0 {
-			t.Fatalf("%+v: %v %+v", trigger, owner, support)
-		}
-	}
-	j := fixture(t, "job")
-	j.Trigger = Trigger{Kind: "cron", Cron: "0 0 9 * * MON"}
-	_, support := Classify(j, nil, cfg())
-	if support.Supported {
-		t.Fatal("accepted six-field cron")
-	}
-}
-
-func TestClassifyExecutePerRunParentUnsupported(t *testing.T) {
-	j := fixture(t, "job")
-	j.Issue = &IssuePolicy{Kind: "per-run", Title: "t", ParentUID: "01M4TADGDFRMAC38MX3NZCW1K5"}
-	owner, s := Classify(j, nil, cfg())
-	if owner == Adapter && s.Supported {
-		t.Fatal("execute per-run with parent_uid is a supported adapter job")
-	}
-}
-
-func TestTopoOrderStepKeyLength(t *testing.T) {
-	for _, n := range []int{255, 256} {
-		_, err := TopoOrder([]Step{{Key: strings.Repeat("a", n), Kind: "command", Command: "true"}})
-		if (err == nil) != (n == 255) {
-			t.Fatalf("%d-byte key: %v", n, err)
-		}
-	}
-}
-
-func TestClassifyReportsTopoFailureOnce(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		steps  []Step
-		reason string
-	}{
-		{name: "cycle", steps: []Step{
-			{Key: "first", Kind: "command", Command: "true", After: []string{"second"}},
-			{Key: "second", Kind: "command", Command: "true", After: []string{"first"}},
-		}, reason: "workflow cycle"},
-		{name: "duplicate key", steps: []Step{
-			{Key: "first", Kind: "command", Command: "true"},
-			{Key: "first", Kind: "command", Command: "true"},
-		}, reason: `invalid or duplicate step key "first"`},
-		{name: "unknown after", steps: []Step{
-			{Key: "first", Kind: "command", Command: "true", After: []string{"missing"}},
-		}, reason: `unknown after key "missing"`},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			j := fixture(t, "job")
-			j.Action.Prompt = ""
-			j.Action.WorkflowUID = "workflow"
-			w := WorkflowDef{Version: 1, Steps: tc.steps}
-			_, support := Classify(j, &w, cfg())
-			if support.Supported || !reflect.DeepEqual(support.Reasons, []string{tc.reason}) {
-				t.Fatalf("want unsupported with one reason %q, got %+v", tc.reason, support)
-			}
-		})
-	}
-}
-
-// Adapter dispatch requires support and a live definition, regardless of cache use.
-func TestDispatchable(t *testing.T) {
-	deleted := time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)
-	for _, tc := range []struct {
-		name    string
-		owner   Owner
-		support Support
-		deleted *time.Time
-		want    bool
-	}{
-		{"supported adapter", Adapter, Support{Supported: true}, nil, true},
-		{"unsupported adapter", Adapter, Support{}, nil, false},
-		{"ignored", Ignored, Support{Supported: true}, nil, false},
-		{"native", Native, Support{Supported: true}, nil, false},
-		{"deleted adapter", Adapter, Support{Supported: true}, &deleted, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := Dispatchable(tc.owner, tc.support, tc.deleted); got != tc.want {
-				t.Fatalf("dispatchable = %v, want %v", got, tc.want)
-			}
-		})
-	}
 }

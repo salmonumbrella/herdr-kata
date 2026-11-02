@@ -2,26 +2,20 @@ package main
 
 import (
 	"bytes"
-	"regexp"
 	"strings"
 	"testing"
 )
 
-func TestRunUnknownCommandExits2(t *testing.T) {
-	var out, err bytes.Buffer
-	if got := run([]string{"nope"}, &out, &err); got != 2 {
-		t.Fatalf("exit = %d", got)
-	}
-	if !strings.Contains(err.String(), `unknown command "nope"`) {
-		t.Fatalf("stderr = %q", err.String())
+func TestUnknownCommandExit2(t *testing.T) {
+	var out bytes.Buffer
+	if code := run([]string{"unknown"}, &out); code != 2 || !strings.Contains(out.String(), "unknown command") {
+		t.Fatalf("code/output: %d %s", code, &out)
 	}
 }
-func TestVersionCommand(t *testing.T) {
-	var out, err bytes.Buffer
-	if got := run([]string{"version"}, &out, &err); got != 0 {
-		t.Fatalf("exit = %d, stderr = %q", got, err.String())
-	}
-	if !regexp.MustCompile(`^herdr-kata .+\n$`).MatchString(out.String()) {
-		t.Fatalf("stdout = %q", out.String())
+
+func TestVersion(t *testing.T) {
+	var out bytes.Buffer
+	if code := run([]string{"version"}, &out); code != 0 || !strings.Contains(out.String(), "herdr-kata v2") {
+		t.Fatalf("code/output: %d %s", code, &out)
 	}
 }

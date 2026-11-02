@@ -1,0 +1,1 @@
+{"error":{"kind":"conflict","code":"duplicate_candidates","hint":"comment on an existing issue, or pass --force-new to create anyway","message":"1 existing issue matches this title","exit_code":5,"data":{"candidates":[{"short_id":"wp51","qualified_id":"example-project#wp51","title":"Example scheduled work","score":1,"uid":"01M6E4T4BKT5ZHTF2CHFZVWP51"}]}}}

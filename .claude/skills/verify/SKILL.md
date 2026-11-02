@@ -1,65 +1,36 @@
 ---
 name: verify
-description: Build herdr-kata and drive it against an isolated Herdr session and Kata home to confirm a change at the real CLI, runtime, and TUI surfaces.
+description: Verify v2 with isolated herdr-core and Kata runtimes.
 ---
 
-# Verifying herdr-kata changes
+# Verifying herdr-kata
 
-Never verify against a Herdr session someone is working in, a production Kata
-hub, or the default plugin config and state directories.
+Build only inside the feature worktree. Never overwrite a production binary
+or touch a running v1 lane, plugin directory, core or Kata project.
 
-## Isolated setup
+1. Create a short temporary root, fresh `HC_SESSION=hk2-<random>`, scratch
+   `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_RUNTIME_DIR`. Remove inherited
+   `HC_SOCKET`. Set the session explicitly on every hc command.
+2. Use installed hc 0.1.15 only in that scratch session. Also download
+   official hc 0.1.16 into the temp root, verify its archive SHA-256 against
+   its release manifest, and run the same checks with it. Never `hc update`,
+   upgrade or restart a preexisting core.
+3. Start the scratch core, inspect its status and verify its state path and
+   core id before any terminal operation. Recheck both before `server stop`.
+   Never call `hc server stop` without the scratch session explicitly set.
+4. Remove inherited `KATA_*` routing and credential selectors in test
+   children. Use a scratch `KATA_HOME`, daemon and `example-project`. Give
+   each job explicit scratch checkouts, config and state paths.
+5. Run `env -u HC_SOCKET HERDR_KATA_LIVE=1 HERDR_KATA_LIVE_CODEX=1
+   GOMAXPROCS=2 GOFLAGS=-p=2 make test-live`. Each test must inspect the
+   actual run observation and issue, rather than only a CLI exit code.
+6. Exercise the never-reporting scripted agent, gated command workflow,
+   worker crash/recovery and one real Codex prompt. Record the real agent's
+   settlement row and results for both hc versions.
+7. Kill and remove every terminal the check started. Stop its scratch Kata
+   daemon and verified scratch core, then remove temporary directories. If
+   shutdown fails, resolve it before deleting the directories. Never act on
+   terminals the check did not start.
 
-    root=$(mktemp -d /tmp/hkv.XXXXXX)        # short: Unix socket paths are limited
-    mkdir -p "$root/ws" "$root/config" "$root/state"
-    GOMAXPROCS=2 GOFLAGS=-p=2 make build && cp bin/herdr-kata "$root/"
-    session=hkv$$
-    export HERDR_SOCKET_PATH="$HOME/.config/herdr/sessions/$session/herdr.sock"
-    export HERDR_PLUGIN_CONFIG_DIR="$root/config" HERDR_PLUGIN_STATE_DIR="$root/state"
-    herdr --session "$session" server >"$root/herdr.log" 2>&1 &
-    k() { env -u KATA_SERVER -u KATA_AUTH_TOKEN KATA_HOME="$root/kata" "$KATA_BIN" --workspace "$root/ws" --project example-project --as worker "$@"; }
-
-Set `HERDR_SOCKET_PATH` explicitly: inside Herdr it already points at your
-own session. Set `KATA_BIN` to the absolute path of the released Kata 0.19.0
-binary. Initialize the Kata project in `$root/ws`; see `kata init --help`. Write
-`$HERDR_PLUGIN_CONFIG_DIR/config.toml` with `session = "$session"`, a unique
-`executor`, `kata.bin = "$KATA_BIN"`, `kata.project = "example-project"`,
-`kata.actor = "worker"`, `kata.env = { KATA_HOME = "$root/kata" }`, and a
-`[profiles.default]` for an installed agent.
-
-## Runtime surface
-
-    "$root/herdr-kata" up
-    "$root/herdr-kata" doctor --json      # every check passes
-    k cron workflow create --file wf.json --json
-    k cron job create --file job.json --json
-    "$root/herdr-kata" run <job-uid> --wait
-    "$root/herdr-kata" status --json
-    "$root/herdr-kata" logs <run-uid>
-
-A command workflow (`date -u >> "$HERDR_KATA_RUN_DIR/out.txt"`) proves
-scheduling and reporting without an agent. Check the run's Kata issue and
-`k cron run list --json`, not only the exit code.
-
-## TUI surface
-
-    tmux_socket="$root/tmux.sock"
-    tmux -S "$tmux_socket" new-session -d -s v -x 140 -y 40
-    tmux -S "$tmux_socket" send-keys -t v "env HERDR_SOCKET_PATH=$HERDR_SOCKET_PATH HERDR_PLUGIN_CONFIG_DIR=$HERDR_PLUGIN_CONFIG_DIR HERDR_PLUGIN_STATE_DIR=$HERDR_PLUGIN_STATE_DIR $root/herdr-kata tui" Enter
-    tmux -S "$tmux_socket" capture-pane -t v -p      # plain frame
-    tmux -S "$tmux_socket" capture-pane -t v -e -p   # with ANSI, for color checks
-
-Drive `1` for Kata, `2`–`4` or `tab`/`shift+tab` for the local tabs, `j`/`k`,
-`l`/`esc`, `/` filter, `R` (manual run), `q`. Resize with
-`tmux -S "$tmux_socket" resize-window -t v -x 80 -y 24`.
-
-## Teardown
-
-    "$root/herdr-kata" stop &&
-      k daemon stop &&
-      herdr --session "$session" server stop &&
-      tmux -S "$tmux_socket" kill-server &&
-      rm -rf "$root"
-
-If shutdown fails, keep the isolated directory and resolve the failure before
-removing it.
+Focused tests run with `GOMAXPROCS=2 GOFLAGS=-p=2`. Only one broad gate is
+allowed before push, serialized with a bounded wait on `/tmp/local-gate.lock`.

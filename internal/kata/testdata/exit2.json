@@ -1,0 +1,1 @@
+{"error":{"kind":"usage","hint":"run \"kata show --help\" for flags","message":"unknown flag: --not-a-flag","exit_code":2}}
