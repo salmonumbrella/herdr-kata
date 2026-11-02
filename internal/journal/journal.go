@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
+	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
@@ -24,15 +25,20 @@ type Receipt struct {
 	StartedAt, EndedAt time.Time
 }
 type Attempt struct {
-	Step                                      string
-	N                                         int
-	Nonce, CoreID, Name, Address              string
-	CreatedMs                                 int64
-	PID                                       uint32
-	LaunchedAt                                time.Time
-	Status, Note, Hold                        string
-	Receipt                                   *Receipt
-	TurnEndedAt, IdleSince, ResultStableSince *time.Time
+	Spec                                                    hc.RunSpec
+	Cleanup, SettlementStatus, SettlementNote, ResultDigest string
+	ExpiringAt                                              *time.Time
+	Blocked                                                 bool
+	BlockedSpell                                            int
+	Step                                                    string
+	N                                                       int
+	Nonce, CoreID, Name, Address                            string
+	CreatedMs                                               int64
+	PID                                                     uint32
+	LaunchedAt                                              time.Time
+	Status, Note, Hold                                      string
+	Receipt                                                 *Receipt
+	TurnEndedAt, IdleSince, ResultStableSince               *time.Time
 }
 type Run struct {
 	Version                                                                   int

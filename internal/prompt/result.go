@@ -60,12 +60,15 @@ func validate(r Result) error {
 	return nil
 }
 func ReadResult(path, runUID, step string, n int) (Result, error) {
-	var r Result
 	b, err := ReadRegular(path, 64*1024)
 	if err != nil {
-		return r, err
+		return Result{}, err
 	}
-	if err = json.Unmarshal(b, &r); err != nil {
+	return ParseResult(b, runUID, step, n)
+}
+func ParseResult(b []byte, runUID, step string, n int) (Result, error) {
+	var r Result
+	if err := json.Unmarshal(b, &r); err != nil {
 		return r, err
 	}
 	if r.RunUID != runUID || r.Step != step || r.Attempt != n {
