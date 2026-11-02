@@ -26,7 +26,7 @@ definitions, issues and run evidence. Keep the adapter small and fast.
 
 - On-disk state and every Version field.
 - Kata reporting: `cron-worker:<runUID>:issue`, `kata.*` terminal labels,
-  `KATA_CRON_*` environment variables, observation and notification semantics.
+  `KATA_PROJECT` and `KATA_CRON_*` environment variables, `run_parent`, observation and notification semantics.
 - Configuration keys, documented in README and `docs/install.md`.
 - Install contract: module `github.com/salmonumbrella/herdr-kata`, binary
   `herdr-kata` built from `./cmd/herdr-kata` to `./bin/herdr-kata`, and CLI

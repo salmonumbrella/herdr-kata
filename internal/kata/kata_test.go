@@ -56,11 +56,19 @@ func assertArgs(t *testing.T, got []string, tail ...string) {
 
 func TestCreateAlwaysForceNewAndKey(t *testing.T) {
 	k, args := stub(t, "create", "0")
-	ref, uid, err := k.CreateIssue("Example scheduled work", "Fixture body", "cron-worker:fixture:issue")
+	ref, uid, err := k.CreateIssue("Example scheduled work", "Fixture body", "cron-worker:fixture:issue", "")
 	if err != nil || ref != "wp51" || uid != "01M6E4T4BKT5ZHTF2CHFZVWP51" {
 		t.Fatalf("create: %q %q %v", ref, uid, err)
 	}
 	assertArgs(t, args(), "create", "Example scheduled work", "--body", "Fixture body", "--force-new", "--idempotency-key", "cron-worker:fixture:issue")
+}
+
+func TestCreateUnderRunParent(t *testing.T) {
+	k, args := stub(t, "create", "0")
+	if _, _, err := k.CreateIssue("Example scheduled work", "Fixture body", "cron-worker:fixture:issue", "01J00000000000000000000020"); err != nil {
+		t.Fatal(err)
+	}
+	assertArgs(t, args(), "create", "Example scheduled work", "--body", "Fixture body", "--force-new", "--idempotency-key", "cron-worker:fixture:issue", "--parent", "01J00000000000000000000020")
 }
 
 func TestClassifyExitCodes(t *testing.T) {

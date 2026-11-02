@@ -114,7 +114,7 @@ func Admit(ctx context.Context, k kata.Kata, st *journal.Store, key string) erro
 				return st.Update(key, func(r *journal.Run) error { r.Phase = "held"; r.Hold = "admission_expired"; return nil })
 			}
 			title := strings.TrimSpace(r.Plan.Issue.Title + " " + r.Occurrence)
-			r.IssueRef, r.IssueUID, err = k.CreateIssue(title, r.Plan.Issue.Body, "cron-worker:"+r.RunUID+":issue")
+			r.IssueRef, r.IssueUID, err = k.CreateIssue(title, r.Plan.Issue.Body, "cron-worker:"+r.RunUID+":issue", r.Plan.Issue.Parent)
 			if err != nil {
 				if class := kata.Classify(err); class == kata.Definitive || class == kata.Conflict {
 					return refused(st, key, err, false)

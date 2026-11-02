@@ -58,7 +58,7 @@ type Kata interface {
 	Ready() (map[string]bool, error)
 	PlanningDates(string) (*DateValue, error)
 	IssueTitle(string) (string, error)
-	CreateIssue(string, string, string) (string, string, error)
+	CreateIssue(title, body, key, parent string) (string, string, error)
 	SetDeadline(string, time.Time) error
 	Notify(string, string, string) error
 	Observe(string, []byte, int) (int, bool, error)
@@ -146,14 +146,18 @@ func (c *cli) IssueTitle(uid string) (string, error) {
 	err := c.call(nil, &v, "show", uid)
 	return v.Issue.Title, err
 }
-func (c *cli) CreateIssue(title, body, key string) (string, string, error) {
+func (c *cli) CreateIssue(title, body, key, parent string) (string, string, error) {
 	var v struct {
 		Issue struct {
 			Ref string `json:"short_id"`
 			UID string `json:"uid"`
 		}
 	}
-	err := c.call(nil, &v, "create", title, "--body", body, "--force-new", "--idempotency-key", key)
+	args := []string{"create", title, "--body", body, "--force-new", "--idempotency-key", key}
+	if parent != "" {
+		args = append(args, "--parent", parent)
+	}
+	err := c.call(nil, &v, args...)
 	return v.Issue.Ref, v.Issue.UID, err
 }
 func (c *cli) SetDeadline(ref string, at time.Time) error {
