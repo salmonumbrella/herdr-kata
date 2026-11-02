@@ -157,6 +157,7 @@ func (c *cli) CreateIssue(title, body, key string) (string, string, error) {
 	return v.Issue.Ref, v.Issue.UID, err
 }
 func (c *cli) SetDeadline(ref string, at time.Time) error {
+	at = at.UTC().Truncate(time.Second)
 	read := func() (int64, bool, error) {
 		var v struct {
 			Revision int64

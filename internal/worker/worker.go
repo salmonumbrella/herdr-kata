@@ -36,6 +36,7 @@ type Worker struct {
 	Bin         string
 	Unsupported map[string][]string
 	installed   time.Time
+	lastTick    time.Time
 }
 
 func New(c config.Config, st *journal.Store, h hc.HC, clients map[string]kata.Kata, bin string) *Worker {
@@ -141,12 +142,22 @@ func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched
 			c.Through = now
 		}
 	}
-	due := sched.Occurrences(job.Definition.Trigger, job.CreatedAt, c.Through, now, p.Catchup, p.Grace)
+	policy := p.Catchup
+	cutoff := now.Add(-p.Grace)
+	if policy == "skip" {
+		// A checkpoint from this process's previous tick proves a live scan.
+		// Restarted or stale scans retain normal downtime catchup filtering.
+		if !w.lastTick.IsZero() && c.Through.Equal(w.lastTick) {
+			cutoff = c.Through.Add(-p.Grace)
+		}
+		policy = "latest"
+	}
+	due := sched.Occurrences(job.Definition.Trigger, job.CreatedAt, c.Through, now, policy, p.Grace)
 	c.Merge(job.DefinitionEventUID, due, now)
 	if p.Catchup != "all" && len(c.Pending) > 1 {
 		c.Pending = c.Pending[len(c.Pending)-1:]
 	}
-	if p.Catchup == "skip" && len(c.Pending) > 0 && now.Sub(c.Pending[0].At) > p.Grace {
+	if p.Catchup == "skip" && len(c.Pending) > 0 && c.Pending[0].At.Before(cutoff) {
 		c.Pending = nil
 	}
 	return c, state.WriteJSON(w.Store.Layout.Job(job.UID), c)
@@ -177,6 +188,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	if err := w.init(now); err != nil {
 		return err
 	}
+	defer func() { w.lastTick = now.UTC() }()
 	ctx = report.WithNow(ctx, now)
 	var errs []error
 	q := journal.Requests{Dir: w.Store.Layout.Requests()}

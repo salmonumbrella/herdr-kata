@@ -118,7 +118,7 @@ esac
 	t.Setenv("FIXTURE_WRITTEN", flag)
 	t.Setenv("FIXTURE_CALLS", calls)
 	k := New(bin, "fixture", nil, "example-project", "worker")
-	at := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+	at := time.Date(2026, 11, 3, 9, 0, 0, 123456789, time.UTC)
 	for range 2 {
 		if err := k.SetDeadline("abcd", at); err != nil {
 			t.Fatal(err)
