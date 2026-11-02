@@ -156,9 +156,6 @@ func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched
 	}
 	if c.EventUID != "" && c.EventUID != job.DefinitionEventUID {
 		c.Pending = nil
-		if now.After(c.Through) {
-			c.Through = now
-		}
 	}
 	policy := p.Catchup
 	cutoff := c.Through
