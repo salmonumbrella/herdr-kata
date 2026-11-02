@@ -1,7 +1,7 @@
 ---
 title: What herdr-kata writes to Kata
 description: Run observations, issue outcomes, closure evidence, attention and mutation counts.
-last_edited: 2026-10-25
+last_edited: 2026-11-02
 ---
 
 # What herdr-kata writes to Kata
@@ -59,6 +59,10 @@ observation still carries the command receipt message. Prompt and mixed
 workflows still comment with the agent's summary. A resumed success, or a
 looped run that published findings, still comments to close the story on the
 thread. This is the default and has no option.
+
+A [closed gate](../guide/workflows.md#gate-a-workflow-with-a-command) counts
+as a command-only success: its `skip_exit` code stands in for exit 0, and the
+steps it skipped, prompts included, count as never run.
 
 After a child's final observation, the runtime conditionally acknowledges
 its saved inbox request. See the [adapter contract](kata-adapter.md#native-children).

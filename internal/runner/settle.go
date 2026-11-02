@@ -263,12 +263,8 @@ func settlementCommands(r *Run) (outcome string, results []CommandStepResult, on
 		return outcome, nil, false, ""
 	}
 	var problems []string
+	gate := gateClosed(r)
 	for _, def := range r.WFDef.Steps {
-		if def.Kind != "command" {
-			only = false
-			continue
-		}
-		results = append(results, CommandStepResult{Command: def.Command})
 		var step *StepState
 		for i := range r.Steps {
 			if r.Steps[i].Key == def.Key {
@@ -276,6 +272,17 @@ func settlementCommands(r *Run) (outcome string, results []CommandStepResult, on
 				break
 			}
 		}
+		// A closed gate skips its dependents; they never executed, so a
+		// skipped prompt does not make the run a prompt run and a skipped
+		// command owes no receipt.
+		if gate && step != nil && step.Status == "skipped" && step.Reason != GateClosed {
+			continue
+		}
+		if def.Kind != "command" {
+			only = false
+			continue
+		}
+		results = append(results, CommandStepResult{Command: def.Command})
 		if step == nil || step.Kind != "command" || step.Receipt == nil || step.Receipt.Version != 1 || step.Receipt.Run != r.UID || step.Receipt.Step != def.Key || step.Receipt.Attempt != step.Attempt || step.Attempt < 1 {
 			detail := "no valid command receipt"
 			if step != nil && step.Kind == "command" && (step.Submission == None || step.Submission == "") && step.SubmittedAt == nil && step.Receipt == nil && step.Status == "" {
@@ -292,6 +299,11 @@ func settlementCommands(r *Run) (outcome string, results []CommandStepResult, on
 			if outcome != "failed" {
 				outcome = "unknown"
 			}
+			continue
+		}
+		if step.Status == "skipped" && step.Reason == GateClosed && gateExit(r, def.Key, step.Receipt.ExitCode) {
+			results[len(results)-1].Receipt = step.Receipt
+			results[len(results)-1].Gate = def.Key
 			continue
 		}
 		if step.Receipt.ExitCode != 0 {

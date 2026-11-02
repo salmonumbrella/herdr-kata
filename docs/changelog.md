@@ -16,6 +16,11 @@ All notable changes to herdr-kata, grouped by release.
   saved token usage is unchanged. Session links require a Kata CLI and daemon
   that both advertise `cron_run_sessions_v1`. Older combinations continue
   reporting ordinary outcomes. Lost-state abandonment preserves saved links.
+- Command steps accept `options.skip_exit`, an exit code from 1 to 255 that
+  closes a workflow gate: the step is `skipped` with reason `gate_closed`,
+  its dependents are skipped, no agent starts, and the run settles as a quiet
+  succeeded run. Use it for frequent checks that should spend model tokens
+  only when there is work. Other nonzero exits still fail and retry.
 
 ## 0.1.0
 <small>2026-10-21</small>

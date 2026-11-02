@@ -243,19 +243,36 @@ func commandEnv(spec CommandSpec) []string {
 type CommandStepResult struct {
 	Command string
 	Receipt *Receipt
+	// Gate names a step that closed its gate with its skip_exit code.
+	Gate string
+}
+
+// ran reports a certain receipt: exit 0, or a declared gate exit.
+func (s CommandStepResult) ran() bool {
+	if s.Gate != "" {
+		return s.Receipt != nil && s.Receipt.Version == 1 && s.Receipt.definite()
+	}
+	return commandSucceeded(s.Receipt)
 }
 
 func CommandCloseMessage(workflowName, runUID, occKey string, steps []CommandStepResult) string {
 	if len(steps) == 0 {
 		return ""
 	}
+	gate := ""
 	for _, step := range steps {
-		if !commandSucceeded(step.Receipt) {
+		if !step.ran() {
 			return ""
+		}
+		if step.Gate != "" {
+			gate = step.Gate
 		}
 	}
 	// Reserve room for the receipt facts even when a definition name is huge.
 	budget := maxSummaryBytes / 4
+	if gate != "" {
+		return fmt.Sprintf("Workflow %s: gate %s closed, later steps skipped (run %s, occurrence %s)", capText(workflowName, budget), capText(gate, budget), capText(runUID, budget), capText(occKey, budget))
+	}
 	noun := "steps"
 	if len(steps) == 1 {
 		noun = "step"
@@ -268,7 +285,7 @@ func CommandCloseMessage(workflowName, runUID, occKey string, steps []CommandSte
 func CommandEvidence(steps []CommandStepResult) []string {
 	var commands []string
 	for _, step := range steps {
-		if commandSucceeded(step.Receipt) && strings.TrimSpace(step.Command) != "" {
+		if step.ran() && strings.TrimSpace(step.Command) != "" {
 			commands = append(commands, step.Command)
 		}
 	}
