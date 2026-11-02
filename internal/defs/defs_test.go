@@ -45,8 +45,19 @@ func TestUnsupportedReasons(t *testing.T) {
 		{"scheduled offset", "scheduled_offset_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
 			j.Definition.Issue.ScheduledOffsetSeconds = new(int64(0))
 		}},
-		{"run parent", "run_parent_unsupported", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
+		{"run parent short ref", "run_parent must be an issue UID", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
+			j.Definition.Options["run_parent"] = "qspb"
+		}},
+		{"run parent not a string", "run_parent must be an issue UID", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
+			j.Definition.Options["run_parent"] = 7
+		}},
+		{"run parent existing issue", "run_parent requires a per-run issue", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) {
 			j.Definition.Options["run_parent"] = "01J00000000000000000000020"
+			j.Definition.Issue = &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000030")}
+		}},
+		{"run parent on step", "run_parent belongs on the job", func(j *kata.CronJob, w map[string]kata.CronWorkflow) {
+			w["01J00000000000000000000040"] = kata.CronWorkflow{UID: "01J00000000000000000000040", Definition: kata.WorkflowDefinition{Steps: []kata.WorkflowStep{{Key: "a", Kind: "prompt", Prompt: new("x"), Options: map[string]any{"run_parent": "01J00000000000000000000020"}}}}}
+			j.Definition.Action = kata.Action{Kind: "execute", WorkflowUID: new("01J00000000000000000000040")}
 		}},
 		{"per-run notify", "per-run notify belongs to the hub", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) { j.Definition.Action.Kind = "notify" }},
 		{"adapter", "adapter: other", func(j *kata.CronJob, _ map[string]kata.CronWorkflow) { j.Definition.Options["adapter"] = "other" }},
@@ -144,4 +155,16 @@ func TestFrozenTimeoutBound(t *testing.T) {
 			ht.Fatalf("seconds %d: timeout %s want %s", n, p.Timeout, want)
 		}
 	})
+}
+
+func TestRunParentFrozenOnPerRunIssue(t *testing.T) {
+	j, w, c := fixture()
+	j.Definition.Options["run_parent"] = "01J00000000000000000000020"
+	p, reasons := Freeze(j, w, c, "example-project", look)
+	if len(reasons) != 0 {
+		t.Fatal(reasons)
+	}
+	if p.Issue.Parent != "01J00000000000000000000020" {
+		t.Fatalf("parent %q", p.Issue.Parent)
+	}
 }

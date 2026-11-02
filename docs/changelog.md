@@ -8,6 +8,8 @@ last_edited: 2026-11-02
 
 ## Unreleased
 
+- Support job-level `options.run_parent`: each per-run issue is created as a
+  child of that issue UID. Steps also receive `KATA_PROJECT`.
 - Reject requests backed by unreadable run journals and release requests whose
   target cannot be found or read. Transient release lookup failures still wait
   for a later tick.

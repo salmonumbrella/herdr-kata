@@ -10,7 +10,7 @@ attacks or trusted definition text as injection vulnerabilities.
 
 Consent contracts (canonical list in AGENTS.md): on-disk state and every
 Version; Kata reporting with cron-worker:<runUID>:issue, kata.* labels,
-KATA_CRON_* variables, observations and notifications; configuration keys;
+KATA_PROJECT, KATA_CRON_* variables, run_parent, observations and notifications; configuration keys;
 install module github.com/salmonumbrella/herdr-kata, binary herdr-kata built
 from ./cmd/herdr-kata to ./bin/herdr-kata; commands up serve stop run release
 logs report exec-step doctor version. The approved v2 rewrite drops the old

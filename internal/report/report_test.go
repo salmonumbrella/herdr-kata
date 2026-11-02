@@ -19,7 +19,7 @@ import (
 
 type fakeKata struct {
 	kata.Kata
-	keys                             []string
+	keys, parents                    []string
 	bodies                           [][]byte
 	createErr, observeErr, notifyErr error
 	observed                         map[string][]byte
@@ -28,8 +28,9 @@ type fakeKata struct {
 	loseCreateReply                  bool
 }
 
-func (f *fakeKata) CreateIssue(title, body, key string) (string, string, error) {
+func (f *fakeKata) CreateIssue(title, body, key, parent string) (string, string, error) {
 	f.keys = append(f.keys, key)
+	f.parents = append(f.parents, parent)
 	if f.createErr != nil {
 		return "", "", f.createErr
 	}
@@ -108,6 +109,18 @@ func TestAdmissionBodyFrozenAfterIssueUID(t *testing.T) {
 	}
 	if len(k.keys) != 2 || k.keys[0] != k.keys[1] {
 		t.Fatal(k.keys)
+	}
+}
+func TestAdmitCreatesUnderRunParent(t *testing.T) {
+	ctx, st, k, r := setup(t)
+	if err := st.Update(r.Key, func(r *journal.Run) error { r.Plan.Issue.Parent = "01J00000000000000000000030"; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if err := Admit(ctx, k, st, r.Key); err != nil {
+		t.Fatal(err)
+	}
+	if len(k.parents) != 1 || k.parents[0] != "01J00000000000000000000030" {
+		t.Fatal(k.parents)
 	}
 }
 func TestAdmitUncertainRetriesSameKey(t *testing.T) {

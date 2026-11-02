@@ -50,7 +50,7 @@ func (k *fakeKata) Ready() (map[string]bool, error) {
 }
 func (k *fakeKata) PlanningDates(string) (*kata.DateValue, error) { return k.date, k.err }
 func (k *fakeKata) IssueTitle(string) (string, error)             { return "Existing fixture issue", nil }
-func (k *fakeKata) CreateIssue(string, string, string) (string, string, error) {
+func (k *fakeKata) CreateIssue(string, string, string, string) (string, string, error) {
 	k.creates++
 	if k.createErr != nil {
 		return "", "", k.createErr
@@ -180,6 +180,19 @@ func TestPromptJobEndToEnd(t *testing.T) {
 	}
 }
 
+func TestStepEnvironmentNamesProject(t *testing.T) {
+	w, h, k := fixture(t)
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	if h.runs != 1 {
+		t.Fatal(h.runs)
+	}
+	term := h.terms["t1"]
+	if !slices.Contains(term.Argv, "KATA_PROJECT="+r.Project) || !slices.Contains(term.Argv, "KATA_CRON_RUN="+r.RunUID) {
+		t.Fatalf("argv %q", term.Argv)
+	}
+}
 func TestAgentSummaryReachesKataAfterCleanup(t *testing.T) {
 	for _, status := range []string{"succeeded", "failed", "needs-human"} {
 		t.Run(status, func(t *testing.T) {

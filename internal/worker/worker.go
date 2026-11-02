@@ -622,6 +622,7 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 	if extra == nil {
 		extra = make(map[string]string)
 	}
+	extra["KATA_PROJECT"] = r.Project
 	extra["KATA_CRON_RUN"] = r.RunUID
 	extra["KATA_CRON_RUN_DIR"] = w.Store.Layout.Run(r.Key)
 	extra["KATA_CRON_STEP"] = s.Key

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/salmonumbrella/herdr-kata/internal/config"
@@ -25,7 +26,9 @@ type Plan struct {
 }
 type IssuePolicy struct {
 	Kind, UID, Title, Body string
-	DeadlineOffsetSeconds  *int64
+	// Parent is options.run_parent: the issue UID each per-run issue is created under.
+	Parent                string
+	DeadlineOffsetSeconds *int64
 }
 type Step struct {
 	Key, Kind, Text string
@@ -54,9 +57,6 @@ func unsupported(m map[string]any) []string {
 	}
 	if mode, ok := m["agent_mode"]; ok && mode != "fresh" {
 		reasons = append(reasons, "agent_mode_unsupported")
-	}
-	if _, ok := m["run_parent"]; ok {
-		reasons = append(reasons, "run_parent_unsupported")
 	}
 	if _, ok := m["secret_refs"]; ok {
 		reasons = append(reasons, "secrets_unsupported")
@@ -93,6 +93,17 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 			reasons = append(reasons, "scheduled_offset_unsupported")
 		}
 	}
+	if raw, ok := d.Options["run_parent"]; ok {
+		parent, _ := raw.(string)
+		switch {
+		case !issueUID(parent):
+			reasons = append(reasons, "run_parent must be an issue UID")
+		case d.Issue == nil || d.Issue.Kind != "per-run":
+			reasons = append(reasons, "run_parent requires a per-run issue")
+		default:
+			p.Issue.Parent = parent
+		}
+	}
 	if d.TimeoutSeconds != nil {
 		if *d.TimeoutSeconds > int64(cfg.Limits.MaxTimeout/time.Second) {
 			p.Timeout = cfg.Limits.MaxTimeout
@@ -121,6 +132,9 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 			p.WorkflowName = wf.Name
 			p.About = text(wf.Definition.About)
 			reasons = append(reasons, unsupported(wf.Definition.Options)...)
+			if _, ok := wf.Definition.Options["run_parent"]; ok {
+				reasons = append(reasons, "run_parent belongs on the job")
+			}
 			steps = wf.Definition.Steps
 		}
 	} else if d.Action.Prompt != nil {
@@ -138,6 +152,9 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 	}
 	for _, s := range steps {
 		reasons = append(reasons, unsupported(s.Options)...)
+		if _, ok := s.Options["run_parent"]; ok {
+			reasons = append(reasons, "run_parent belongs on the job")
+		}
 		frozen := Step{Key: s.Key, Kind: s.Kind, After: slices.Clone(s.After)}
 		if s.Retries != nil {
 			frozen.Retries = int(*s.Retries)
@@ -203,4 +220,17 @@ func exitCode(v any) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("not an integer")
+}
+
+// issueUID reports whether s is a full 26-character Crockford ULID.
+func issueUID(s string) bool {
+	if len(s) != 26 || s[0] > '7' {
+		return false
+	}
+	for _, c := range s {
+		if !strings.ContainsRune("0123456789ABCDEFGHJKMNPQRSTVWXYZ", c) {
+			return false
+		}
+	}
+	return true
 }

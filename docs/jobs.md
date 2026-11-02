@@ -61,11 +61,17 @@ the attempt's `output.log`, with the first 1 MiB and last 256 KiB retained.
 prompt step. `options.input` supplies input; manual `--input` overrides it,
 including an explicit empty string. Prompt text and workflow `about` expand
 `{{input}}` and `{{previous}}` once. Inserted text is not expanded again.
-`previous` is the preceding settled attempt's note. Unknown placeholders or
+`previous` is the preceding settled attempt's note. Every step's environment
+carries `KATA_PROJECT` (the job's project) and `KATA_CRON_RUN`,
+`KATA_CRON_RUN_DIR`, `KATA_CRON_STEP` and `KATA_CRON_ATTEMPT`. Unknown placeholders or
 a prompt over 256 KiB hold `invalid_prompt`.
 
 `per-run` creates one issue with a stable keyed `--force-new` request,
 optionally setting `deadline_offset_seconds` from the frozen start time.
+Job-level `options.run_parent`, a full issue UID, creates each per-run issue
+as a child of that issue (`kata create --parent`). It requires a `per-run`
+issue; a short ref, an `existing` issue policy or a workflow or step option
+is unsupported.
 The issue UID is saved before admission observation bytes are frozen.
 A prepared run without a saved issue UID after 6 days holds
 `admission_expired`. `existing` attaches the configured issue and does not
@@ -84,7 +90,6 @@ Doctor reports these reasons. Unsupported jobs are never launched.
 | secret_refs | `secrets_unsupported` | Operator-managed native agent authentication |
 | agent_mode other than fresh | `agent_mode_unsupported` | Fresh attempts |
 | scheduled_offset_seconds | `scheduled_offset_unsupported` | Native scheduling |
-| options.run_parent | `run_parent_unsupported` | Native recurring children |
 | Per-run issue on notify | `per-run notify belongs to the hub` | Native delivery |
 | Another adapter | `adapter: <name>` | The selected adapter |
 
