@@ -5,7 +5,9 @@ schedules, issues and run evidence. Use Kata's Jobs and Runs tabs to inspect
 work. This adapter launches fresh agents and command steps, keeps a local
 recovery journal, and records observations in Kata.
 
-Status: v2 worker and operator CLI implemented; isolated live checks pending.
+Status: v2 worker and operator CLI implemented; 3,859 lines of non-test Go.
+Live checks are in progress; the real Codex case requires a working native
+execution sandbox.
 
 ## Requirements
 
