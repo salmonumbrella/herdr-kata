@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/bits"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -122,6 +123,11 @@ func options(raw json.RawMessage, s *Support, scope string) string {
 			var mode string
 			if scope != "prompt" || json.Unmarshal(m[k], &mode) != nil || mode != "fresh" {
 				s.Reasons = append(s.Reasons, "options.agent_mode supports only fresh prompt steps")
+			}
+		} else if k == "skip_exit" {
+			var code int
+			if scope != "command" || string(m[k]) == "null" || json.Unmarshal(m[k], &code) != nil || code < 1 || code > 255 {
+				s.Reasons = append(s.Reasons, "options.skip_exit must be an exit code 1–255 on a command step")
 			}
 		} else if k == "on_fail" && (scope == "prompt" || scope == "command") {
 			// The complete edge is validated against the workflow below.
@@ -262,8 +268,14 @@ func Classify(j JobDef, w *WorkflowDef, c config.Config) (Owner, Support) {
 			order, e := TopoOrder(w.Steps)
 			if e != nil {
 				bad(e.Error())
-			} else if _, e := WorkflowLoop(w); e != nil {
+			} else if edge, e := WorkflowLoop(w); e != nil {
 				bad(e.Error())
+			} else if edge != nil {
+				for _, step := range w.Steps {
+					if SkipExit(step) != 0 && slices.Contains(edge.Span, step.Key) {
+						bad("options.skip_exit is not supported inside a loop span")
+					}
+				}
 			}
 			if e := ValidateInput(w.Input); e != nil {
 				bad("workflow " + e.Error())

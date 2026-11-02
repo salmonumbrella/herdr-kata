@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
@@ -402,14 +403,46 @@ func (m *Manager) runCommandStep(ctx context.Context, uid string, index int, def
 		s := &r.Steps[index]
 		s.Note = note
 		s.Submission = Accepted
-		s.Status = "succeeded"
-		if s.Receipt.ExitCode != 0 {
-			s.Status = "failed"
-			s.Reason = fmt.Sprintf("command %s exited %d", s.Key, s.Receipt.ExitCode)
-		}
+		s.Status, s.Reason = commandStatus(r, *s)
 		return nil
 	})
 	return err
+}
+
+// commandStatus maps a certain receipt to a step status. A declared skip_exit
+// closes the gate only after the process group is proven gone, so dependents
+// never start beside a straggler; an unproven group stays a failure.
+func commandStatus(r *Run, s StepState) (status, reason string) {
+	code := s.Receipt.ExitCode
+	if code == 0 {
+		return "succeeded", ""
+	}
+	if gateExit(r, s.Key, code) && GroupGone(s.Receipt.PGID) {
+		return "skipped", GateClosed
+	}
+	return "failed", fmt.Sprintf("command %s exited %d", s.Key, code)
+}
+
+// GateClosed is the reason a skip_exit command step records.
+const GateClosed = "gate_closed"
+
+func gateExit(r *Run, key string, code int) bool {
+	if r.WFDef == nil || code == 0 {
+		return false
+	}
+	for _, def := range r.WFDef.Steps {
+		if def.Key == key {
+			return defs.SkipExit(def) == code
+		}
+	}
+	return false
+}
+
+// gateClosed reports whether a command step closed its gate in this run.
+func gateClosed(r *Run) bool {
+	return slices.ContainsFunc(r.Steps, func(s StepState) bool {
+		return s.Kind == "command" && s.Status == "skipped" && s.Reason == GateClosed
+	})
 }
 func (m *Manager) commandUnknown(uid string, index int, reason string, stopped bool) error {
 	_, err := m.store.Transition(uid, func(r *Run) error {

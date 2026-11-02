@@ -64,6 +64,25 @@ func JobInput(raw json.RawMessage) (*string, error) {
 	}
 	return &value, ValidateInput(value)
 }
+
+// SkipExit returns a command step's gate exit code, or 0 when it has none.
+// A certain exit with this code skips the step and its dependents instead of
+// failing the run.
+func SkipExit(s Step) int {
+	if s.Kind != "command" {
+		return 0
+	}
+	var opts map[string]json.RawMessage
+	if json.Unmarshal(s.Options, &opts) != nil {
+		return 0
+	}
+	var code int
+	if json.Unmarshal(opts["skip_exit"], &code) != nil || code < 1 || code > 255 {
+		return 0
+	}
+	return code
+}
+
 func FreshAgent(s Step) bool {
 	return OptionString(s.Options, "agent_mode") == "fresh"
 }

@@ -1,7 +1,7 @@
 ---
 title: Build workflows
 description: Combine prompt and command steps, pass input and notes and choose fresh agents.
-last_edited: 2026-10-19
+last_edited: 2026-11-02
 ---
 
 # Build workflows
@@ -100,6 +100,50 @@ note file may end with one LF or CRLF; the runtime strips that line ending.
 The runtime reads a command note only after a certain command receipt,
 from the current attempt's regular file. A bad note
 holds the run. Do not publish credentials, logs or environment dumps as notes.
+
+## Gate a workflow with a command
+
+A command step can decide whether the rest of the workflow is needed. Give it
+`options.skip_exit`, an exit code from 1 to 255, and exit with that code when
+there is nothing to do:
+
+```json
+{
+  "name": "Ship the next queued PR",
+  "definition": {
+    "version": 1,
+    "steps": [
+      {
+        "key": "gate",
+        "kind": "command",
+        "command": "./queue-gate.sh",
+        "options": {"skip_exit": 78}
+      },
+      {
+        "key": "ship",
+        "kind": "prompt",
+        "after": ["gate"],
+        "prompt": "Take the next item from the queue. Gate said: {{previous}}"
+      }
+    ]
+  }
+}
+```
+
+Exit 0 opens the gate and the workflow continues. Exit 78 closes it: the step
+is `skipped` with reason `gate_closed`, its dependents are skipped, no agent
+starts and the run settles as succeeded. Any other nonzero exit is an ordinary
+failure and uses `retries`. A closed gate never retries. The gate's note is
+saved with its step either way.
+
+A closed gate behaves like a command-only success. On an `existing` issue it
+posts nothing; the run history and Kata's run observation record it. A
+`per-run` issue closes with the gate command as evidence. Point a frequent
+gate at an existing issue so a closed gate creates no issue at all.
+
+The gate closes only after its process group is proven gone, so dependents
+never start beside a straggler. `skip_exit` is not allowed inside a
+maker/checker loop span; put the gate before the maker.
 
 ## Choose retries and agents
 

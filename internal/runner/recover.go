@@ -224,6 +224,8 @@ func (m *Manager) Recover(ctx context.Context) error {
 						s.Reason = "command_uncertain"
 					case receipt.ExitCode == 0:
 						s.Status = "succeeded"
+					case gateExit(r, s.Key, receipt.ExitCode) && GroupGone(receipt.PGID):
+						s.Status, s.Reason = "skipped", GateClosed
 					case !GroupGone(receipt.PGID):
 						s.Status = "unknown"
 						s.Reason = "command_group_unproven"

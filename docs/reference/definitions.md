@@ -1,7 +1,7 @@
 ---
 title: Job and workflow fields
 description: How the runtime interprets Kata definitions, parent bindings and unsupported fields.
-last_edited: 2026-10-19
+last_edited: 2026-11-02
 ---
 
 # Job and workflow fields
@@ -141,11 +141,16 @@ in topological order, with definition order breaking ties.
 | `options.agent` | At workflow scope or on a command step, must equal the run's selected profile. |
 | `steps[].options.agent` | Prompt steps only: run this step on another configured, project-allowed profile, with a fresh agent and tab per attempt. Unmapped names are unsupported with `unmapped profile: steps.<key>.options.agent <name>`. The run's prompt cap is the stricter of the job profile's and each step profile's cap. |
 | `options.on_failure: "park"` | Workflow scope only: hold exhausted step failures; omission settles as failed. See [Resume rules](holds.md#resume-rules). |
+| `steps[].options.skip_exit` | Command steps only: an exit code from `1` to `255`. A certain exit with that code, after the process group is gone, marks the step `skipped` with reason `gate_closed`, skips its dependents and never retries. Other nonzero exits fail as usual. Not allowed inside a loop span. |
 | `steps[].options.agent_mode: "fresh"` | Prompt steps only: new agent and tab per attempt. Omission uses the shared run agent. |
 | `steps[].options.on_fail` | One maker/checker backward edge; see the loop rules below. |
 
 `on_failure: "park"` holds the run for `resume`; this differs from Kata's
 `kata schedule` sense of parking an issue until a planning date.
+
+A run whose only skipped work follows a closed gate settles as succeeded;
+the skipped prompts count as never run, so the run reports like a
+command-only success.
 
 By default, a failed step outside a loop skips its dependents; independent
 steps may still run. With `on_failure: "park"`, the run holds at that step
