@@ -8,6 +8,8 @@ last_edited: 2026-11-02
 
 ## Unreleased
 
+- Keep command outcomes unknown when a receipt omits its exit code or records
+  a value outside 0–255; malformed receipts cannot authorize a retry.
 - Run and recover execute jobs through hc with durable admission, launch and
   settlement. Queue manual runs, read output and release held work through the
   headless CLI. Doctor checks Kata access from the core's execution environment.

@@ -182,10 +182,14 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 			return held(st, key, idx, lost)
 		}
 		b, e := prompt.ReadRegular(filepath.Join(dir, "receipt.json"), 64*1024)
-		var receipt journal.Receipt
-		if e != nil || json.Unmarshal(b, &receipt) != nil || receipt.StartedAt.Before(a.LaunchedAt) || receipt.StartedAt.IsZero() || receipt.EndedAt.Before(receipt.StartedAt) {
+		var wire struct {
+			ExitCode           *int
+			StartedAt, EndedAt time.Time
+		}
+		if e != nil || json.Unmarshal(b, &wire) != nil || wire.ExitCode == nil || *wire.ExitCode < 0 || *wire.ExitCode > 255 || wire.StartedAt.Before(a.LaunchedAt) || wire.StartedAt.IsZero() || wire.EndedAt.Before(wire.StartedAt) {
 			return held(st, key, idx, lost)
 		}
+		receipt := journal.Receipt{ExitCode: *wire.ExitCode, StartedAt: wire.StartedAt, EndedAt: wire.EndedAt}
 		if !r.ExpiresAt.IsZero() && receipt.EndedAt.After(r.ExpiresAt) {
 			return held(st, key, idx, "timeout")
 		}

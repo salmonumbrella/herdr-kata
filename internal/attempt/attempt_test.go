@@ -2,7 +2,9 @@ package attempt
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -440,6 +442,51 @@ func TestCommandNoReceiptUnknown(t *testing.T) {
 	if h, ok := out.(Held); !ok || h.Reason != "command_outcome_unknown" {
 		t.Fatal(out)
 	}
+}
+
+// A receipt is evidence only when its ordinary child exit code is present.
+func TestReceiptRequiresExitCode(t *testing.T) {
+	for _, raw := range []string{"", "null"} {
+		st, f, r := command(t, 0)
+		body := map[string]any{"StartedAt": now, "EndedAt": now.Add(time.Second)}
+		if raw != "" {
+			body["ExitCode"] = nil
+		}
+		b, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(st.Layout.Attempt(r.Key, "main", 1), "receipt.json"), b, 0600); err != nil {
+			t.Fatal(err)
+		}
+		out := advance(t, st, f, r, now.Add(time.Second))
+		if h, ok := out.(Held); !ok || h.Reason != "command_outcome_unknown" {
+			t.Fatalf("missing/null exit code established certainty: %v", out)
+		}
+	}
+}
+
+func TestReceiptExitCodeDomain(t *testing.T) {
+	hegel.Test(t, func(ht *hegel.T) {
+		code := hegel.Draw(ht, hegel.Integers(math.MinInt, math.MaxInt))
+		st, f, r := command(t, code)
+		out := advance(t, st, f, r, now.Add(time.Second))
+		if code < 0 || code > 255 {
+			if h, ok := out.(Held); !ok || h.Reason != "command_outcome_unknown" {
+				ht.Fatalf("invalid exit %d established certainty: %v", code, out)
+			}
+			return
+		}
+		want := "failed"
+		if code == 0 {
+			want = "succeeded"
+		} else if code == 7 {
+			want = "skipped"
+		}
+		if d, ok := out.(Done); !ok || d.Status != want {
+			ht.Fatalf("ordinary exit %d got %v want %s", code, out, want)
+		}
+	})
 }
 func TestCommandNotExitedReasonUnknown(t *testing.T) {
 	st, f, r := command(t, 0)
