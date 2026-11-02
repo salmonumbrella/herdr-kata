@@ -8,7 +8,8 @@ last_edited: 2026-10-25
 
 All notable changes to herdr-kata, grouped by release.
 
-## Unreleased
+## 0.1.1
+<small>2026-11-02</small>
 
 - Cron run reports link known Codex and Claude sessions across prompt steps,
   retries, holds, handoffs and resumed runs. Reports retain up to 64 unique
