@@ -96,7 +96,14 @@ func accept(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	return cleanup(ctx, h, st, key, idx, a)
 }
 func expire(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, a journal.Attempt, kind string, now time.Time) (Outcome, error) {
+	lost := "agent_lost"
+	if kind == "command" {
+		lost = "command_outcome_unknown"
+	}
 	term, err := guarded(ctx, h, a)
+	if errors.Is(err, hc.ErrNotFound) {
+		return held(st, key, idx, lost)
+	}
 	if errors.Is(err, ErrOccupantChanged) {
 		return held(st, key, idx, "occupant_changed")
 	}
@@ -119,7 +126,11 @@ func expire(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		return Pending{}, nil
 	}
 	// Revalidate again immediately before the destructive operation.
-	if err = Guard(ctx, h, a); errors.Is(err, ErrOccupantChanged) {
+	err = Guard(ctx, h, a)
+	if errors.Is(err, hc.ErrNotFound) {
+		return held(st, key, idx, lost)
+	}
+	if errors.Is(err, ErrOccupantChanged) {
 		return held(st, key, idx, "occupant_changed")
 	}
 	if err != nil {

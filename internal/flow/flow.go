@@ -19,11 +19,13 @@ type Start struct {
 type Wait struct{}
 type Finish struct{ Outcome string }
 type Hold struct{}
+type Invalid struct{}
 
-func (Start) decision()  {}
-func (Wait) decision()   {}
-func (Finish) decision() {}
-func (Hold) decision()   {}
+func (Start) decision()   {}
+func (Wait) decision()    {}
+func (Finish) decision()  {}
+func (Hold) decision()    {}
+func (Invalid) decision() {}
 
 func Next(p defs.Plan, states map[string]StepState) Decision {
 	states = maps.Clone(states)
@@ -102,7 +104,7 @@ func Next(p defs.Plan, states map[string]StepState) Decision {
 		}
 	}
 	if unresolved {
-		return Hold{}
+		return Invalid{}
 	}
 	if failed {
 		return Finish{"failed"}

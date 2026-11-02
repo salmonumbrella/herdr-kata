@@ -51,8 +51,11 @@ func freeze(r journal.Run, status, message string, expected int, ended *time.Tim
 }
 func refused(st *journal.Store, key string, err error, terminal bool) error {
 	save := st.Update(key, func(r *journal.Run) error {
+		observedHold := r.Phase == "held" && r.ReportDone
 		r.Phase = "held"
-		r.Hold = "report_refused"
+		if !observedHold {
+			r.Hold = "report_refused"
+		}
 		r.Detail = bounded(err.Error())
 		r.ReportRefused = r.ReportRefused || terminal
 		return nil

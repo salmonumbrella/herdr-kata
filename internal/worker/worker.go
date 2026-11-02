@@ -324,7 +324,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					continue
 				}
 				o := sched.DateOccurrence(*trig.IssueUID, date)
-				if o == nil || o.At.After(now) || !ready[*trig.IssueUID] {
+				if o == nil || o.At.After(now) || o.At.Before(job.CreatedAt) || !ready[*trig.IssueUID] {
 					continue
 				}
 				key := journal.RunKey(w.Config.Executor, project.Name, job.UID, o.Key)
@@ -497,6 +497,8 @@ func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now ti
 		return err
 	}
 	switch next := flow.Next(r.Plan, states(r)).(type) {
+	case flow.Invalid:
+		return w.held(ctx, k, r, "invalid_workflow", now)
 	case flow.Hold:
 		return w.held(ctx, k, r, "launch_ambiguous", now)
 	case flow.Wait:
@@ -524,6 +526,9 @@ func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now ti
 		}
 		spec, e := w.spec(r, step, next.N)
 		if e != nil {
+			if !errors.Is(e, prompt.ErrInvalidPrompt) {
+				return e
+			}
 			r.Detail = e.Error()
 			_ = w.Store.Update(r.Key, func(saved *journal.Run) error { saved.Detail = r.Detail; return nil })
 			return w.held(ctx, k, r, "invalid_prompt", now)

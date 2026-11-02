@@ -264,6 +264,22 @@ func TestHoldReporting(t *testing.T) {
 	}
 }
 
+func TestNotifyRefusalKeepsObservedHoldReason(t *testing.T) {
+	ctx, st, k, r := setup(t)
+	if err := Admit(ctx, k, st, r.Key); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Update(r.Key, func(r *journal.Run) error { r.Phase = "held"; r.Hold = "agent_lost"; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	k.notifyErr = &kata.Error{Code: 3, Message: "notification refused"}
+	_ = Hold(ctx, k, st, r.Key)
+	got, err := st.Load(r.Key)
+	if err != nil || got.Hold != "agent_lost" || !got.ReportDone {
+		t.Fatalf("observed hold overwritten: %s %v", got.Hold, err)
+	}
+}
+
 func TestReasonAloneOnFirstLine(t *testing.T) {
 	for _, phase := range []string{"held", "settled"} {
 		t.Run(phase, func(t *testing.T) {

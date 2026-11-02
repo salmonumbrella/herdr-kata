@@ -2,6 +2,7 @@
 package prompt
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -11,6 +12,7 @@ import (
 )
 
 var placeholders = regexp.MustCompile(`\{\{[^{}]*\}\}`)
+var ErrInvalidPrompt = errors.New("invalid_prompt")
 var shellWord = regexp.MustCompile(`^[A-Za-z0-9_./:@=-]+$`)
 
 func Quote(s string) string {
@@ -22,7 +24,7 @@ func Quote(s string) string {
 func substitute(s, input, previous string) (string, error) {
 	for _, p := range placeholders.FindAllString(s, -1) {
 		if p != "{{input}}" && p != "{{previous}}" {
-			return "", fmt.Errorf("invalid_prompt: unknown placeholder %s", p)
+			return "", fmt.Errorf("%w: unknown placeholder %s", ErrInvalidPrompt, p)
 		}
 	}
 	return strings.NewReplacer("{{input}}", input, "{{previous}}", previous).Replace(s), nil
@@ -38,7 +40,7 @@ func Build(r journal.Run, s defs.Step, n int, issueRef, issueTitle, previous, re
 	}
 	body := fmt.Sprintf("Issue: %s — %s\nJob: %s\nRun: %s\nOccurrence: %s\nStep: %s\nAttempt: %d\nWorkflow: %s\nAbout: %s\nInput: %s\n\nTask:\n%s\n\nWrite your result with:\n%s report --result %s --status <status> --summary <text> [--note <one-line note>]\nStatus is succeeded, failed or needs-human. A note is one line, at most 280 bytes.\n\nClose the issue yourself with `%s close %s --done --message <completed work> --evidence <evidence>` when finished; if not finished, do not close it.\n", issueRef, issueTitle, r.Plan.Name, r.RunUID, r.Occurrence, s.Key, n, r.Plan.WorkflowName, about, r.Plan.Input, task, Quote(reportBin), Quote(resultPath), kataPrefix, Quote(issueRef))
 	if len(body) > 256*1024 {
-		return "", fmt.Errorf("invalid_prompt: exceeds 256 KiB")
+		return "", fmt.Errorf("%w: exceeds 256 KiB", ErrInvalidPrompt)
 	}
 	return body, nil
 }

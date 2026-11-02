@@ -383,6 +383,24 @@ func TestExpiryInterruptThenKill(t *testing.T) {
 		t.Fatal(out, f.calls)
 	}
 }
+
+func TestMissingTerminalDuringExpiryIsAgentLost(t *testing.T) {
+	st, f, r := setup(t, "prompt")
+	term := f.terms["t1"]
+	calls := 0
+	f.onGet = func(string) (hc.Terminal, error) {
+		calls++
+		if calls == 1 {
+			return term, nil
+		}
+		return hc.Terminal{}, hc.ErrNotFound
+	}
+	out, err := Settle(context.Background(), f, st, r.Key, 0, r.ExpiresAt)
+	if h, ok := out.(Held); err != nil || !ok || h.Reason != "agent_lost" {
+		t.Fatalf("lost at expiry: %v %v", out, err)
+	}
+}
+
 func TestAgentLost(t *testing.T) {
 	for _, missing := range []bool{false, true} {
 		st, f, r := setup(t, "prompt")

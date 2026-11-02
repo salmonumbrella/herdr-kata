@@ -298,6 +298,28 @@ func TestProjectOutageIsolated(t *testing.T) {
 		t.Fatal(err, h.runs)
 	}
 }
+
+func TestBadFilesDoNotBlockAnotherProject(t *testing.T) {
+	w, h, k := fixture(t)
+	tick(t, w, at)
+	bad := journal.ManualKey("executor", "example-project", "broken")
+	if err := state.WriteFile(filepath.Join(w.Store.Layout.Run(bad), "run.json"), []byte("{")); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.WriteFile(filepath.Join(w.Store.Layout.Requests(), "broken.json"), []byte("{")); err != nil {
+		t.Fatal(err)
+	}
+	otherJob := k.jobs[0]
+	otherJob.UID = "01J00000000000000000000030"
+	other := &fakeKata{jobs: []kata.CronJob{otherJob}, ready: map[string]bool{}}
+	w.Config.Projects = append(w.Config.Projects, config.Project{Name: "other-project", Actor: "worker", MaxActiveRuns: 1})
+	w.Clients["other-project"] = other
+	request(t, w, journal.Request{ID: "healthy", Kind: "run", Project: "other-project", JobUID: otherJob.UID})
+	tick(t, w, at.Add(time.Second))
+	if h.runs != 1 || active(t, w).Project != "other-project" {
+		t.Fatal("bad files blocked another project")
+	}
+}
 func TestCrashAfterJournalBeforeCheckpoint(t *testing.T) {
 	w, h, k := fixture(t)
 	job := k.jobs[0]
