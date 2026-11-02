@@ -2,6 +2,8 @@ github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/ebitengine/purego v0.12.0-alpha.1.0.20261015130536-d456b1bb95e8 h1:l5iZODQBpef/JRTKyr32A+0uzYmtNhglAg42fFgK3+0=
 github.com/ebitengine/purego v0.12.0-alpha.1.0.20261015130536-d456b1bb95e8/go.mod h1:DCHPP08djqhNSoTfImcnHYQRZmd0qhakvrozqaEYhGQ=
+github.com/netresearch/go-cron v0.16.1 h1:X34Uohtmz99eYlDdZRpTyatJZRmhMD9GSVzYZ96z3PE=
+github.com/netresearch/go-cron v0.16.1/go.mod h1:MGZe9ZJsjwqb+ahm//Xjzz4C8RkD1RwGTx9km7TTOOE=
 golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=
 golang.org/x/sys v0.48.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
 hegel.dev/go/hegel v0.9.28 h1:7dSrScsZBQWv1KwvymZvGVbterTfQkNGQzinNgcE5NY=
