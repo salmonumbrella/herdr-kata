@@ -303,12 +303,14 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			errs = append(errs, e)
 			continue
 		}
-		ready, e := k.Ready()
-		if e != nil {
-			allRead = false
-			pendingReason(project.Name, "", "project readiness is unavailable")
-			errs = append(errs, e)
-			continue
+		var ready map[string]bool
+		if needsReadiness(jobs) {
+			if ready, e = k.Ready(); e != nil {
+				allRead = false
+				pendingReason(project.Name, "", "project readiness is unavailable")
+				errs = append(errs, e)
+				continue
+			}
 		}
 		wfs := make(map[string]kata.CronWorkflow)
 		for _, wf := range workflows {
@@ -643,4 +645,16 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 		argv = append(argv, prompt.Line(path))
 	}
 	return hc.RunSpec{Cwd: r.Plan.CheckoutPath, Labels: map[string]string{"kata.executor": r.Executor}, Prefix: attempt.LaunchEnv(w.Config.Limits.UnsetEnv, extra), Argv: argv}, nil
+}
+
+// needsReadiness reports whether any live job depends on an existing issue,
+// so ticks skip the project-wide ready list when no job uses it.
+func needsReadiness(jobs []kata.CronJob) bool {
+	for _, job := range jobs {
+		d := job.Definition
+		if job.DeletedAt == nil && d.Enabled && (d.Trigger.Kind == "issue-scheduled" || d.Issue != nil && d.Issue.Kind == "existing") {
+			return true
+		}
+	}
+	return false
 }
