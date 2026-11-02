@@ -115,10 +115,3 @@ A launchd user agent can run the same command at login:
   <key>EnvironmentVariables</key><dict><key>PATH</key><string>/usr/local/bin:/usr/bin:/bin</string></dict>
 </dict></plist>
 ```
-
-## Limits
-
-This is a clean-slate v2; old plugin configuration and state are incompatible.
-There is no plugin manifest or TUI. No loops, secrets, resume, remote machines,
-session links or boot-unit generator. Notify jobs belong to native Kata.
-Unsupported definitions are listed by `doctor` with their reason.
