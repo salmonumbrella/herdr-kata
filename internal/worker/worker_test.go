@@ -8,9 +8,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/salmonumbrella/herdr-kata/internal/attempt"
 	"github.com/salmonumbrella/herdr-kata/internal/config"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
@@ -168,6 +170,45 @@ func TestPromptJobEndToEnd(t *testing.T) {
 		t.Fatal(got, err, h.runs, len(k.bodies))
 	}
 }
+
+func TestAgentSummaryReachesKataAfterCleanup(t *testing.T) {
+	for _, status := range []string{"succeeded", "failed", "needs-human"} {
+		t.Run(status, func(t *testing.T) {
+			w, h, k := fixture(t)
+			request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+			tick(t, w, at)
+			r := active(t, w)
+			a := r.Attempts[0]
+			text := "Scratch dependency inspection completed"
+			path := filepath.Join(w.Store.Layout.Attempt(r.Key, a.Step, a.N), "result.json")
+			if err := prompt.WriteResult(path, prompt.Result{RunUID: r.RunUID, Step: a.Step, Attempt: a.N, Status: status, Summary: text}); err != nil {
+				t.Fatal(err)
+			}
+			term := h.terms[a.Address]
+			term.State = "finished"
+			term.Reason = "exited"
+			h.terms[a.Address] = term
+			// Settlement is durable before the worker restarts and publishes.
+			if _, err := attempt.Settle(context.Background(), h, w.Store, r.Key, 0, at.Add(time.Second)); err != nil {
+				t.Fatal(err)
+			}
+			if err := prompt.WriteResult(path, prompt.Result{RunUID: r.RunUID, Step: a.Step, Attempt: a.N, Status: status, Summary: "Changed after settlement"}); err != nil {
+				t.Fatal(err)
+			}
+			w = New(w.Config, w.Store, h, w.Clients, w.Bin)
+			for n := 1; n <= 3; n++ {
+				tick(t, w, at.Add(time.Duration(n)*time.Second))
+			}
+			var obs kata.ObserveCronRunBody
+			if err := json.Unmarshal(k.bodies[len(k.bodies)-1], &obs); err != nil {
+				t.Fatal(err)
+			}
+			if obs.Summary.Message == nil || !strings.Contains(*obs.Summary.Message, text) {
+				t.Fatalf("agent summary discarded: %+v", obs.Summary)
+			}
+		})
+	}
+}
 func workflow(k *fakeKata) {
 	k.jobs[0].Definition.Action = kata.Action{Kind: "execute", WorkflowUID: new("01J00000000000000000000012")}
 	k.workflows = []kata.CronWorkflow{{UID: "01J00000000000000000000012", DefinitionEventUID: "01J00000000000000000000013", Name: "example-workflow", Definition: kata.WorkflowDefinition{Version: 1, Steps: []kata.WorkflowStep{{Key: "gate", Kind: "command", Command: new("exit 7"), Options: map[string]any{"skip_exit": json.Number("7")}}, {Key: "work", Kind: "prompt", Prompt: new("Task"), After: []string{"gate"}}}}}}
@@ -224,7 +265,7 @@ func TestCapacityLimits(t *testing.T) {
 	job.Definition.CheckoutKey = new("other-project")
 	other := &fakeKata{jobs: []kata.CronJob{job}, ready: map[string]bool{}}
 	w.Clients["other-project"] = other
-	for n := 0; n < 2; n++ {
+	for n := range 2 {
 		request(t, w, journal.Request{ID: fmt.Sprintf("a%d", n), Kind: "run", Project: "example-project", JobUID: k.jobs[0].UID})
 		request(t, w, journal.Request{ID: fmt.Sprintf("b%d", n), Kind: "run", Project: "other-project", JobUID: job.UID})
 	}

@@ -32,11 +32,9 @@ func (e *Error) Error() string { return fmt.Sprintf("kata exit %d: %s: %v", e.Co
 func (e *Error) Unwrap() error { return e.Err }
 func Classify(err error) Class {
 	code := -1
-	var e *Error
-	var exit *exec.ExitError
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*Error](err); ok {
 		code = e.Code
-	} else if errors.As(err, &exit) {
+	} else if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 		code = exit.ExitCode()
 	}
 	switch code {
@@ -100,8 +98,7 @@ func (c *cli) call(input []byte, out any, args ...string) error {
 	b, err := cmd.Output()
 	if err != nil {
 		code := -1
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
 			code = exit.ExitCode()
 		}
 		return &Error{Code: code, Message: strings.TrimSpace(stderr.String()), Err: err}

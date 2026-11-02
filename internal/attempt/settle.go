@@ -79,9 +79,10 @@ func cleanup(ctx context.Context, h hc.HC, st *journal.Store, key string, idx in
 	}
 	return Pending{}, err
 }
-func accept(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, a journal.Attempt, status, note, stage string) (Outcome, error) {
+func accept(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, a journal.Attempt, status, note, summary, stage string) (Outcome, error) {
 	a.SettlementStatus = status
 	a.SettlementNote = note
+	a.Summary = summary
 	if status == "needs-human" {
 		a.Status = status
 		a.Note = note
@@ -211,7 +212,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 			note = "gate_closed"
 		}
 		a.Receipt = &receipt
-		return accept(ctx, h, st, key, idx, a, status, note, "remove")
+		return accept(ctx, h, st, key, idx, a, status, note, "", "remove")
 	}
 	resultPath := filepath.Join(dir, "result.json")
 	resultBytes, resultErr := prompt.ReadRegular(resultPath, 64*1024)
@@ -223,7 +224,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		if term.Reason != "exited" || resultErr != nil {
 			return held(st, key, idx, lost)
 		}
-		return accept(ctx, h, st, key, idx, a, result.Status, result.Note, "remove")
+		return accept(ctx, h, st, key, idx, a, result.Status, result.Note, result.Summary, "remove")
 	}
 	if term.Status != "blocked" && a.Blocked {
 		a.Blocked = false
@@ -262,7 +263,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 			return Pending{}, saveAttempt(st, key, idx, a)
 		}
 		if now.Sub(*a.ResultStableSince) >= 30*time.Second {
-			return accept(ctx, h, st, key, idx, a, result.Status, result.Note, "interrupt")
+			return accept(ctx, h, st, key, idx, a, result.Status, result.Note, result.Summary, "interrupt")
 		}
 		return Pending{}, nil
 	}
@@ -284,7 +285,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	}
 	if term.Turn >= 1 && (term.Status == "idle" || term.Status == "done") {
 		if resultErr == nil {
-			return accept(ctx, h, st, key, idx, a, result.Status, result.Note, "kill")
+			return accept(ctx, h, st, key, idx, a, result.Status, result.Note, result.Summary, "kill")
 		}
 		if a.TurnEndedAt == nil {
 			a.TurnEndedAt = new(now)

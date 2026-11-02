@@ -29,7 +29,7 @@ Existing-policy issues receive no adapter writes, including notifications.
 | Reason | Meaning |
 | --- | --- |
 | `launch_ambiguous` | Saved intent cannot identify exactly one matching launch |
-| `unproven_absence` | The core changed and absence cannot prove no launch happened |
+| `launch_unproven` | The core changed and absence cannot prove no launch happened |
 | `occupant_changed` | Terminal identity no longer matches the saved execution |
 | `agent_lost` | The agent disappeared without a provable outcome |
 | `no_result` | A completed turn or exit has no valid result after its grace period |
@@ -66,6 +66,10 @@ Keep the state directory with its installation identity, checkpoints, run
 journals and request files. Journals are durable before acknowledgement;
 admission and final observation bodies are frozen before sending. Conflicts
 are read back and compared. Uncertain notifications are never retried.
+Accepted agent summaries are saved before terminal cleanup and included in
+the final observation. Its message is bounded to 4,096 UTF-8 bytes. Run
+journals publish as complete directories; interrupted unpublished staging
+directories do not participate in recovery or deduplication.
 Do not remove state to recover a run: doing so discards its duplicate-launch
 barrier. v1 state cannot be migrated by copying it into v2.
 
@@ -83,3 +87,7 @@ session or real project. The gated `make test-live` automates these checks
 on checksum-verified hc 0.1.16 and 0.1.15. Add
 `HERDR_KATA_LIVE=1 HERDR_KATA_LIVE_CODEX=1` to include the real native Codex
 case; only its login file is copied into the disposable native home.
+`HERDR_KATA_LIVE_CODEX_SANDBOX` selects the native sandbox mode and defaults
+to `workspace-write`. Use `danger-full-access` only where the operator has
+chosen the surrounding container as the security boundary. The test does
+not add host capabilities or disable the container's seccomp policy.

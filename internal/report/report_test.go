@@ -312,6 +312,7 @@ func TestFinalObservationStableSummary(t *testing.T) {
 			r.Phase = "settled"
 			r.Outcome = "failed"
 			r.Detail = note
+			r.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "failed", Summary: note}}
 			return nil
 		}); err != nil {
 			ht.Fatal(err)
@@ -319,6 +320,10 @@ func TestFinalObservationStableSummary(t *testing.T) {
 		k.observeErr = &kata.Error{Code: 1}
 		_ = Final(ctx, k, st, r.Key)
 		first := bytes.Clone(k.bodies[len(k.bodies)-1])
+		// Later file or journal changes cannot rewrite accepted report evidence.
+		if err := st.Update(r.Key, func(r *journal.Run) error { r.Attempts[0].Summary = "Changed after publication"; return nil }); err != nil {
+			ht.Fatal(err)
+		}
 		_ = Final(ctx, k, st, r.Key)
 		second := k.bodies[len(k.bodies)-1]
 		if !bytes.Equal(first, second) || body(t, second).Status != "failed" {

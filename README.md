@@ -5,14 +5,13 @@ schedules, issues and run evidence. Use Kata's Jobs and Runs tabs to inspect
 work. This adapter launches fresh agents and command steps, keeps a local
 recovery journal, and records observations in Kata.
 
-Status: v2 worker and operator CLI implemented; 3,859 lines of non-test Go.
-Live checks are in progress; the real Codex case requires a working native
-execution sandbox.
+Status: v2 headless worker and operator CLI; 3,872 lines of non-test Go.
+The live suite covers hc 0.1.15 and 0.1.16, including a real Codex prompt.
 
 ## Requirements
 
 - Go 1.27 to build: `make build` writes `bin/herdr-kata`.
-- hc 0.1.15 or newer (the live suite confirms the final floor).
+- hc 0.1.15 or newer.
 - Kata 0.20.0 or newer and an authenticated daemon catalog entry.
 - Linux or macOS, an executable agent profile and a local checkout.
 

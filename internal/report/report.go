@@ -224,13 +224,18 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 		if r.Detail != "" {
 			message += "; " + bounded(r.Detail)
 		}
+		for _, a := range r.Attempts {
+			if a.Summary != "" {
+				message += "; " + a.Step + ": " + bounded(a.Summary)
+			}
+		}
 		if len(r.Attempts) > 0 && r.Attempts[len(r.Attempts)-1].Note != "" {
 			message += "; " + r.Attempts[len(r.Attempts)-1].Note
 		}
 		if r.EndedAt == nil {
 			r.EndedAt = new(clock(ctx))
 		}
-		r.ReportBody, err = freeze(r, status, message, r.ObsRev, r.EndedAt)
+		r.ReportBody, err = freeze(r, status, bounded(message), r.ObsRev, r.EndedAt)
 		if err != nil {
 			return err
 		}

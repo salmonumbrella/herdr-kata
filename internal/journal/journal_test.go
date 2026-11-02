@@ -70,6 +70,47 @@ func TestUpdateAtomic(t *testing.T) {
 		t.Fatalf("update: %+v %v", got, e)
 	}
 }
+
+func TestFailedCreateDoesNotPublishPartialJournal(t *testing.T) {
+	st := New(state.Layout{Root: t.TempDir()})
+	first := sample()
+	if err := st.Create(first); err != nil {
+		t.Fatal(err)
+	}
+	bad := sample()
+	bad.Key = ManualKey("executor", "example-project", "unpublished")
+	bad.StartedAt = new(time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err := st.Create(bad); err == nil {
+		t.Fatal("unencodable timestamp accepted")
+	}
+	runs, err := New(st.Layout).All()
+	if err != nil || len(runs) != 1 || runs[0].Key != first.Key {
+		t.Fatalf("failed publication damaged existing runs: %v %v", runs, err)
+	}
+	if st.Exists(bad.Key) {
+		t.Fatal("incomplete journal published")
+	}
+	bad.StartedAt = first.StartedAt
+	if err := st.Create(bad); err != nil {
+		t.Fatal("unpublished occurrence cannot be prepared:", err)
+	}
+}
+
+func TestUnpublishedPreparationDoesNotBlockRecovery(t *testing.T) {
+	st := New(state.Layout{Root: t.TempDir()})
+	r := sample()
+	if err := st.Create(r); err != nil {
+		t.Fatal(err)
+	}
+	// Crash before final directory publication, even before run.json exists.
+	if err := os.Mkdir(filepath.Join(st.Layout.Root, "runs", ".prepare-interrupted"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	runs, err := New(st.Layout).Active()
+	if err != nil || len(runs) != 1 || runs[0].RunUID != r.RunUID {
+		t.Fatalf("unpublished preparation blocks recovery: %v %v", runs, err)
+	}
+}
 func TestSecondLockFails(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "serve.lock")
 	release, err := Lock(path)

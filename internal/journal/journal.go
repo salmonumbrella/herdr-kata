@@ -37,6 +37,7 @@ type Attempt struct {
 	PID                                                     uint32
 	LaunchedAt                                              time.Time
 	Status, Note, Hold                                      string
+	Summary                                                 string
 	Receipt                                                 *Receipt
 	TurnEndedAt, IdleSince, ResultStableSince               *time.Time
 }
@@ -91,16 +92,25 @@ func (s *Store) Create(r Run) error {
 	if err := state.EnsureDir(parent); err != nil {
 		return err
 	}
-	if err := os.Mkdir(dir, 0700); err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return ErrExists
-		}
+	if _, err := os.Lstat(dir); err == nil {
+		return ErrExists
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if err := state.SyncDir(parent); err != nil {
+	staging, err := os.MkdirTemp(parent, ".prepare-")
+	if err != nil {
 		return err
 	}
-	return state.WriteJSON(filepath.Join(dir, "run.json"), r)
+	defer func() { _ = os.RemoveAll(staging) }()
+	if err := state.WriteJSON(filepath.Join(staging, "run.json"), r); err != nil {
+		return err
+	}
+	// The lifetime worker lock and Store mutex serialize publication. A crash
+	// exposes either a complete final journal or an ignored staging directory.
+	if err := os.Rename(staging, dir); err != nil {
+		return err
+	}
+	return state.SyncDir(parent)
 }
 func (s *Store) Exists(key string) bool {
 	if !validKey(key) {
@@ -167,7 +177,7 @@ func (s *Store) All() ([]Run, error) {
 	}
 	var out []Run
 	for _, e := range entries {
-		if !e.IsDir() {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".prepare-") {
 			continue
 		}
 		r, err := s.Load(e.Name())

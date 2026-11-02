@@ -11,7 +11,7 @@ lint: .cache/golangci-lint
 	.cache/golangci-lint run
 check: lint test
 test-live:
-	go test -tags live -timeout 30m ./internal/live/...
+	go test -v -tags live -timeout 30m ./internal/live/...
 docs-check:
 	git diff --check
 install-hooks:

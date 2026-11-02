@@ -145,6 +145,28 @@ type fixture struct {
 	store                                                      *journal.Store
 }
 
+func TestCodexSandboxSelection(t *testing.T) {
+	for _, mode := range []string{"", "workspace-write", "danger-full-access"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Setenv("HERDR_KATA_LIVE_CODEX_SANDBOX", mode)
+			want := mode
+			if want == "" {
+				want = "workspace-write"
+			}
+			if got := codexSandbox(); got != want {
+				t.Fatalf("sandbox %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func codexSandbox() string {
+	if mode := os.Getenv("HERDR_KATA_LIVE_CODEX_SANDBOX"); mode != "" {
+		return mode
+	}
+	return "workspace-write"
+}
+
 func newFixture(t *testing.T, bin, coreBin, auth string) *fixture {
 	t.Helper()
 	root, err := os.MkdirTemp("", "hk2-")
@@ -451,7 +473,7 @@ func TestLive(t *testing.T) {
 					t.Fatal(err)
 				}
 				f := newFixture(t, bin, coreBin, auth)
-				f.configure([]string{codex, "--no-daemon", "--model", "gpt-6.1-sol", "--sandbox", "workspace-write", "exec", "--skip-git-repo-check", "--ignore-user-config", "--add-dir", f.root})
+				f.configure([]string{codex, "--no-daemon", "--model", "gpt-6.1-sol", "--sandbox", codexSandbox(), "exec", "--skip-git-repo-check", "--ignore-user-config", "--add-dir", f.root})
 				uid := "01J00000000000000000000010"
 				f.createJob(uid, map[string]any{"kind": "execute", "prompt": "This is an isolated live test. Write completed.txt containing exactly 'complete' in the current directory and read it back. Then use the exact report command below with status succeeded and summary 'Scratch file checked'. Close the scratch issue using the exact Kata prefix below and evidence reviewed-paths:completed.txt. Do only this task. Do not inspect any other directory or account. If a permission request is denied, report needs-human and stop."})
 				f.cli("up")

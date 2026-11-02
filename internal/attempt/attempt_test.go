@@ -109,7 +109,7 @@ func saveResult(t *testing.T, st *journal.Store, r journal.Run, status string) {
 }
 func advance(t *testing.T, st *journal.Store, f *fakeHC, r journal.Run, at time.Time) Outcome {
 	t.Helper()
-	for n := 0; n < 5; n++ {
+	for range 5 {
 		out, err := Settle(clock.WithNow(context.Background(), now), f, st, r.Key, 0, at)
 		if err != nil {
 			t.Fatal(err)
