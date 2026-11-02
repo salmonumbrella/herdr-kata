@@ -16,14 +16,14 @@ Supported triggers are `cron`, `interval`, `once`, `manual` and
 semantics. Intervals are anchored to the job's creation time. Initial
 installation does not backfill earlier occurrences. Catchup scans at most
 7 days and retains at most 100 occurrences; `all`, `latest` and `skip` with
-`grace_seconds` control selection. Changed definition events supersede
-unprepared occurrences. Prepared runs retain their frozen definitions.
+`grace_seconds` control selection. Changed definition events discard the pending
+queue computed from the old definition. Prepared runs retain their frozen definitions.
 For `skip`, an occurrence must be later than the later of the preceding
 checkpoint and worker process start, minus grace. It must also be at most
 grace plus 2 minutes old. This keeps on-time work through a brief Kata read
 outage while bounding recovery after a longer outage or restart.
-Editing or re-enabling a job resets its checkpoint to now, so missed
-occurrences are not caught up.
+Edits and re-enables preserve committed progress and the original interval
+anchor, then follow the job's catch-up policy, as Kata's native scheduler does.
 
 An `issue-scheduled` job uses an existing issue's current raw schedule value
 as its occurrence identity and requires the issue in `kata ready --limit 0`.

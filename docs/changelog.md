@@ -10,6 +10,9 @@ last_edited: 2026-11-02
 
 - Support job-level `options.run_parent`: each per-run issue is created as a
   child of that issue UID. Steps also receive `KATA_PROJECT`.
+- Preserve committed progress and the original interval anchor across job edits
+  and re-enables. Recompute unprepared work under the new definition's catch-up
+  policy instead of resetting progress to the current time.
 - Reject requests backed by unreadable run journals and release requests whose
   target cannot be found or read. Transient release lookup failures still wait
   for a later tick.
