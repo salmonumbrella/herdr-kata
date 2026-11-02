@@ -1,12 +1,30 @@
-# herdr-kata v2
+# herdr-kata
 
-Run Kata execute jobs headless on herdr-core. Kata owns definitions,
-schedules, issues and run evidence. Use Kata's Jobs and Runs tabs to inspect
-work. This adapter launches fresh agents and command steps, keeps a local
-recovery journal, and records observations in Kata.
+A headless worker that runs [Kata](https://github.com/kenn-io/kata) jobs as
+agents and commands on [herdr-core](https://github.com/herdrdev/herdr-core)
+(`hc`), and reports every run back to Kata.
 
-Status: v2 headless worker and operator CLI; 4,177 lines of non-test Go.
-The live suite covers hc 0.1.15 and 0.1.16, including a real Codex prompt.
+[![A Kata job runs as a Codex agent and closes its issue with evidence](docs/assets/demo.gif)](https://github.com/salmonumbrella/herdr-kata/releases/download/v0.1.0/demo.mp4)
+
+## How it works
+
+There is nothing to look at in herdr-kata itself. You work in Kata:
+
+- Create, edit, enable and run jobs with `kata cron` or in `kata tui`'s Jobs
+  tab.
+- Watch runs and read their results in `kata tui`'s Runs tab, or on the
+  issue each run reports to.
+
+herdr-kata runs in the background as one worker terminal in an hc session.
+It reads job definitions from Kata, launches each due run as a fresh agent
+or command terminal in the same session, keeps a local journal so a restart
+never launches the same work twice, and records the outcome in Kata. If the
+Herdr app is connected to that session, job terminals show up there like
+any other terminal and you can watch or attach to one while it works.
+
+v2 replaces the old Herdr plugin. It has no plugin manifest, panes or board
+of its own; `kata tui` is the interface. Its configuration and state start
+fresh and are not compatible with v1.
 
 ## Requirements
 
