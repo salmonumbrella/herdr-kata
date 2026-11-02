@@ -41,6 +41,9 @@ type Attempt struct {
 	TurnEndedAt, IdleSince, ResultStableSince               *time.Time
 }
 type Run struct {
+	Actor, Executor, Detail                                                   string
+	DeadlineDone, ReportDone, ReportRefused                                   bool
+	ReportBody                                                                []byte
 	Version                                                                   int
 	Key, RunUID, Project, JobUID, Occurrence, RequestID, Phase, Hold, Outcome string
 	Plan                                                                      defs.Plan
