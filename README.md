@@ -5,7 +5,7 @@ schedules, issues and run evidence. Use Kata's Jobs and Runs tabs to inspect
 work. This adapter launches fresh agents and command steps, keeps a local
 recovery journal, and records observations in Kata.
 
-Status: v2 headless worker and operator CLI; 4,070 lines of non-test Go.
+Status: v2 headless worker and operator CLI; 4,160 lines of non-test Go.
 The live suite covers hc 0.1.15 and 0.1.16, including a real Codex prompt.
 
 ## Requirements

@@ -15,6 +15,7 @@ import (
 )
 
 func serve(ctx context.Context, c config.Config, st *journal.Store, h hc.HC, clients map[string]kata.Kata, bin string, out io.Writer) error {
+	startedAt := time.Now().UTC()
 	release, err := journal.Lock(st.Layout.Lock())
 	if err != nil {
 		return err
@@ -25,7 +26,7 @@ func serve(ctx context.Context, c config.Config, st *journal.Store, h hc.HC, cli
 	}
 	defer func() { _ = os.Remove(st.Layout.PID()) }()
 	w := worker.New(c, st, h, clients, bin)
-	w.StartedAt = time.Now().UTC()
+	w.StartedAt = startedAt
 	advance := func() {
 		if err := w.Tick(ctx, time.Now().UTC()); err != nil {
 			fmt.Fprintln(out, err)

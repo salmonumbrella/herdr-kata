@@ -8,7 +8,13 @@ last_edited: 2026-11-02
 
 ## Unreleased
 
-- Reject unavailable manual run requests with a local reason and exit 3.
+- Keep manual requests pending through capacity, overlap and transient read
+  failures. Report the known blocker when the CLI wait ends. Known pending
+  requests retry on regular ticks rather than triggering repeated fast ticks.
+- Keep on-time `skip` work through brief Kata outages, bounded by grace plus
+  2 minutes. A run published before a preparation error still acknowledges its
+  request and recovers normally.
+- Reject permanently unavailable manual run requests with a local reason and exit 3.
   Malformed request files and unreadable journals no longer block healthy work.
 - Keep on-time `skip` occurrences between live ticks, accept embedded cron
   time zones, and report invalid triggers. Scheduled issue dates before a

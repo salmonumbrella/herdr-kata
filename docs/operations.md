@@ -15,7 +15,9 @@ named `herdr-kata-<state-path-hash>`. `stop` kills and removes only that
 worker. Job terminals keep running. Start the worker again to recover them;
 it never sends a prompt to an existing terminal. A foreground `serve` takes
 the same lifetime lock. Definitions and scheduling are refreshed every
-30 seconds; local requests are checked every 2 seconds.
+30 seconds. The 2-second local-request poll triggers a tick only for IDs this
+process has not seen. Known pending requests, including releases waiting for
+Kata, retry on the regular 30-second tick.
 
 ## Held runs
 

@@ -227,3 +227,20 @@ func TestPermanentReasonNotOverwrittenByOtherProjectFailure(t *testing.T) {
 		t.Fatalf("wrong cross-project rejection: %v %q %v", done, reason, err)
 	}
 }
+
+func TestPendingReasonBelongsToMatchedProject(t *testing.T) {
+	w, _, k := fixture(t)
+	job := k.jobs[0]
+	job.UID = "01J00000000000000000000030"
+	w.Config.Projects = append([]config.Project{{Name: "other-project", Actor: "worker", MaxActiveRuns: 1}}, w.Config.Projects...)
+	w.Clients["other-project"] = &fakeKata{jobs: []kata.CronJob{job}, ready: map[string]bool{}}
+	k.err = &kata.Error{Code: 7}
+	request(t, w, journal.Request{ID: "first", Kind: "run", JobUID: job.UID})
+	_ = w.Tick(context.Background(), at)
+	request(t, w, journal.Request{ID: "waiting", Kind: "run", JobUID: job.UID})
+	_ = w.Tick(context.Background(), at.Add(time.Second))
+	done, reason, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Result("waiting")
+	if err != nil || done || !strings.Contains(reason, "capacity") {
+		t.Fatalf("unrelated failure replaced pending reason: %v %q %v", done, reason, err)
+	}
+}

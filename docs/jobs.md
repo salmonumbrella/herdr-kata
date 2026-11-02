@@ -18,9 +18,10 @@ installation does not backfill earlier occurrences. Catchup scans at most
 7 days and retains at most 100 occurrences; `all`, `latest` and `skip` with
 `grace_seconds` control selection. Changed definition events supersede
 unprepared occurrences. Prepared runs retain their frozen definitions.
-For `skip`, a live scan keeps occurrences at or after its preceding
-checkpoint, even with zero grace. On restart or after a stale scan, catchup
-grace is measured from the current tick.
+For `skip`, an occurrence must be later than the later of the preceding
+checkpoint and worker process start, minus grace. It must also be at most
+grace plus 2 minutes old. This keeps on-time work through a brief Kata read
+outage while bounding recovery after a longer outage or restart.
 Editing or re-enabling a job resets its checkpoint to now, so missed
 occurrences are not caught up.
 
@@ -31,9 +32,12 @@ blocks another occurrence while a prepared, running or held run exists.
 `herdr-kata run <full-job-uid> [--input <text>]` posts a local manual request;
 each invocation has its own request identity.
 The command waits up to 15 seconds for the worker to prepare or reject it.
-Rejections print a one-line reason and exit 3. Unavailable capacity, overlap,
-unsupported jobs and existing issues that are not ready reject immediately.
-If the worker does not answer, the command exits 1 and the request remains
+Permanent rejections print a one-line reason and exit 3: unknown, disabled,
+deleted or unsupported jobs, and existing issues that are not ready. An unknown
+UID is rejected only after every project's definitions were read successfully.
+Overlap gates, capacity limits and transient Kata read failures leave the
+request pending. At the end of the bounded wait, the command prints
+`pending: <reason>` when the blocker is known and exits 1. The request remains
 queued. Keep its printed request ID; submitting again creates another request.
 Malformed request files move to `.rejected`; unreadable run journals are logged
 and skipped so other work can continue. Their dedup barriers remain intact.

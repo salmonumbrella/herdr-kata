@@ -209,7 +209,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		errs = append(errs, err)
 	}
 	consumed := make(map[string]bool)
-	matched := make(map[string]bool)
+	matched := make(map[string]string)
 	allRead := true
 	reasons := make(map[string]string)
 	permanent := make(map[string]string)
@@ -218,7 +218,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	}
 	setReason := func(destination map[string]string, project, job, reason string) {
 		for _, req := range requests {
-			if req.Kind == "run" && (req.Project == "" || req.Project == project) && (job == "" || req.JobUID == job) {
+			if req.Kind == "run" && (req.Project == "" || req.Project == project) && (job == "" || req.JobUID == job) && (matched[req.ID] == "" || matched[req.ID] == project) {
 				destination[req.ID] = reason
 			}
 		}
@@ -273,7 +273,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		for _, job := range jobs {
 			for _, req := range requests {
 				if req.Kind == "run" && req.JobUID == job.UID && (req.Project == "" || req.Project == project.Name) {
-					matched[req.ID] = true
+					matched[req.ID] = project.Name
 				}
 			}
 			if job.DeletedAt != nil {
@@ -421,7 +421,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			var e error
 			if reason := permanent[req.ID]; reason != "" {
 				e = q.Reject(req.ID, reason)
-			} else if !matched[req.ID] && allRead {
+			} else if matched[req.ID] == "" && allRead {
 				e = q.Reject(req.ID, "job is unknown")
 			} else {
 				e = q.Block(req.ID, reasons[req.ID])
