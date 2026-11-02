@@ -336,6 +336,9 @@ func (m *Manager) Recover(ctx context.Context) error {
 				_, e = m.store.Transition(uid, func(r *Run) error {
 					report := AgentReference(r).ReportBin
 					retainAgent(r, index)
+					if r.Steps[index].Herdr == nil {
+						retainSharedAgentRefs(r)
+					}
 					*AgentReference(r) = HerdrRef{ReportBin: report}
 					return nil
 				})
@@ -352,6 +355,7 @@ func (m *Manager) Recover(ctx context.Context) error {
 								r.Steps[i].Result = refFromResult(res)
 								if r.Steps[i].Herdr == nil && !retryRemaining(r, r.Steps[i]) {
 									retainAgent(r, i)
+									retainSharedAgentRefs(r)
 									report := r.Herdr.ReportBin
 									r.Herdr = HerdrRef{ReportBin: report}
 								}

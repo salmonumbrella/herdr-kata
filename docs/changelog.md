@@ -1,12 +1,21 @@
 ---
 title: Changelog
 description: Release history for herdr-kata.
-last_edited: 2026-10-21
+last_edited: 2026-10-25
 ---
 
 # Changelog
 
 All notable changes to herdr-kata, grouped by release.
+
+## Unreleased
+
+- Cron run reports link known Codex and Claude sessions across prompt steps,
+  retries, holds, handoffs and resumed runs. Reports retain up to 64 unique
+  sessions and explicitly mark missing or excess sessions as incomplete;
+  saved token usage is unchanged. Session links require a Kata CLI and daemon
+  that both advertise `cron_run_sessions_v1`. Older combinations continue
+  reporting ordinary outcomes. Lost-state abandonment preserves saved links.
 
 ## 0.1.0
 <small>2026-10-21</small>

@@ -102,9 +102,13 @@ func TestFinalObservationBypassesInspectedIssueWrite(t *testing.T) {
 }
 
 func TestRecoverFinalObservationReadsBackBeforeRetry(t *testing.T) {
-	for _, remote := range []string{"running", "matching", "foreign", "advanced", "different-final"} {
+	for _, remote := range []string{"running", "matching", "foreign", "advanced", "different-final", "missing-provenance", "added-provenance", "old-daemon"} {
 		t.Run(remote, func(t *testing.T) {
 			o := kata.Observation{JobUID: "job", DefinitionEventUID: "event", OccurrenceKey: "manual:run", Actor: "worker", ExecutorLabel: "installation", Status: "failed", Summary: kata.Summary{Version: 1, Message: "saved failure"}, ExpectedRevision: 1, Teammate: new("herdr-kata")}
+			if remote != "old-daemon" {
+				o.Transcripts = []kata.Transcript{{Agent: "codex", SessionID: "00000000-0000-4000-8000-000000000001"}}
+				o.TranscriptsIncomplete = true
+			}
 			final := operation("herdr-kata:run:settle:observe", "observe", Payload{Observation: &o})
 			final.Inspect = "operation effect not confirmed"
 			final.FirstSent = new(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
@@ -125,8 +129,15 @@ func TestRecoverFinalObservationReadsBackBeforeRetry(t *testing.T) {
 					t.Fatal(err)
 				}
 				got.UID, got.Revision = uid, 2
-				if remote != "matching" {
+				if remote != "matching" && remote != "missing-provenance" && remote != "added-provenance" && remote != "old-daemon" {
 					got.Status, got.Revision = "running", 1
+				}
+				if remote == "missing-provenance" {
+					got.Transcripts = nil
+					got.TranscriptsIncomplete = false
+				}
+				if remote == "added-provenance" {
+					got.Transcripts = append(got.Transcripts, kata.Transcript{Agent: "claude", SessionID: "00000000-0000-4000-8000-000000000002"})
 				}
 				if remote == "foreign" {
 					got.ExecutorLabel = "other-installation"
@@ -159,7 +170,7 @@ func TestRecoverFinalObservationReadsBackBeforeRetry(t *testing.T) {
 			if remote == "running" {
 				wantSends = 1
 			}
-			if reads == 0 || sends != wantSends || r.Ops[0].Landed() != (remote == "running" || remote == "matching") {
+			if reads == 0 || sends != wantSends || r.Ops[0].Landed() != (remote == "running" || remote == "matching" || remote == "added-provenance" || remote == "old-daemon") {
 				t.Fatalf("recovery: reads=%d sends=%d run=%+v", reads, sends, r)
 			}
 		})

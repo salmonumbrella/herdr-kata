@@ -275,6 +275,7 @@ func (m *Manager) acceptResume(ctx context.Context, req Request) error {
 				replaceLimitAgent := r.Steps[index].Limit != nil && r.Steps[index].Herdr == nil && (m.paneExited(ctx, *AgentReference(r)) || m.failedStartStopped(ctx, *AgentReference(r)))
 				resetResumeStep(r, index, false)
 				if replaceLimitAgent {
+					retainSharedAgentRefs(r)
 					r.Herdr = HerdrRef{ReportBin: r.Herdr.ReportBin}
 				}
 			}

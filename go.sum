@@ -60,3 +60,5 @@ golang.org/x/sync v0.24.0 h1:iqiDrGoDgyuvAKrhLQthUEzU/R378N78gXbBjxed7oA=
 golang.org/x/sync v0.24.0/go.mod h1:sUUOizhqBxiL6pEWpqNLUiaJn1ShEbZ6BBqskPbjZm0=
 golang.org/x/sys v0.49.0 h1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=
 golang.org/x/sys v0.49.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
+hegel.dev/go/hegel v0.9.20 h1:s96ll2D/+aK22r8EVX+Q7YS3cEZ7P0xQ2Rng+DuiVDo=
+hegel.dev/go/hegel v0.9.20/go.mod h1:2EqxjBkkM6Rw3lL1tNo2t64b5ojqACFwrWWUYcZuZiw=

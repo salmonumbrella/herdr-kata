@@ -28,6 +28,7 @@ func TestAbandonLostRunLeavesTruthfulIssueReport(t *testing.T) {
 					t.Fatal(uid, o)
 				}
 				remote.Status, remote.Summary, remote.EndedAt, remote.Revision = o.Status, o.Summary, o.EndedAt, 4
+				remote.Transcripts, remote.TranscriptsIncomplete = o.Transcripts, o.TranscriptsIncomplete
 				return remote, false, nil
 			}
 			revision := int64(7)
@@ -98,6 +99,7 @@ func TestAbandonReportReplaysFrozenCommentAfterLostReply(t *testing.T) {
 	f.k.observe = func(_ context.Context, _ string, o kata.Observation) (kata.Run, bool, error) {
 		observations++
 		remote.Status, remote.Summary, remote.EndedAt, remote.Revision = o.Status, o.Summary, o.EndedAt, 4
+		remote.Transcripts, remote.TranscriptsIncomplete = o.Transcripts, o.TranscriptsIncomplete
 		return remote, false, nil
 	}
 	f.k.show = func(context.Context, string) (kata.IssueView, error) {
@@ -140,6 +142,7 @@ func TestAbandonCommentCompletesWhenAttentionChangesConcurrently(t *testing.T) {
 	f.k.run = func(context.Context, string) (kata.Run, error) { return remote, nil }
 	f.k.observe = func(_ context.Context, _ string, o kata.Observation) (kata.Run, bool, error) {
 		remote.Status, remote.Summary, remote.EndedAt, remote.Revision = o.Status, o.Summary, o.EndedAt, 4
+		remote.Transcripts, remote.TranscriptsIncomplete = o.Transcripts, o.TranscriptsIncomplete
 		return remote, false, nil
 	}
 	f.k.show = func(context.Context, string) (kata.IssueView, error) {
@@ -220,6 +223,7 @@ func TestAbandonSigningRefusalBlocksAdmissionUntilReportSucceeds(t *testing.T) {
 	f.k.observe = func(_ context.Context, uid string, o kata.Observation) (kata.Run, bool, error) {
 		if uid == f.uid {
 			lost.Status, lost.Summary, lost.EndedAt, lost.Revision = o.Status, o.Summary, o.EndedAt, 4
+			lost.Transcripts, lost.TranscriptsIncomplete = o.Transcripts, o.TranscriptsIncomplete
 		}
 		return kata.Run{}, false, nil
 	}
@@ -315,6 +319,7 @@ func TestAbandonCompletesWhenIssueIsGone(t *testing.T) {
 					t.Fatal(uid, o)
 				}
 				remote.Status, remote.Summary, remote.EndedAt, remote.Revision = o.Status, o.Summary, o.EndedAt, 4
+				remote.Transcripts, remote.TranscriptsIncomplete = o.Transcripts, o.TranscriptsIncomplete
 				return remote, false, nil
 			}
 			f.k.show = func(_ context.Context, ref string) (kata.IssueView, error) {
@@ -417,6 +422,7 @@ func TestCorruptAbandonRetryRemainsVisibleUntilWholeReportResolution(t *testing.
 			t.Fatal(uid, o)
 		}
 		remote.Status, remote.Summary, remote.EndedAt, remote.Revision = o.Status, o.Summary, o.EndedAt, 4
+		remote.Transcripts, remote.TranscriptsIncomplete = o.Transcripts, o.TranscriptsIncomplete
 		return remote, false, nil
 	}
 	f.k.show = func(_ context.Context, ref string) (kata.IssueView, error) {

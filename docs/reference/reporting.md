@@ -1,7 +1,7 @@
 ---
 title: What herdr-kata writes to Kata
 description: Run observations, issue outcomes, closure evidence, attention and mutation counts.
-last_edited: 2026-10-20
+last_edited: 2026-10-25
 ---
 
 # What herdr-kata writes to Kata
@@ -62,6 +62,48 @@ thread. This is the default and has no option.
 
 After a child's final observation, the runtime conditionally acknowledges
 its saved inbox request. See the [adapter contract](kata-adapter.md#native-children).
+
+## Native session links
+
+Terminal cron observations include `transcripts` for the Codex and Claude
+sessions known to have handled the run's prompt attempts. This includes held
+and handed-off runs and the final report after a resume. Admission and
+`running` resume observations do not add links. Session links already stored
+in Kata survive a resume.
+
+Each entry has `agent` and a bare native UUID in `session_id`. The runtime
+uses only saved Herdr session references with kind `id`; it normalizes UUIDs
+to lowercase and deduplicates by agent and UUID. Earlier retry attempts come
+first, followed by current steps in workflow order. Shared sessions appear
+once. Commands do not add links. No agent environment, transcript search,
+usage availability or time overlap supplies a missing identity.
+
+The report includes at most 64 unique sessions. A submitted prompt attempt
+with a missing or unrepresentable session, or a session beyond that limit,
+sets `transcripts_incomplete: true`. Available links and the ordinary outcome
+still report. A lost-state abandonment preserves links already stored in
+Kata and marks them incomplete because its missing journal cannot establish
+all attempts. Session-array bytes reduce the summary's 60 KiB text budget so
+the combined observation still fits the envelope. Settlement reserves those
+bytes before capability negotiation. The reservation remains even when an
+older CLI or daemon later strips the session fields, so summaries near the
+limit can be shorter on those routes. This keeps the settled summary
+deterministic when the request is frozen. Known command-only runs and runs
+without submitted prompts omit both fields.
+
+Session reporting requires a Kata CLI that advertises
+`cron_run_sessions_v1` in the `cli_features` of `cron capabilities`, and a
+daemon advertising that feature in `event_features`. These are separate
+checks: a newer daemon alone cannot teach an older CLI the JSON input fields.
+An older CLI or daemon continues receiving ordinary outcome reports with
+both optional fields omitted. The runtime freezes that choice before its
+first send and keeps it for every retry, even across an upgrade. Readback
+accepts accumulated links while requiring every session identity in the
+frozen report.
+
+Session links do not change the saved usage totals or the summary's
+`input_tokens` and `output_tokens` behavior described above. Kata can use
+these explicit links for its own session usage views.
 
 ## Explicit request outcomes
 

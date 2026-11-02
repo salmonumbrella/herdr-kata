@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strconv"
 )
 
@@ -100,6 +101,24 @@ func (c *CLI) ShowWorkflow(ctx context.Context, uid string) (Workflow, error) {
 	err := c.call(ctx, nil, &v, "cron", "workflow", "show", uid)
 	return v.Workflow, err
 }
+
+// PrepareObservation chooses optional provenance support before the caller freezes
+// its first-send marker. A sent observation must never be prepared again.
+func (c *CLI) PrepareObservation(ctx context.Context, observation Observation) (Observation, error) {
+	if len(observation.Transcripts) == 0 && !observation.TranscriptsIncomplete {
+		return observation, nil
+	}
+	caps, err := c.Capabilities(ctx)
+	if err != nil {
+		return Observation{}, err
+	}
+	if !slices.Contains(caps.CLIFeatures, "cron_run_sessions_v1") || !slices.Contains(caps.EventFeatures, "cron_run_sessions_v1") {
+		observation.Transcripts = nil
+		observation.TranscriptsIncomplete = false
+	}
+	return observation, nil
+}
+
 func (c *CLI) Observe(ctx context.Context, uid string, observation Observation) (Run, bool, error) {
 	// Freeze the runtime teammate in the JSON as well as argv so replay cannot
 	// inherit a different attribution from a later process environment.

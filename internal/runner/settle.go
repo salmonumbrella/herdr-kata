@@ -219,6 +219,11 @@ func settleOps(r *Run, res *Result, now time.Time, noClose bool) []Op {
 	}
 	teammate := "herdr-kata"
 	o := kata.Observation{JobUID: r.Job.UID, DefinitionEventUID: r.Job.DefinitionEventUID, OccurrenceKey: r.Occurrence, IssueUID: r.IssueUID, Actor: r.Target.Identity.Actor, ExecutorLabel: r.Target.Executor, Teammate: &teammate, Status: outcome, Summary: kata.Summary{Version: 1, Message: capText(summary, maxSummaryBytes)}, StartedAt: r.StartedAt, EndedAt: &ended, ExpectedRevision: 1}
+	o.Transcripts, o.TranscriptsIncomplete = extractRunTranscripts(r)
+	if len(o.Transcripts) > 0 {
+		provenance, _ := json.Marshal(o.Transcripts)
+		o.Summary.Message = capText(o.Summary.Message, maxSummaryBytes-len(provenance))
+	}
 	if u := r.Usage; u != nil && u.Found && !u.Partial && !handoff {
 		// Kata's input count includes cached prompt tokens. Unknown totals, and a
 		// handoff whose current attempt may be uncollected, stay omitted.

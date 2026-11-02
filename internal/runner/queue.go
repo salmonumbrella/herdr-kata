@@ -631,6 +631,17 @@ func (q *Queue) send(ctx context.Context, uid string) error {
 			}
 		}
 	}
+	if op.Kind == "observe" && p.Observation != nil && op.FirstSent == nil {
+		prepared, err := prepareObservation(ctx, q.k, *p.Observation)
+		if err != nil {
+			return q.failedRead(ctx, uid, op, err, true)
+		}
+		p.Observation = &prepared
+		op.Payload, err = json.Marshal(p)
+		if err != nil {
+			return err
+		}
+	}
 	// Saving the sending marker must succeed, including directory fsync, before
 	// any mutation. A crash afterward makes unguarded operations read-back-only.
 	_, err = q.store.Transition(uid, func(current *Run) error {
@@ -642,6 +653,7 @@ func (q *Queue) send(ctx context.Context, uid string) error {
 			return errIntentChanged
 		}
 		saved.Guard = op.Guard
+		saved.Payload = op.Payload
 		if saved.FirstSent == nil {
 			saved.FirstSent = &now
 		}
@@ -1077,7 +1089,7 @@ func (q *Queue) readBack(ctx context.Context, uid string, op Op, p Payload, caus
 		}
 		want := p.Observation
 		match := got.UID == uid && got.JobUID == want.JobUID && got.DefinitionEventUID == want.DefinitionEventUID && got.WorkflowUID == want.WorkflowUID && got.WorkflowDefinitionEventUID == want.WorkflowDefinitionEventUID && got.OccurrenceKey == want.OccurrenceKey && got.IssueUID == want.IssueUID && got.Actor == want.Actor && got.ExecutorLabel == want.ExecutorLabel
-		match = match && got.Status == want.Status && got.Summary == want.Summary && sameTime(got.StartedAt, want.StartedAt) && sameTime(got.EndedAt, want.EndedAt)
+		match = match && observationProvenance(got, want) && got.Status == want.Status && got.Summary == want.Summary && sameTime(got.StartedAt, want.StartedAt) && sameTime(got.EndedAt, want.EndedAt)
 		if strings.Contains(op.ID, ":resume:") && strings.HasSuffix(op.ID, ":observe") && want.Status == "running" {
 			match = match && got.Revision == want.ExpectedRevision+1
 		}

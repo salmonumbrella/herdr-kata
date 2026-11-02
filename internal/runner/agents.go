@@ -187,6 +187,7 @@ func (m *Manager) selectAgent(ctx context.Context, uid string, index int) (*Run,
 			retainAgentRef(r, exitedShared, r.Herdr)
 		}
 		if exitedShared >= 0 || archivedShared {
+			retainSharedAgentRefs(r)
 			report := r.Herdr.ReportBin
 			r.Herdr = HerdrRef{ReportBin: report}
 		}
@@ -210,6 +211,28 @@ func agentReferences(r *Run) []HerdrRef {
 }
 
 func retainAgent(r *Run, index int) { retainAgentRef(r, index, *AgentReference(r)) }
+func retainedPromptAttempt(r *Run, s StepState) bool {
+	for _, old := range r.PastAttempts {
+		if old.Key == s.Key && old.Kind == s.Kind && old.Attempt == s.Attempt && submittedPrompt(old) {
+			return true
+		}
+	}
+	return false
+}
+
+// Retain every submitted current step associated with the shared occupant
+// before clearing it. Previously retained copies already identify older groups.
+func retainSharedAgentRefs(r *Run) {
+	if r.Herdr.HasSubmitted != nil && !*r.Herdr.HasSubmitted {
+		return
+	}
+	for i, step := range r.Steps {
+		if step.Herdr == nil && submittedPrompt(step) && !retainedPromptAttempt(r, step) {
+			retainAgentRef(r, i, r.Herdr)
+		}
+	}
+}
+
 func retainAgentRef(r *Run, index int, ref HerdrRef) {
 	old := r.Steps[index]
 	// The bounded journal retains ownership and submission evidence. Full
