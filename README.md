@@ -1,137 +1,97 @@
-# herdr-kata
+# herdr-kata v2
 
-A [Herdr](https://github.com/herdrdev/herdr) plugin that runs
-[Kata](https://github.com/kenn-io/kata) cron jobs and workflows as Herdr agents
-and commands, and reports every run back to Kata. Kata owns the definitions,
-schedules, issues and evidence.
+Run Kata execute jobs headless on herdr-core. Kata owns definitions,
+schedules, issues and run evidence. Use Kata's Jobs and Runs tabs to inspect
+work. This adapter launches fresh agents and command steps, keeps a local
+recovery journal, and records observations in Kata.
 
-[![A Kata job runs as a Codex agent in Herdr and closes its issue with evidence](docs/assets/demo.gif)](https://github.com/salmonumbrella/herdr-kata/releases/download/v0.1.0/demo.mp4)
+Status: v2 under construction. The current CLI is a skeleton.
 
 ## Requirements
 
-- Linux or macOS with Herdr 0.9.5 or later.
-- Kata 0.19.0 or later.
+- Go 1.27 to build: `make build` writes `bin/herdr-kata`.
+- hc 0.1.15 or newer (the live suite confirms the final floor).
+- Kata 0.20.0 or newer and an authenticated daemon catalog entry.
+- Linux or macOS, an executable agent profile and a local checkout.
 
-## Install
+## Configuration
 
-```sh
-herdr plugin install salmonumbrella/herdr-kata --yes
-```
-
-From a source checkout:
-
-```sh
-go build -trimpath -o ./bin/herdr-kata ./cmd/herdr-kata
-herdr plugin link "$PWD"
-```
-
-## First run
-
-Write `config.toml` in the directory that
-`herdr plugin config-dir kata` prints: one Herdr session,
-one unique executor label, one or more Kata projects, one agent profile.
-Paths are absolute and unknown keys are rejected.
+Save `$XDG_CONFIG_HOME/herdr-kata/config.toml` (default
+`~/.config/herdr-kata/config.toml`). All filesystem paths are absolute.
+Unknown keys are rejected. `--config` and `--state` select explicit paths.
 
 ```toml
-session = "work"
 executor = "work-runtime"
+hc_session = "default"
+hc_bin = "/usr/local/bin/hc"
 
 [kata]
 bin = "/usr/local/bin/kata"
+daemon = "hub"
+
+[kata.env]
+KATA_HOME = "/srv/kata-home"
 
 [[projects]]
 name = "example-project"
 actor = "worker"
+commands = false
+max_active_runs = 1
 
 [checkouts]
-repo = "/srv/projects/example"
+example-project = "/srv/projects/example"
 
 [profiles.default]
-kind = "codex"
-args = []
+argv = ["codex", "--no-daemon"]
+
+[limits]
+default_timeout = "2h"
+max_timeout = "24h"
+max_active_runs = 4
+unset_env = []
 ```
 
-Then, in that Herdr session:
+`hc_bin` and `kata.bin` default to PATH lookups, resolved once when loading
+the config. `hc_session` defaults to `default`. Kata environment overrides
+allow only `KATA_SERVER`, `KATA_HOME` and `XDG_*`; never put tokens in config.
+State defaults to `$XDG_STATE_HOME/herdr-kata/`.
 
-```sh
-herdr-kata up
-herdr-kata status
-herdr-kata doctor
-herdr-kata run <job-uid> --wait
-herdr-kata tui
+## Starting at login
+
+Run `herdr-kata up` from your login environment. Pass a PATH that can find
+your agent binaries. `up` passes the operator environment to the worker.
+
+A systemd user unit can invoke it as a oneshot:
+
+```ini
+[Unit]
+Description=Kata job worker
+[Service]
+Type=oneshot
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/herdr-kata up
+RemainAfterExit=yes
+ExecStop=/usr/local/bin/herdr-kata stop
+[Install]
+WantedBy=default.target
 ```
 
-`up` starts or upgrades the runtime, `doctor` says what is wrong and how to
-fix it, `run` submits a job through the normal readiness and capacity rules,
-and `tui` is the board. The [quickstart](docs/get-started/quickstart.md) walks
-a real prompt job end to end, from the Kata job definition to the issue it
-closes with evidence.
+A launchd user agent can run the same command at login:
 
-## The board
-
-`herdr-kata tui` opens the board. Jobs lists each definition with its model,
-schedule and latest run; in a pane of at least 140×36 an inspector shows
-the selected row.
-
-![Jobs tab with five jobs, their models, cron schedules and latest run status, and the inspector for nightly-tests](docs/assets/tui-jobs.png)
-
-Runs shows every retained run. A workflow with `on_failure: "park"` holds the
-run when a step fails; fix the cause and press `u` to resume it.
-
-![Runs tab with preview-deploy parked: build succeeded, smoke-test failed, waiting: step_failed](docs/assets/tui-runs.png)
-
-The leading Kata tab runs your `kata tui` inside the board, and `i` opens a
-run's issue there. This one closed `done` with the agent's summary and its
-evidence.
-
-![Kata tab showing the release notes issue closed done with reviewed-paths CHANGELOG.md evidence](docs/assets/tui-issue.png)
-
-Normal child issues can also request execution explicitly through
-[`herdr_kata.request`](docs/reference/kata-adapter.md#explicit-issue-requests)
-and the existing runtime inbox. Ordinary notifications remain non-executable.
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>example.kata-worker</string>
+  <key>ProgramArguments</key><array><string>/usr/local/bin/herdr-kata</string><string>up</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/usr/local/bin:/usr/bin:/bin</string></dict>
+</dict></plist>
+```
 
 ## Limits
 
-Native cron session reports retain up to 64 unique Codex/Claude sessions and
-mark missing or excess sessions incomplete. They require a Kata CLI and
-daemon advertising session support; older combinations still report
-outcomes. See [native session links](docs/reference/reporting.md#native-session-links).
-
-Retiring a removed lane needs its original Kata route and credentials, and
-resolved identities for configured projects; see
-[Remove a project](docs/guide/multiple-projects.md#remove-a-project).
-
-Existing installs must follow the [plugin ID upgrade procedure](docs/get-started/install.md#upgrade-from-the-old-plugin-id)
-for `kata`, including stopping the old runtime before its config/state move.
-Keep the legacy aliases for saved artifact paths. The bare ID
-could collide with a future official plugin; check the install source before
-confirming replacement.
-
-Unfiltered run history scans retained local journals. Large stores take longer;
-see [history selection and scan limits](docs/reference/cli.md#run-and-inspect).
-
-Use the current installed build for [status and operator controls](docs/reference/cli.md#operator-controls).
-Older builds cannot read the new request-result identity fields.
-
-Explicit issue requests permit one automatic admission per child UID, so a
-scheduled child runs once on its date and a later reschedule never re-runs it. A
-permanent receipt without its matching local journal holds execution. Competing
-workers must share one authoritative Kata service; independent writable
-replicas cannot supply global CAS exclusion.
-
-A project with no job definitions checks its route only every few minutes, so
-opening its Kata tab can refuse until the next check; see
-[Embedded Kata](docs/reference/tui.md#embedded-kata).
-
-## Development
-
-`make check` runs lint and the race tests. `make test-crash`, `make test-kata`
-and `make test-kata-children` are the recovery and Kata suites.
-[Contributing](docs/development/contributing.md) maps the repository and lists
-every check and its requirements. Tool pins live in `mise.toml`; conventions
-and commit rules are in [AGENTS.md](AGENTS.md).
-
-## Version and license
-
-`herdr-kata version` prints the installed version; changes are in
-[docs/changelog.md](docs/changelog.md). MIT, see [LICENSE](LICENSE).
+This is a clean-slate v2; old plugin configuration and state are incompatible.
+There is no plugin manifest or TUI. No loops, secrets, resume, remote machines,
+session links or boot-unit generator. Notify jobs belong to native Kata.
+Unsupported definitions are listed by `doctor` with their reason.
