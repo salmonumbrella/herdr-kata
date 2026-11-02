@@ -65,20 +65,21 @@ func compile(t kata.Trigger, created time.Time) (cron.Schedule, error) {
 		return once{}, nil
 	case "cron":
 		zone := val(t.Timezone)
+		expr := strings.TrimSpace(val(t.Cron))
+		fields := strings.Fields(expr)
+		if len(fields) > 0 && (strings.HasPrefix(fields[0], "TZ=") || strings.HasPrefix(fields[0], "CRON_TZ=")) {
+			embedded := strings.SplitN(fields[0], "=", 2)[1]
+			if zone != "" && embedded != zone {
+				return nil, fmt.Errorf("embedded timezone conflicts with trigger timezone")
+			}
+			zone = embedded
+			expr = strings.TrimSpace(strings.TrimPrefix(expr, fields[0]))
+		}
 		if zone == "" {
 			zone = "UTC"
 		}
 		if _, err := time.LoadLocation(zone); err != nil {
 			return nil, err
-		}
-		expr := strings.TrimSpace(val(t.Cron))
-		fields := strings.Fields(expr)
-		if len(fields) > 0 && (strings.HasPrefix(fields[0], "TZ=") || strings.HasPrefix(fields[0], "CRON_TZ=")) {
-			embedded := strings.SplitN(fields[0], "=", 2)[1]
-			if embedded != zone {
-				return nil, fmt.Errorf("embedded timezone conflicts with trigger timezone")
-			}
-			expr = strings.TrimSpace(strings.TrimPrefix(expr, fields[0]))
 		}
 		parsed, err := cron.MustNewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor | cron.DowOrDom).Parse("CRON_TZ=" + zone + " " + expr)
 		if delay, ok := parsed.(cron.ConstantDelaySchedule); ok {
@@ -87,6 +88,12 @@ func compile(t kata.Trigger, created time.Time) (cron.Schedule, error) {
 		return parsed, err
 	}
 	return nil, fmt.Errorf("unsupported trigger: %s", t.Kind)
+}
+
+// Validate exposes compilation failures before a job enters scheduling.
+func Validate(t kata.Trigger, created time.Time) error {
+	_, err := compile(t, created)
+	return err
 }
 
 // Occurrences returns the newest bounded occurrences in (after, now].

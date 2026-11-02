@@ -92,6 +92,17 @@ func TestTimeoutCappedByMax(t *testing.T) {
 	}
 }
 
+func TestInvalidTriggerReportedUnsupported(t *testing.T) {
+	for _, trig := range []kata.Trigger{{Kind: "cron", Cron: new("not a schedule")}, {Kind: "cron", Cron: new("CRON_TZ=America/New_York 0 9 * * *"), Timezone: new("UTC")}, {Kind: "cron", Cron: new("0 9 * * *"), Timezone: new("Invalid/Zone")}} {
+		j, w, c := fixture()
+		j.Definition.Trigger = trig
+		_, reasons := Freeze(j, w, c, "example-project", look)
+		if !slices.Contains(reasons, "invalid_trigger") {
+			t.Fatalf("invalid trigger disappeared: %v", reasons)
+		}
+	}
+}
+
 func TestWorkflowFrozen(t *testing.T) {
 	j, w, c := fixture()
 	j.Definition.Action.Prompt = nil

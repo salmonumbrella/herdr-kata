@@ -11,6 +11,7 @@ import (
 
 	"github.com/salmonumbrella/herdr-kata/internal/config"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
+	"github.com/salmonumbrella/herdr-kata/internal/sched"
 )
 
 type Plan struct {
@@ -67,6 +68,9 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 	d := job.Definition
 	p := Plan{JobUID: job.UID, JobEventUID: job.DefinitionEventUID, Name: job.Name, Overlap: d.Overlap, Catchup: d.Catchup, Timeout: cfg.Limits.DefaultTimeout, Input: option(d.Options, "input")}
 	reasons := unsupported(d.Options)
+	if err := sched.Validate(d.Trigger, job.CreatedAt); err != nil {
+		reasons = append(reasons, "invalid_trigger")
+	}
 	if adapter, ok := d.Options["adapter"]; ok && adapter != "herdr-kata" {
 		reasons = append(reasons, fmt.Sprintf("adapter: %v", adapter))
 	}

@@ -53,6 +53,17 @@ func TestCronNextParity(t *testing.T) {
 	}
 }
 
+func TestEmbeddedTimezoneWithoutTriggerTimezone(t *testing.T) {
+	for _, prefix := range []string{"CRON_TZ=", "TZ="} {
+		t.Run(prefix, func(t *testing.T) {
+			got := Occurrences(kata.Trigger{Kind: "cron", Cron: new(prefix + "America/New_York 0 9 * * *")}, instant("2026-01-01T00:00:00Z"), instant("2026-01-01T13:59:00Z"), instant("2026-01-01T14:01:00Z"), "all", 0)
+			if len(got) != 1 || got[0].Key != "2026-01-01T14:00:00Z" {
+				t.Fatalf("embedded timezone ignored: %v", got)
+			}
+		})
+	}
+}
+
 func TestIntervalAnchored(t *testing.T) {
 	created := instant("2026-01-01T00:00:00.123Z")
 	for _, tt := range []struct{ from, want string }{{"2025-12-31T23:59:59Z", "2026-01-01T00:00:00.123Z"}, {"2026-01-01T00:00:00.123Z", "2026-01-01T00:01:00.123Z"}, {"2026-01-01T00:01:12Z", "2026-01-01T00:02:00.123Z"}} {
