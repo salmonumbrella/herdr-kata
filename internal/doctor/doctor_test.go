@@ -36,11 +36,19 @@ func (h *fakeHC) Exec(_ context.Context, argv []string) (string, error) {
 }
 
 type fakeKata struct {
+	runs       map[string][]kata.CronRun
+	runErr     error
+	readyCalls *int
+	requested  *[]string
 	kata.Kata
 	notify bool
+	jobs   []kata.CronJob
 }
 
 func (k fakeKata) Jobs() ([]kata.CronJob, error) {
+	if k.jobs != nil {
+		return k.jobs, nil
+	}
 	if !k.notify {
 		return nil, nil
 	}
@@ -53,16 +61,16 @@ func fixture(t *testing.T) (config.Config, state.Layout, *fakeHC) {
 	t.Setenv("XDG_CONFIG_HOME", root)
 	t.Setenv("XDG_STATE_HOME", root)
 	t.Setenv("XDG_RUNTIME_DIR", root)
-	c := config.Config{Executor: "executor", HCSession: "fixture", Kata: config.KataCfg{Bin: "/bin/sh", Daemon: "fixture", Env: map[string]string{"KATA_HOME": "/srv/kata-home"}}, Projects: []config.Project{{Name: "example-project", Actor: "worker"}}, Checkouts: map[string]string{"example-project": root}, Profiles: map[string]config.Profile{"default": {Argv: []string{"/bin/sh"}}}, Limits: config.Limits{DefaultTimeout: 2 * time.Hour, MaxTimeout: 24 * time.Hour}}
+	c := config.Config{Executor: "executor", HCSession: "fixture", Kata: config.KataCfg{Bin: "/bin/sh", Daemon: "fixture", Env: map[string]string{"KATA_HOME": "/srv/kata-home"}}, Projects: []config.Project{{Name: "example-project", Actor: "worker"}}, Checkouts: map[string]string{"example-project": root}, Profiles: map[string]config.Profile{"default": {Argv: []string{"/bin/sh"}}}, Limits: config.Limits{MaxActiveRuns: 4, DefaultTimeout: 2 * time.Hour, MaxTimeout: 24 * time.Hour}}
 	return c, state.Layout{Root: root}, &fakeHC{root: root}
 }
 func TestDoctorListsUnsupportedWithReasons(t *testing.T) {
 	c, l, h := fixture(t)
 	var out bytes.Buffer
-	if err := Check(context.Background(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{notify: true}}, &out); err != nil {
+	if err := Check(context.Background(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: []kata.CronJob{{UID: "job", Definition: kata.JobDefinition{Enabled: true, Trigger: kata.Trigger{Kind: "manual"}, Action: kata.Action{Kind: "execute"}}}}}}, &out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "notify_unsupported") {
+	if !strings.Contains(out.String(), "checkout not configured") {
 		t.Fatal(out.String())
 	}
 }
@@ -81,5 +89,72 @@ func TestDoctorRunsKataInCoreEnv(t *testing.T) {
 				t.Fatalf("core exec omitted %s: %q", want, args)
 			}
 		}
+	}
+}
+
+func TestDoctorFiltersUnownedAndShowsForeignPin(t *testing.T) {
+	c, l, h := fixture(t)
+	jobs := []kata.CronJob{
+		{UID: "foreign", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "execute"}, Options: map[string]any{"executor": "other"}}},
+		{UID: "disabled", Definition: kata.JobDefinition{Enabled: false, Action: kata.Action{Kind: "execute"}}},
+		{UID: "notify", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "notify"}}},
+		{UID: "adapter", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "execute"}, Options: map[string]any{"adapter": "other"}}},
+	}
+	var out bytes.Buffer
+	if err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: jobs}}, &out); err != nil {
+		t.Fatal(err)
+	}
+	for _, uid := range []string{"foreign", "disabled", "notify", "adapter"} {
+		if strings.Contains(out.String(), "unsupported "+uid+":") {
+			t.Fatal(out.String())
+		}
+	}
+	if !strings.Contains(out.String(), "pinned elsewhere foreign: options.executor=other") {
+		t.Fatal(out.String())
+	}
+}
+
+func (k fakeKata) Runs(uid string, limit int) ([]kata.CronRun, error) {
+	if limit != 100 {
+		panic("wrong page limit")
+	}
+	if k.requested != nil {
+		*k.requested = append(*k.requested, uid)
+	}
+	return k.runs[uid], k.runErr
+}
+func (k fakeKata) Ready() (map[string]bool, error) {
+	if k.readyCalls != nil {
+		*k.readyCalls++
+	}
+	return nil, nil
+}
+
+func TestDoctorForeignPinIndependentOfAdapter(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		enabled, deleted bool
+		action           string
+		want             bool
+	}{
+		{"other adapter", true, false, "execute", true},
+		{"disabled", false, false, "execute", false},
+		{"deleted", true, true, "execute", false},
+		{"notify", true, false, "notify", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, l, h := fixture(t)
+			calls := 0
+			requested := []string{}
+			j := kata.CronJob{UID: "foreign", Definition: kata.JobDefinition{Enabled: tt.enabled, Action: kata.Action{Kind: tt.action}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("issue")}, Options: map[string]any{"adapter": "other", "executor": "other-worker"}}}
+			if tt.deleted {
+				j.DeletedAt = new(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+			}
+			var out bytes.Buffer
+			err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: []kata.CronJob{j}, readyCalls: &calls, requested: &requested}}, &out)
+			if err != nil || strings.Contains(out.String(), "pinned elsewhere foreign: options.executor=other-worker") != tt.want || calls != 0 || len(requested) != 0 || strings.Contains(out.String(), "unsupported foreign:") {
+				t.Fatalf("output %s; ready=%d run lists=%v error=%v", out.String(), calls, requested, err)
+			}
+		})
 	}
 }

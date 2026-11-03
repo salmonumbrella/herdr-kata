@@ -30,10 +30,12 @@ type KataCfg struct {
 }
 
 type Project struct {
-	Name          string `toml:"name"`
-	Actor         string `toml:"actor"`
-	Commands      bool   `toml:"commands"`
-	MaxActiveRuns int    `toml:"max_active_runs"`
+	Name            string `toml:"name"`
+	Actor           string `toml:"actor"`
+	Commands        bool   `toml:"commands"`
+	MaxActiveRuns   int    `toml:"max_active_runs"`
+	DefaultCheckout string `toml:"default_checkout"`
+	DefaultAgent    string `toml:"default_agent"`
 }
 
 type Profile struct {
@@ -109,6 +111,12 @@ func Load(path string) (*Config, error) {
 		p := &c.Projects[i]
 		if p.Name == "" || p.Actor == "" || seen[p.Name] || p.MaxActiveRuns < 0 {
 			return nil, fmt.Errorf("invalid or duplicate project %q", p.Name)
+		}
+		if _, ok := c.Checkouts[p.DefaultCheckout]; p.DefaultCheckout != "" && !ok {
+			return nil, fmt.Errorf("project %s default_checkout not configured: %s", p.Name, p.DefaultCheckout)
+		}
+		if _, ok := c.Profiles[p.DefaultAgent]; p.DefaultAgent != "" && !ok {
+			return nil, fmt.Errorf("project %s default_agent not configured: %s", p.Name, p.DefaultAgent)
 		}
 		seen[p.Name] = true
 		if p.MaxActiveRuns == 0 {

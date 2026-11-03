@@ -57,6 +57,8 @@ name = "example-project"
 actor = "worker"
 commands = false
 max_active_runs = 1
+default_checkout = "example-project"
+default_agent = "default"
 
 [checkouts]
 example-project = "/srv/projects/example"
@@ -75,6 +77,33 @@ unset_env = []
 the config. `hc_session` defaults to `default`. Kata environment overrides
 allow only `KATA_SERVER`, `KATA_HOME` and `XDG_*`; never put tokens in config.
 State defaults to `$XDG_STATE_HOME/herdr-kata/`.
+
+## Create a job
+
+Once the project has defaults configured, an enabled job needs no adapter fields:
+
+```sh
+kata --project example-project cron job create --file - <<'JSON'
+{
+  "name": "Review project work",
+  "definition": {
+    "version": 1,
+    "kind": "job",
+    "enabled": true,
+    "trigger": {"kind": "cron", "cron": "0 9 * * *", "timezone": "UTC"},
+    "action": {"kind": "execute", "prompt": "Review the project and record findings."},
+    "issue": {"kind": "per-run", "title": "Project review"},
+    "overlap": "forbid",
+    "catchup": "latest"
+  }
+}
+JSON
+```
+
+The wire default for `enabled` is false. Owned unsupported definitions appear
+as failed runs in Kata with `reason: unsupported`. See [Jobs](docs/jobs.md)
+for resolution rules and [Operations](docs/operations.md) for the single-runtime
+operating condition.
 
 ## Running work
 

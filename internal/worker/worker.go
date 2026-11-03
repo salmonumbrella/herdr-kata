@@ -284,18 +284,20 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			errs = append(errs, fmt.Errorf("%s definitions: %w", project.Name, e))
 			continue
 		}
+		ownedJobs := make([]kata.CronJob, 0, len(jobs))
 		for _, job := range jobs {
 			for _, req := range requests {
 				if req.Kind == "run" && req.JobUID == job.UID && (req.Project == "" || req.Project == project.Name) {
 					matched[req.ID] = project.Name
 				}
 			}
-			if job.DeletedAt != nil {
-				rejectReason(project.Name, job.UID, "job is deleted")
-			} else if !job.Definition.Enabled {
-				rejectReason(project.Name, job.UID, "job is disabled")
+			if owned, reason := defs.Owned(job, project.Name, w.Config); !owned {
+				rejectReason(project.Name, job.UID, reason)
+			} else {
+				ownedJobs = append(ownedJobs, job)
 			}
 		}
+		jobs = ownedJobs
 		workflows, e := k.Workflows()
 		if e != nil {
 			allRead = false
@@ -304,7 +306,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			continue
 		}
 		var ready map[string]bool
-		if needsReadiness(jobs) {
+		if defs.NeedsReadiness(jobs) {
 			if ready, e = k.Ready(); e != nil {
 				allRead = false
 				pendingReason(project.Name, "", "project readiness is unavailable")
@@ -317,12 +319,12 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			wfs[wf.UID] = wf
 		}
 		for _, job := range jobs {
-			if job.DeletedAt != nil || !job.Definition.Enabled {
-				continue
-			}
 			p, reasons := defs.Freeze(job, wfs, w.Config, project.Name, exec.LookPath)
 			if len(reasons) > 0 {
 				w.Unsupported[job.UID] = reasons
+				if e := (report.Outbox{Layout: w.Store.Layout}).Discover(p, project.Name, project.Actor, w.Config.Executor, reasons, now); e != nil {
+					errs = append(errs, e)
+				}
 				rejectReason(project.Name, job.UID, "unsupported job: "+strings.Join(reasons, ", "))
 				continue
 			}
@@ -457,6 +459,13 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				errs = append(errs, fmt.Errorf("run %s: %w", r.RunUID, err))
 			}
 		}
+	}
+	clients := make(map[string]kata.Kata)
+	for _, project := range w.Config.Projects {
+		clients[project.Name] = w.Clients[project.Name]
+	}
+	if err := (report.Outbox{Layout: w.Store.Layout}).Deliver(clients, now); err != nil {
+		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }
@@ -645,16 +654,4 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 		argv = append(argv, prompt.Line(path))
 	}
 	return hc.RunSpec{Cwd: r.Plan.CheckoutPath, Labels: map[string]string{"kata.executor": r.Executor}, Prefix: attempt.LaunchEnv(w.Config.Limits.UnsetEnv, extra), Argv: argv}, nil
-}
-
-// needsReadiness reports whether any live job depends on an existing issue,
-// so ticks skip the project-wide ready list when no job uses it.
-func needsReadiness(jobs []kata.CronJob) bool {
-	for _, job := range jobs {
-		d := job.Definition
-		if job.DeletedAt == nil && d.Enabled && (d.Trigger.Kind == "issue-scheduled" || d.Issue != nil && d.Issue.Kind == "existing") {
-			return true
-		}
-	}
-	return false
 }

@@ -12,3 +12,6 @@ conditional deadline update; no delete or purge command was used.
 The wire structs in the parent package follow the corresponding generated
 models in `go.kenn.io/kata` v0.20.0. Local copies avoid its additional
 validator dependency, as permitted by the v2 dependency rule.
+
+`runs.json` is a hand-authored bounded run-list response for executor
+diagnostics, using neutral identifiers and the documented wire fields.

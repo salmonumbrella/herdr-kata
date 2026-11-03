@@ -55,6 +55,7 @@ func Classify(err error) Class {
 type Kata interface {
 	Jobs() ([]CronJob, error)
 	Workflows() ([]CronWorkflow, error)
+	Runs(jobUID string, limit int) ([]CronRun, error)
 	Ready() (map[string]bool, error)
 	PlanningDates(string) (*DateValue, error)
 	IssueTitle(string) (string, error)
@@ -66,7 +67,11 @@ type Kata interface {
 	Whoami() error
 	Capabilities() error
 }
+
+const CallTimeout = 15 * time.Second
+
 type cli struct {
+	context     context.Context
 	bin         string
 	prefix, env []string
 }
@@ -91,7 +96,11 @@ func New(bin, daemon string, overrides map[string]string, project, actor string)
 }
 
 func (c *cli) call(input []byte, out any, args ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	parent := c.context
+	if parent == nil {
+		parent = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parent, CallTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, c.bin, append(append([]string{}, c.prefix...), args...)...)
 	cmd.Env = c.env
@@ -218,3 +227,20 @@ func (c *cli) ShowRun(uid string) (int, []byte, error) {
 }
 func (c *cli) Whoami() error       { return c.call(nil, nil, "whoami") }
 func (c *cli) Capabilities() error { return c.call(nil, nil, "cron", "capabilities") }
+
+// WithContext gives a sequence of CLI calls one shared deadline without changing
+// the ordinary client. Boundary doubles retain their own execution behavior.
+func WithContext(k Kata, ctx context.Context) Kata {
+	if c, ok := k.(*cli); ok {
+		clone := *c
+		clone.context = ctx
+		return &clone
+	}
+	return k
+}
+
+func (c *cli) Runs(jobUID string, limit int) ([]CronRun, error) {
+	var v struct{ Runs []CronRun }
+	err := c.call(nil, &v, "cron", "run", "list", "--job-uid", jobUID, "--limit", fmt.Sprint(limit))
+	return v.Runs, err
+}

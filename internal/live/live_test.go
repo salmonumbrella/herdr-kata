@@ -16,7 +16,6 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -86,58 +85,6 @@ func download(t *testing.T, root, version string) string {
 	return filepath.Join(dir, "herdr-core")
 }
 
-// defaultSnapshot only reads an already running default core. A dormant core
-// must remain dormant; flock detects it without invoking an autostarting CLI.
-func defaultSnapshot(t *testing.T, bin string) func() {
-	t.Helper()
-	root := os.Getenv("XDG_STATE_HOME")
-	if root == "" {
-		root = filepath.Join(os.Getenv("HOME"), ".local", "state")
-	}
-	path := filepath.Join(root, "herdr-core", "default", "core.lock")
-	f, err := os.OpenFile(path, os.O_RDWR, 0600)
-	if os.IsNotExist(err) {
-		return func() {
-			if _, err := os.Stat(path); !os.IsNotExist(err) {
-				t.Error("dormant default core state changed")
-			}
-		}
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
-	if err == nil {
-		syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-		f.Close()
-		return func() { t.Log("default core was dormant; no default hc call made") }
-	}
-	f.Close()
-	env := slices.DeleteFunc(os.Environ(), func(e string) bool {
-		return strings.HasPrefix(e, "HC_SOCKET=") || strings.HasPrefix(e, "HC_SESSION=")
-	})
-	env = append(env, "HC_SESSION=default")
-	snapshot := func() []byte {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		cmd := exec.CommandContext(ctx, bin, "ls", "--json")
-		cmd.Env = env
-		b, err := cmd.Output()
-		if err != nil {
-			t.Fatalf("read-only default hc ls: %v", err)
-		}
-		return b
-	}
-	before := snapshot()
-	return func() {
-		if !bytes.Equal(before, snapshot()) {
-			t.Error("default hc ls changed during live checks")
-		} else {
-			t.Log("default hc ls unchanged")
-		}
-	}
-}
-
 type fixture struct {
 	t                                                          *testing.T
 	root, work, bin, coreBin, kataBin, config, session, coreID string
@@ -169,7 +116,7 @@ func codexSandbox() string {
 
 func newFixture(t *testing.T, bin, coreBin, auth string) *fixture {
 	t.Helper()
-	root, err := os.MkdirTemp("", "hk2-")
+	root, err := os.MkdirTemp("", "hk3-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -377,7 +324,7 @@ func TestLive(t *testing.T) {
 	if os.Getenv("HERDR_KATA_LIVE") != "1" {
 		t.Skip("set HERDR_KATA_LIVE=1 for isolated live checks")
 	}
-	root, err := os.MkdirTemp("", "hk2-tools-")
+	root, err := os.MkdirTemp("", "hk3-tools-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,16 +340,19 @@ func TestLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer defaultSnapshot(t, installed)()
 	authHome := os.Getenv("CODEX_HOME")
 	if authHome == "" {
 		authHome = filepath.Join(os.Getenv("HOME"), ".codex")
 	}
 	auth := filepath.Join(authHome, "auth.json")
 	script := filepath.Join(cwd, "testdata", "scripted-agent.sh")
-	for _, version := range []string{"0.1.16", "0.1.15"} {
+	for _, version := range []string{"installed", "0.1.16", "0.1.15"} {
 		t.Run(version, func(t *testing.T) {
-			coreBin := download(t, root, version)
+			coreBin := installed
+			if version != "installed" {
+				coreBin = download(t, root, version)
+			}
+			t.Run("zero-config", func(t *testing.T) { zeroConfigJobs(t, bin, coreBin, script) })
 			t.Run("scripted", func(t *testing.T) {
 				f := newFixture(t, bin, coreBin, "")
 				f.configure([]string{"/bin/sh", script})
