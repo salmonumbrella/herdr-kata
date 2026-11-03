@@ -305,3 +305,12 @@ func TestClientContextBoundsFollowupCalls(t *testing.T) {
 		t.Fatalf("budget leaked to ordinary client: %v", err)
 	}
 }
+
+func TestRunsPerJobBoundedPage(t *testing.T) {
+	k, args := stub(t, "runs", "0")
+	runs, err := k.Runs("01J00000000000000000000010", 100)
+	if err != nil || len(runs) != 1 || runs[0].UID != "01J00000000000000000000001" || runs[0].CreatedAt.Format(time.RFC3339) != "2026-11-02T09:00:00Z" || runs[0].ExecutorLabel == nil || *runs[0].ExecutorLabel != "other-worker" || runs[0].Summary.Message == nil || *runs[0].Summary.Message != "completed" {
+		t.Fatalf("runs %+v err %v", runs, err)
+	}
+	assertArgs(t, args(), "cron", "run", "list", "--job-uid", "01J00000000000000000000010", "--limit", "100")
+}

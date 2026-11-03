@@ -120,3 +120,11 @@ type DateValue struct {
 	Timezone string    `json:"timezone"`
 	Instant  time.Time `json:"instant"`
 }
+
+// CronRun contains the evidence used by the bounded executor diagnostic.
+type CronRun struct {
+	UID           string    `json:"uid"`
+	CreatedAt     time.Time `json:"created_at"`
+	ExecutorLabel *string   `json:"executor_label,omitempty"`
+	Summary       Summary   `json:"summary"`
+}

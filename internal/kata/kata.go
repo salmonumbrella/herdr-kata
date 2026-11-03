@@ -55,6 +55,7 @@ func Classify(err error) Class {
 type Kata interface {
 	Jobs() ([]CronJob, error)
 	Workflows() ([]CronWorkflow, error)
+	Runs(jobUID string, limit int) ([]CronRun, error)
 	Ready() (map[string]bool, error)
 	PlanningDates(string) (*DateValue, error)
 	IssueTitle(string) (string, error)
@@ -236,4 +237,10 @@ func WithContext(k Kata, ctx context.Context) Kata {
 		return &copy
 	}
 	return k
+}
+
+func (c *cli) Runs(jobUID string, limit int) ([]CronRun, error) {
+	var v struct{ Runs []CronRun }
+	err := c.call(nil, &v, "cron", "run", "list", "--job-uid", jobUID, "--limit", fmt.Sprint(limit))
+	return v.Runs, err
 }

@@ -36,6 +36,10 @@ func (h *fakeHC) Exec(_ context.Context, argv []string) (string, error) {
 }
 
 type fakeKata struct {
+	runs       map[string][]kata.CronRun
+	runErr     error
+	readyCalls *int
+	requested  *[]string
 	kata.Kata
 	notify bool
 	jobs   []kata.CronJob
@@ -100,7 +104,28 @@ func TestDoctorFiltersUnownedAndShowsForeignPin(t *testing.T) {
 	if err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: jobs}}, &out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "pinned elsewhere foreign: options.executor=other") || strings.Contains(out.String(), "unsupported ") {
+	for _, uid := range []string{"foreign", "disabled", "notify", "adapter"} {
+		if strings.Contains(out.String(), "unsupported "+uid+":") {
+			t.Fatal(out.String())
+		}
+	}
+	if !strings.Contains(out.String(), "pinned elsewhere foreign: options.executor=other") {
 		t.Fatal(out.String())
 	}
+}
+
+func (k fakeKata) Runs(uid string, limit int) ([]kata.CronRun, error) {
+	if limit != 100 {
+		panic("wrong page limit")
+	}
+	if k.requested != nil {
+		*k.requested = append(*k.requested, uid)
+	}
+	return k.runs[uid], k.runErr
+}
+func (k fakeKata) Ready() (map[string]bool, error) {
+	if k.readyCalls != nil {
+		*k.readyCalls++
+	}
+	return nil, nil
 }
