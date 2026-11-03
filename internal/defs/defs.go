@@ -67,9 +67,21 @@ func unsupported(m map[string]any) []string {
 func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Config, project string, look func(string) (string, error)) (Plan, []string) {
 	d := job.Definition
 	p := Plan{JobUID: job.UID, JobEventUID: job.DefinitionEventUID, Name: job.Name, Overlap: d.Overlap, Catchup: d.Catchup, Timeout: cfg.Limits.DefaultTimeout, Input: option(d.Options, "input")}
+	projectCfg := config.Project{}
+	for _, candidate := range cfg.Projects {
+		if candidate.Name == project {
+			projectCfg = candidate
+			break
+		}
+	}
 	reasons := unsupported(d.Options)
 	if err := sched.Validate(d.Trigger, job.CreatedAt); err != nil {
 		reasons = append(reasons, "invalid_trigger")
+	} else if d.Trigger.Kind == "once" {
+		at, _ := time.Parse(time.RFC3339Nano, text(d.Trigger.At))
+		if !at.After(job.CreatedAt) {
+			reasons = append(reasons, "once_in_past")
+		}
 	}
 	if adapter, ok := d.Options["adapter"]; ok && adapter != "herdr-kata" {
 		reasons = append(reasons, fmt.Sprintf("adapter: %v", adapter))
@@ -117,9 +129,17 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 	if d.GraceSeconds != nil {
 		p.Grace = time.Duration(*d.GraceSeconds) * time.Second
 	}
-	p.CheckoutPath = cfg.Checkouts[text(d.CheckoutKey)]
+	checkout := projectCfg.DefaultCheckout
+	if d.CheckoutKey != nil {
+		checkout = *d.CheckoutKey
+	}
+	p.CheckoutPath = cfg.Checkouts[checkout]
 	if !filepath.IsAbs(p.CheckoutPath) {
-		reasons = append(reasons, "checkout not configured: "+text(d.CheckoutKey))
+		reason := "checkout not configured: " + checkout
+		if d.CheckoutKey == nil && checkout == "" {
+			reason = "checkout not configured: set checkout_key or the project's default_checkout"
+		}
+		reasons = append(reasons, reason)
 	}
 	var steps []kata.WorkflowStep
 	if d.Action.WorkflowUID != nil {
@@ -140,18 +160,25 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 	} else if d.Action.Prompt != nil {
 		steps = []kata.WorkflowStep{{Key: "main", Kind: "prompt", Prompt: d.Action.Prompt}}
 	}
-	agent := option(d.Options, "agent")
+	agent := projectCfg.DefaultAgent
 	if agent == "" {
 		agent = "default"
 	}
-	commands := false
-	for _, projectCfg := range cfg.Projects {
-		if projectCfg.Name == project {
-			commands = projectCfg.Commands
+	if override := option(d.Options, "agent"); override != "" {
+		agent = override
+	}
+	if raw, present := d.Options["agent"]; present {
+		if _, ok := raw.(string); !ok {
+			reasons = append(reasons, "agent must be a string")
 		}
 	}
 	for _, s := range steps {
 		reasons = append(reasons, unsupported(s.Options)...)
+		if raw, present := s.Options["agent"]; present {
+			if _, ok := raw.(string); !ok {
+				reasons = append(reasons, "agent must be a string")
+			}
+		}
 		if _, ok := s.Options["run_parent"]; ok {
 			reasons = append(reasons, "run_parent belongs on the job")
 		}
@@ -180,7 +207,7 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 			}
 		case "command":
 			frozen.Text = text(s.Command)
-			if !commands {
+			if !projectCfg.Commands {
 				reasons = append(reasons, "commands disabled for project")
 			}
 			if raw, ok := s.Options["skip_exit"]; ok {

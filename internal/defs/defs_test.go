@@ -3,6 +3,7 @@ package defs
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -166,5 +167,112 @@ func TestRunParentFrozenOnPerRunIssue(t *testing.T) {
 	}
 	if p.Issue.Parent != "01J00000000000000000000020" {
 		t.Fatalf("parent %q", p.Issue.Parent)
+	}
+}
+
+// A wrong precedence branch must change the actual frozen checkout or agent argv.
+func TestProjectDefaultResolution(t *testing.T) {
+	for _, tt := range []struct {
+		name                          string
+		checkout, jobAgent, stepAgent *string
+		defaults                      bool
+		wantCheckout, wantArg         string
+		reasons                       []string
+	}{
+		{"project defaults", nil, nil, nil, true, "/srv/projects/default", "project", nil},
+		{"explicit checkout", new("example-project"), nil, nil, true, "/srv/projects/example", "project", nil},
+		{"unknown checkout", new("missing"), nil, nil, true, "", "project", []string{"checkout not configured: missing"}},
+		{"empty supplied checkout", new(""), nil, nil, true, "", "project", []string{"checkout not configured: "}},
+		{"job overrides project", nil, new("job"), nil, true, "/srv/projects/default", "job", nil},
+		{"step overrides job", nil, new("job"), new("step"), true, "/srv/projects/default", "step", nil},
+		{"explicit default job", nil, new("default"), nil, true, "/srv/projects/default", "--no-daemon", nil},
+		{"explicit default step", nil, new("job"), new("default"), true, "/srv/projects/default", "--no-daemon", nil},
+		{"empty agents absent", nil, new(""), new(""), true, "/srv/projects/default", "project", nil},
+		{"missing job profile", nil, new("missing"), nil, true, "/srv/projects/default", "", []string{"profile not configured: missing"}},
+		{"missing step profile", nil, new("job"), new("missing"), true, "/srv/projects/default", "", []string{"profile not configured: missing"}},
+		{"valid step overrides missing job", nil, new("missing"), new("step"), true, "/srv/projects/default", "step", nil},
+		{"legacy", new("example-project"), nil, nil, false, "/srv/projects/example", "--no-daemon", nil},
+		{"missing checkout", nil, nil, nil, false, "", "--no-daemon", []string{"checkout not configured: set checkout_key or the project's default_checkout"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			j, w, c := fixture()
+			c.Checkouts["project"] = "/srv/projects/default"
+			for _, profile := range []string{"project", "job", "step"} {
+				c.Profiles[profile] = config.Profile{Argv: []string{"agent", profile}}
+			}
+			if tt.defaults {
+				c.Projects[0].DefaultCheckout = "project"
+				c.Projects[0].DefaultAgent = "project"
+			}
+			j.Definition.CheckoutKey = tt.checkout
+			delete(j.Definition.Options, "agent")
+			if tt.jobAgent != nil {
+				j.Definition.Options["agent"] = *tt.jobAgent
+			}
+			s := kata.WorkflowStep{Key: "work", Kind: "prompt", Prompt: new("work"), Options: map[string]any{}}
+			if tt.stepAgent != nil {
+				s.Options["agent"] = *tt.stepAgent
+			}
+			w["wf"] = kata.CronWorkflow{UID: "wf", Definition: kata.WorkflowDefinition{Steps: []kata.WorkflowStep{s}}}
+			j.Definition.Action = kata.Action{Kind: "execute", WorkflowUID: new("wf")}
+			p, reasons := Freeze(j, w, c, "example-project", look)
+			if !slices.Equal(reasons, tt.reasons) || p.CheckoutPath != tt.wantCheckout {
+				t.Fatalf("plan %+v reasons %v; want checkout %q reasons %v", p, reasons, tt.wantCheckout, tt.reasons)
+			}
+			argv := p.Steps[0].Argv
+			if tt.wantArg == "" {
+				if len(argv) != 0 {
+					t.Fatalf("unexpected argv %v", argv)
+				}
+			} else if !slices.Equal(argv, []string{"/usr/local/bin/agent", tt.wantArg}) {
+				t.Fatalf("argv %v", argv)
+			}
+			// Config edits after preparation must not change frozen execution values.
+			c.Checkouts["project"] = "/srv/projects/changed"
+			c.Profiles["project"].Argv[1] = "changed"
+			if p.CheckoutPath != tt.wantCheckout || (tt.wantArg != "" && p.Steps[0].Argv[1] != tt.wantArg) {
+				t.Fatal("plan aliases config")
+			}
+		})
+	}
+}
+
+func TestNonStringAgentUnsupported(t *testing.T) {
+	for _, scope := range []string{"job", "step"} {
+		for _, value := range []any{nil, 7, true, []any{"default"}} {
+			t.Run(scope+"/"+fmt.Sprint(value), func(t *testing.T) {
+				j, w, c := fixture()
+				if scope == "job" {
+					j.Definition.Options["agent"] = value
+				} else {
+					j.Definition.Action = kata.Action{Kind: "execute", WorkflowUID: new("wf")}
+					w["wf"] = kata.CronWorkflow{UID: "wf", Definition: kata.WorkflowDefinition{Steps: []kata.WorkflowStep{{Key: "a", Kind: "prompt", Prompt: new("x"), Options: map[string]any{"agent": value}}}}}
+				}
+				_, reasons := Freeze(j, w, c, "example-project", look)
+				if !slices.Equal(reasons, []string{"agent must be a string"}) {
+					t.Fatalf("reasons %v", reasons)
+				}
+			})
+		}
+	}
+}
+
+func TestOnceBeforeCreationUnsupported(t *testing.T) {
+	for _, tt := range []struct {
+		at   string
+		want []string
+	}{
+		{"2026-01-01T00:00:00Z", []string{"once_in_past"}},
+		{"2025-12-31T23:59:59Z", []string{"once_in_past"}},
+		{"2026-01-01T00:00:01Z", nil},
+		{"invalid", []string{"invalid_trigger"}},
+	} {
+		j, w, c := fixture()
+		j.CreatedAt = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		j.Definition.Trigger = kata.Trigger{Kind: "once", At: &tt.at}
+		_, reasons := Freeze(j, w, c, "example-project", look)
+		if !slices.Equal(reasons, tt.want) {
+			t.Fatalf("at %s: %v", tt.at, reasons)
+		}
 	}
 }
