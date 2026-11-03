@@ -76,6 +76,21 @@ for reason codes, visibility and federation delays.
 
 ## Upgrade and rollback
 
+Before adding project defaults, run the current binary's `herdr-kata doctor`
+and inventory the enabled job definitions. Record each unsupported job and all its reasons,
+its catchup policy, trigger, current checkpoint and resolved checkout/profile.
+Decide which jobs should become runnable when the new defaults are added.
+Disable any that must remain inactive before restarting the worker.
+
+Defaults can wake previously unsupported jobs at the first supported tick.
+A job with no checkpoint starts from the later of installation and job creation,
+with catchup bounded to 7 days and 100 occurrences. `latest` can launch the newest
+missed occurrence immediately; `all` queues the retained missed occurrences,
+subject to capacity and overlap. `skip` retains only occurrences within its
+startup grace and lateness bounds. Remaining owned definition defects produce
+failed `reason: unsupported` observations. Review this inventory before the
+upgrade so both catchup work and newly visible failures are expected.
+
 Drain active work and choose a quiet interval before replacing the worker
 binary or configuration. Keep the previous binary and its config together,
 replace the binary atomically, then start the worker and run doctor. Preserve
@@ -159,7 +174,12 @@ selectors. Verify the scratch core state path and ID before terminal calls
 and stopping it. Kill and remove only terminals the check created, then stop
 both scratch services and remove their directories. Never use an operator's
 session or real project. The gated `make test-live` automates these checks
-on the installed hc and checksum-verified hc 0.1.16 and 0.1.15. Add
+on the installed hc and checksum-verified hc 0.1.16 and 0.1.15. The installed
+binary still receives a fresh scratch session and state/config/runtime roots.
+The suite checks that scratch core's state path and ID before terminal calls
+and teardown. It deliberately does not snapshot or query the operator's default
+core: runtime verification must stay inside the disposable session, including
+when the default core is dormant. Add
 `HERDR_KATA_LIVE=1 HERDR_KATA_LIVE_CODEX=1` to include the real native Codex
 case; only its login file is copied into the disposable native home.
 `HERDR_KATA_LIVE_CODEX_SANDBOX` selects the native sandbox mode and defaults

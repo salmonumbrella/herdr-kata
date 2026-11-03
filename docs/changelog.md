@@ -8,6 +8,12 @@ last_edited: 2026-11-03
 
 ## Unreleased
 
+- Inventory previously unsupported jobs before enabling project defaults: they
+  may launch missed occurrences through their existing catchup policy.
+- Exclude `notify` and other-adapter jobs from doctor's unsupported-definition
+  list. Manual `notify` requests are rejected with `job action is not execute`;
+  foreign executor pins still have their own diagnostic line.
+
 - Store frozen unsupported observation bodies as readable JSON, retaining support
   for earlier base64 records and byte-identical retries.
 
