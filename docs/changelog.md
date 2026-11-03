@@ -8,6 +8,9 @@ last_edited: 2026-11-03
 
 ## Unreleased
 
+- Continue delivering and listing valid unsupported reports when another outbox
+  record is invalid or unreadable; retain and identify the bad file.
+
 - Preserve spaces and tabs in unsupported-run reasons while replacing embedded
   line breaks, so reported profile and checkout keys match the definition.
 

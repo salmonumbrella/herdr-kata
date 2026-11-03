@@ -290,3 +290,44 @@ func TestUnsupportedAcceptedWriteReplaysOneRevision(t *testing.T) {
 		}
 	}
 }
+
+func TestUnsupportedCorruptRecordDoesNotBlockDelivery(t *testing.T) {
+	o, p, k := outboxFixture(t)
+	discover(t, o, p, []string{"missing"})
+	bad := filepath.Join(o.Layout.Unsupported(), "invalid.json")
+	if err := os.WriteFile(bad, []byte(`{"Version":99}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	malformed := filepath.Join(o.Layout.Unsupported(), "malformed.json")
+	if err := os.WriteFile(malformed, []byte("broken JSON"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	unreadable := filepath.Join(o.Layout.Unsupported(), "unreadable.json")
+	if err := os.Mkdir(unreadable, 0700); err != nil {
+		t.Fatal(err)
+	}
+	valid, err := o.All()
+	for _, path := range []string{bad, malformed, unreadable} {
+		if err == nil || !strings.Contains(err.Error(), path) {
+			t.Fatalf("lost file error %s: %v", path, err)
+		}
+	}
+	if len(valid) != 1 || err == nil || !strings.Contains(err.Error(), bad) {
+		t.Fatalf("valid records=%d error=%v", len(valid), err)
+	}
+	before := bytes.Clone(valid[0].Body)
+	err = deliver(t, o, k, at)
+	if err == nil || !strings.Contains(err.Error(), bad) {
+		t.Fatalf("lost invalid-record error: %v", err)
+	}
+	if len(k.bodies) != 1 || !bytes.Equal(k.bodies[0], before) {
+		t.Fatalf("valid report not delivered: %s", k.bodies)
+	}
+	valid, err = o.All()
+	if err == nil || len(valid) != 1 || valid[0].State != "done" {
+		t.Fatalf("valid record %+v error %v", valid, err)
+	}
+	if _, err := os.Stat(bad); err != nil {
+		t.Fatalf("invalid record was removed: %v", err)
+	}
+}

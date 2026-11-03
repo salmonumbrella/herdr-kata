@@ -61,7 +61,9 @@ Accepted/replayed reports become `done` and stay for the life of this state
 directory as deduplication barriers. Unavailable or uncertain results stay
 `pending`; conflicts are read back and only identical evidence counts as
 delivered. Different evidence or definitive validation refusals become
-`refused` and are not retried automatically. A pending report for an unenrolled
+`refused` and are not retried automatically. Invalid or unreadable record files stay in
+place for inspection and are named in doctor errors. Valid records still deliver
+and contribute to the pending/refused counts. A pending report for an unenrolled
 project stays local; it is never routed to another project. Doctor lists it
 even when its project is no longer configured.
 

@@ -46,26 +46,31 @@ func (o Outbox) All() ([]UnsupportedRecord, error) {
 		return nil, err
 	}
 	var records []UnsupportedRecord
+	var errs []error
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-		b, err := os.ReadFile(filepath.Join(o.Layout.Unsupported(), entry.Name()))
+		path := filepath.Join(o.Layout.Unsupported(), entry.Name())
+		b, err := os.ReadFile(path)
 		if err != nil {
-			return nil, err
+			errs = append(errs, fmt.Errorf("unsupported record %s: %w", path, err))
+			continue
 		}
 		var r UnsupportedRecord
 		if err = json.Unmarshal(b, &r); err != nil {
-			return nil, err
+			errs = append(errs, fmt.Errorf("unsupported record %s: %w", path, err))
+			continue
 		}
 		var body kata.ObserveCronRunBody
 		hash, hashErr := hex.DecodeString(r.Cause)
 		if r.Version != 1 || hashErr != nil || len(hash) != sha256.Size || entry.Name() != r.Cause+".json" || r.Project == "" || r.RunUID == "" || !slices.Contains([]string{"pending", "done", "refused"}, r.State) || json.Unmarshal(r.Body, &body) != nil || body.JobUID == nil {
-			return nil, fmt.Errorf("invalid unsupported record: %s", entry.Name())
+			errs = append(errs, fmt.Errorf("invalid unsupported record: %s", path))
+			continue
 		}
 		records = append(records, r)
 	}
-	return records, nil
+	return records, errors.Join(errs...)
 }
 
 // Discover only writes a new intent; no network call or admission occurs here.
@@ -103,10 +108,7 @@ func (o Outbox) Discover(p defs.Plan, project, actor, executor string, reasons [
 // Deliver tries one pending intent, oldest attempt first, after ordinary work.
 // Current definitions never decide whether a historical intent can be delivered.
 func (o Outbox) Deliver(clients map[string]kata.Kata, now time.Time) error {
-	records, err := o.All()
-	if err != nil {
-		return err
-	}
+	records, scanErr := o.All()
 	slices.SortFunc(records, func(a, b UnsupportedRecord) int {
 		if n := a.LastAttempt.Compare(b.LastAttempt); n != 0 {
 			return n
@@ -119,8 +121,8 @@ func (o Outbox) Deliver(clients map[string]kata.Kata, now time.Time) error {
 			continue
 		}
 		r.LastAttempt = now.UTC()
-		if err = o.save(r); err != nil {
-			return err
+		if err := o.save(r); err != nil {
+			return errors.Join(scanErr, err)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), kata.CallTimeout)
 		_, sendErr, permanent := observe(kata.WithContext(k, ctx), journal.Run{RunUID: r.RunUID}, r.Body, 0)
@@ -134,7 +136,7 @@ func (o Outbox) Deliver(clients map[string]kata.Kata, now time.Time) error {
 				r.State = "refused"
 			}
 		}
-		return errors.Join(sendErr, o.save(r))
+		return errors.Join(scanErr, sendErr, o.save(r))
 	}
-	return nil
+	return scanErr
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
 	"github.com/salmonumbrella/herdr-kata/internal/report"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -156,5 +157,26 @@ func TestDoctorGlobalHeldCapacity(t *testing.T) {
 				t.Fatal(out.String())
 			}
 		})
+	}
+}
+
+func TestDoctorListsValidOutboxAlongsideCorruptRecord(t *testing.T) {
+	c, l, h := fixture(t)
+	if err := (report.Outbox{Layout: l}).Discover(defs.Plan{JobUID: "pending-job", JobEventUID: "event"}, "example-project", "worker", "executor", []string{"missing"}, now); err != nil {
+		t.Fatal(err)
+	}
+	bad := filepath.Join(l.Unsupported(), "invalid.json")
+	if err := os.WriteFile(bad, []byte(`{"Version":99}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{}}, &out)
+	if err == nil {
+		t.Fatal("doctor hid corrupt outbox")
+	}
+	for _, want := range []string{bad, "unsupported pending-job: report pending:", "unsupported reports: pending=1 refused=0"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("missing %q: %s", want, out.String())
+		}
 	}
 }
