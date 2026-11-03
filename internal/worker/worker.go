@@ -325,6 +325,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			p, reasons := defs.Freeze(job, wfs, w.Config, project.Name, exec.LookPath)
 			if len(reasons) > 0 {
 				w.Unsupported[job.UID] = reasons
+				if e := (report.Outbox{Layout: w.Store.Layout}).Discover(p, project.Name, project.Actor, w.Config.Executor, reasons, now); e != nil {
+					errs = append(errs, e)
+				}
 				rejectReason(project.Name, job.UID, "unsupported job: "+strings.Join(reasons, ", "))
 				continue
 			}
@@ -459,6 +462,13 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				errs = append(errs, fmt.Errorf("run %s: %w", r.RunUID, err))
 			}
 		}
+	}
+	clients := make(map[string]kata.Kata)
+	for _, project := range w.Config.Projects {
+		clients[project.Name] = w.Clients[project.Name]
+	}
+	if err := (report.Outbox{Layout: w.Store.Layout}).Deliver(clients, now); err != nil {
+		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
 }

@@ -16,3 +16,4 @@ func (l Layout) Job(uid string) string { return filepath.Join(l.Root, "jobs", ui
 func (l Layout) Requests() string      { return filepath.Join(l.Root, "requests") }
 func (l Layout) Lock() string          { return filepath.Join(l.Root, "serve.lock") }
 func (l Layout) PID() string           { return filepath.Join(l.Root, "serve.pid") }
+func (l Layout) Unsupported() string   { return filepath.Join(l.Root, "unsupported") }

@@ -2,6 +2,7 @@ package kata
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -286,4 +287,21 @@ func TestObserveBytesStable(t *testing.T) {
 			ht.Fatal("observation bytes changed")
 		}
 	})
+}
+
+// A multi-call report shares one deadline, including conflict readback.
+func TestClientContextBoundsFollowupCalls(t *testing.T) {
+	k, _ := stub(t, "whoami", "0")
+	ctx, cancel := context.WithCancel(t.Context())
+	bounded := WithContext(k, ctx)
+	if err := bounded.Whoami(); err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	if err := bounded.Whoami(); err == nil {
+		t.Fatal("followup ignored exhausted call budget")
+	}
+	if err := k.Whoami(); err != nil {
+		t.Fatalf("budget leaked to ordinary client: %v", err)
+	}
 }

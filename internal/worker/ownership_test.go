@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
+	"github.com/salmonumbrella/herdr-kata/internal/report"
 	"testing"
 	"time"
 )
@@ -33,6 +34,10 @@ func TestUnownedJobsFilteredBeforeReadiness(t *testing.T) {
 			done, reason, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Result("request")
 			if err != nil || !done || reason != tt.reason {
 				t.Fatalf("request %v %q %v", done, reason, err)
+			}
+			records, err := (report.Outbox{Layout: w.Store.Layout}).All()
+			if err != nil || len(records) != 0 {
+				t.Fatal(records, err)
 			}
 			runs, err := w.Store.All()
 			if err != nil || len(runs) != 0 || h.runs != 0 || len(k.bodies) != 0 || len(w.Unsupported) != 0 {
