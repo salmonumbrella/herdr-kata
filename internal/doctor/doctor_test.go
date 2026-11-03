@@ -129,3 +129,32 @@ func (k fakeKata) Ready() (map[string]bool, error) {
 	}
 	return nil, nil
 }
+
+func TestDoctorForeignPinIndependentOfAdapter(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		enabled, deleted bool
+		action           string
+		want             bool
+	}{
+		{"other adapter", true, false, "execute", true},
+		{"disabled", false, false, "execute", false},
+		{"deleted", true, true, "execute", false},
+		{"notify", true, false, "notify", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, l, h := fixture(t)
+			calls := 0
+			requested := []string{}
+			j := kata.CronJob{UID: "foreign", Definition: kata.JobDefinition{Enabled: tt.enabled, Action: kata.Action{Kind: tt.action}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("issue")}, Options: map[string]any{"adapter": "other", "executor": "other-worker"}}}
+			if tt.deleted {
+				j.DeletedAt = new(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+			}
+			var out bytes.Buffer
+			err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: []kata.CronJob{j}, readyCalls: &calls, requested: &requested}}, &out)
+			if err != nil || strings.Contains(out.String(), "pinned elsewhere foreign: options.executor=other-worker") != tt.want || calls != 0 || len(requested) != 0 || strings.Contains(out.String(), "unsupported foreign:") {
+				t.Fatalf("output %s; ready=%d run lists=%v error=%v", out.String(), calls, requested, err)
+			}
+		})
+	}
+}

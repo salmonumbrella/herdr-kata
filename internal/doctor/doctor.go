@@ -181,10 +181,10 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 			check("readiness "+p.Name, e)
 		}
 		for _, job := range jobs {
-			if owned, reason := defs.Owned(job, p.Name, c); !owned {
-				if strings.HasPrefix(reason, "job is pinned to executor ") {
-					fmt.Fprintf(out, "pinned elsewhere %s: options.executor=%s\n", job.UID, job.Definition.Options["executor"])
-				}
+			if pin, ok := job.Definition.Options["executor"].(string); ok && pin != "" && pin != c.Executor && job.DeletedAt == nil && job.Definition.Enabled && job.Definition.Action.Kind == "execute" {
+				fmt.Fprintf(out, "pinned elsewhere %s: options.executor=%s\n", job.UID, pin)
+			}
+			if owned, _ := defs.Owned(job, p.Name, c); !owned {
 				continue
 			}
 			_, reasons := defs.Freeze(job, wfs, c, p.Name, exec.LookPath)
