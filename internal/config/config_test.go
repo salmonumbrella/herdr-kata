@@ -108,3 +108,26 @@ func TestConfiguredLimitsPreserved(t *testing.T) {
 		}
 	})
 }
+
+// Project defaults must be usable mappings, with errors identifying the project and key.
+func TestProjectDefaults(t *testing.T) {
+	for _, tt := range []struct{ name, settings, wantError string }{
+		{"optional", "", ""},
+		{"configured", "default_checkout = \"example-project\"\ndefault_agent = \"default\"\n", ""},
+		{"unknown checkout", "default_checkout = \"missing-checkout\"\n", "missing-checkout"},
+		{"unknown agent", "default_agent = \"missing-agent\"\n", "missing-agent"},
+		{"unknown project key", "default_agnet = \"default\"\n", "unknown configuration keys"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			text := strings.Replace(example, "commands = false\n", "commands = false\n"+tt.settings, 1)
+			_, err := loadText(t, text)
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tt.wantError) || (tt.name != "unknown project key" && !strings.Contains(err.Error(), "example-project")) {
+				t.Fatalf("error = %v, want project and %q", err, tt.wantError)
+			}
+		})
+	}
+}
