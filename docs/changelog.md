@@ -8,6 +8,9 @@ last_edited: 2026-11-03
 
 ## Unreleased
 
+- Store frozen unsupported observation bodies as readable JSON, retaining support
+  for earlier base64 records and byte-identical retries.
+
 - Continue delivering and listing valid unsupported reports when another outbox
   record is invalid or unreadable; retain and identify the bad file.
 

@@ -51,7 +51,9 @@ or prove that no other runtime is active.
 ## Unsupported report delivery
 
 The `unsupported/` directory under the state root holds frozen observation
-intents separately from execution journals. These records reserve no capacity
+intents separately from execution journals. The frozen `Body` is readable JSON;
+earlier Version 1 records with a base64 body remain readable and replay with
+the same bytes. These records reserve no capacity
 and never enter admission, release or launch. Delivery follows normal work,
 with at most one pending intent per tick and one shared Kata call-timeout
 budget, including conflict readback. Oldest attempts go first so a failing

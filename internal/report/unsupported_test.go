@@ -2,6 +2,7 @@ package report
 
 import (
 	"bytes"
+	"encoding/json"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
@@ -329,5 +330,56 @@ func TestUnsupportedCorruptRecordDoesNotBlockDelivery(t *testing.T) {
 	}
 	if _, err := os.Stat(bad); err != nil {
 		t.Fatalf("invalid record was removed: %v", err)
+	}
+}
+
+func TestUnsupportedReadableBodyAndLegacyReplay(t *testing.T) {
+	o, p, k := outboxFixture(t)
+	discover(t, o, p, []string{"profile not configured: <missing> & \t界\u2028"})
+	r := records(t, o)[0]
+	path := filepath.Join(o.Layout.Unsupported(), r.Cause+".json")
+	assertReadable := func() {
+		t.Helper()
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var disk struct{ Body json.RawMessage }
+		if err := json.Unmarshal(b, &disk); err != nil {
+			t.Fatal(err)
+		}
+		if len(disk.Body) == 0 || disk.Body[0] != '{' || !bytes.Equal(disk.Body, r.Body) {
+			t.Fatalf("body is not the original readable JSON: %s", disk.Body)
+		}
+	}
+	assertReadable()
+	// Existing Version 1 files stored Body as a base64-encoded []byte.
+	legacy := struct {
+		Version                int
+		Cause, Project, RunUID string
+		Body                   []byte
+		State, Error           string
+		LastAttempt            time.Time
+	}{
+		Version: 1, Cause: r.Cause, Project: r.Project, RunUID: r.RunUID, Body: bytes.Clone(r.Body), State: "pending",
+	}
+	if err := state.WriteJSON(path, legacy); err != nil {
+		t.Fatal(err)
+	}
+	loaded := records(t, o)[0]
+	if !bytes.Equal(loaded.Body, r.Body) {
+		t.Fatal("legacy body bytes changed during read")
+	}
+	k.observeErr = &kata.Error{Code: 7}
+	if err := deliver(t, o, k, at); err == nil {
+		t.Fatal("expected unavailable result")
+	}
+	assertReadable()
+	k.observeErr = nil
+	if err := deliver(t, Outbox{Layout: o.Layout}, k, at.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if len(k.bodies) != 2 || !bytes.Equal(k.bodies[0], r.Body) || !bytes.Equal(k.bodies[1], r.Body) || records(t, o)[0].State != "done" {
+		t.Fatal("retry changed frozen evidence")
 	}
 }

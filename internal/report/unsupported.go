@@ -25,9 +25,27 @@ import (
 type UnsupportedRecord struct {
 	Version                int
 	Cause, Project, RunUID string
-	Body                   []byte
+	Body                   json.RawMessage
 	State, Error           string
 	LastAttempt            time.Time
+}
+
+// UnmarshalJSON also accepts the base64 Body encoding used by earlier Version 1 files.
+func (r *UnsupportedRecord) UnmarshalJSON(b []byte) error {
+	type stored UnsupportedRecord
+	var decoded stored
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		return err
+	}
+	if len(decoded.Body) > 0 && decoded.Body[0] == '"' {
+		var legacy []byte
+		if err := json.Unmarshal(decoded.Body, &legacy); err != nil {
+			return err
+		}
+		decoded.Body = legacy
+	}
+	*r = UnsupportedRecord(decoded)
+	return nil
 }
 
 // Outbox shares the worker's already-held lifetime lock; it acquires no lock.
