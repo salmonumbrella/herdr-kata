@@ -79,11 +79,17 @@ func zeroConfigJobs(t *testing.T, bin, coreBin, script string) {
 	b = bytes.Replace(b, []byte("[profiles.default]"), []byte("[profiles.project-agent]"), 1)
 	write(t, f.config, b)
 	good, bad, pinned := "01J00000000000000000000031", "01J00000000000000000000032", "01J00000000000000000000033"
-	due := time.Now().UTC().Add(5 * time.Second).Format(time.RFC3339Nano)
+	// Establish installation before defining the one-shot occurrence. Slow setup
+	// must never make the occurrence predate the worker's installation floor.
+	f.cli("up")
+	eventually(t, func() bool {
+		_, err := os.Stat(filepath.Join(f.store.Layout.Root, "installation.json"))
+		return err == nil
+	})
+	due := time.Now().UTC().Add(time.Minute).Format(time.RFC3339Nano)
 	f.scheduledJob(good, due, nil)
 	f.scheduledJob(bad, due, map[string]any{"agent": "missing"})
 	f.scheduledJob(pinned, due, map[string]any{"executor": "another-worker"})
-	f.cli("up")
 	eventually(t, func() bool { return len(f.jobRuns(bad)) == 1 })
 	unsupported := f.jobRuns(bad)[0]
 	if unsupported.Status != "failed" || unsupported.Revision != 1 || unsupported.IssueUID != nil && *unsupported.IssueUID != "" || unsupported.Summary.Message == nil || *unsupported.Summary.Message != "reason: unsupported\nprofile not configured: missing" {

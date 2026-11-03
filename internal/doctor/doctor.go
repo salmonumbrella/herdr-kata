@@ -103,6 +103,16 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 	fmt.Fprintf(out, "unsupported reports: pending=%d refused=%d\n", pending, refused)
 	active, err := journal.New(l).Active()
 	check("run journals", err)
+	total := 0
+	globalHeld := []string{}
+	for _, r := range active {
+		if r.Phase != "settled" {
+			total++
+			if r.Phase == "held" {
+				globalHeld = append(globalHeld, r.RunUID)
+			}
+		}
+	}
 	for _, p := range c.Projects {
 		held := []string{}
 		count := 0
@@ -118,7 +128,12 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 		if limit == 0 {
 			limit = 1
 		}
-		if count >= limit && len(held) > 0 {
+		if total >= c.Limits.MaxActiveRuns && len(globalHeld) > 0 {
+			held = slices.Clone(globalHeld)
+		} else if count < limit {
+			held = nil
+		}
+		if len(held) > 0 {
 			slices.Sort(held)
 			fmt.Fprintf(out, "project %s: held runs hold capacity: %s\n", p.Name, strings.Join(held, ", "))
 		}

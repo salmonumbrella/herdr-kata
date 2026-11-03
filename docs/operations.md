@@ -82,6 +82,9 @@ Never restore a stale state snapshot or restart the core for this upgrade.
 
 ## Held runs
 
+Doctor names held run UIDs when either the project or global capacity limit
+blocks new work, including holds in another project consuming global slots.
+
 Unknown or ambiguous execution holds a run, reserves its capacity and keeps
 its terminal for inspection. The hold is immediately reported to Kata as
 `unknown`, or `failed` when a step certainly failed, with `reason: <code>`.

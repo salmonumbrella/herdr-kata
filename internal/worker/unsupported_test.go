@@ -114,7 +114,7 @@ func TestUnsupportedDeliveryFollowsOrdinaryWork(t *testing.T) {
 	if _, err := w.checkpoint(supported, defs.Plan{Catchup: "all"}, at); err != nil {
 		t.Fatal(err)
 	}
-	for n := 0; n < 3; n++ {
+	for n := range 3 {
 		j := manual
 		j.UID = fmt.Sprint("unsupported-", n)
 		j.Definition.Options = map[string]any{"agent": "missing"}

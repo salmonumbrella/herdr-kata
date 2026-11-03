@@ -53,7 +53,7 @@ func TestUnsupportedFrozenObservationAndDedup(t *testing.T) {
 	if len(k.bodies) != 1 || !reflect.DeepEqual(body(t, k.bodies[0]), want) {
 		t.Fatalf("body %s", k.bodies)
 	}
-	for n := 0; n < 3; n++ {
+	for range 3 {
 		o = Outbox{Layout: o.Layout}
 		discover(t, o, p, []string{"profile not configured: missing", "commands disabled for project"})
 		if err := deliver(t, o, k, at.Add(time.Hour)); err != nil {
@@ -165,7 +165,7 @@ func TestUnsupportedFairOneDeliveryAndUnenrolledProject(t *testing.T) {
 	if len(k.bodies) != 0 {
 		t.Fatal("delivered unenrolled project")
 	}
-	for n := 0; n < 3; n++ {
+	for n := range 3 {
 		_ = deliver(t, o, k, at.Add(time.Duration(n)*time.Second))
 		if len(k.bodies) != n+1 {
 			t.Fatalf("calls %d", len(k.bodies))
@@ -231,5 +231,62 @@ func TestUnsupportedDiskFailureRetriedBeforeObserve(t *testing.T) {
 	}
 	if _, err := o.All(); err == nil {
 		t.Fatal("accepted corrupt outbox")
+	}
+}
+
+// This boundary models Kata's identical-evidence replay, including a committed
+// write whose reply is lost. The consumer must retain its UID, body and revision.
+type replayKata struct {
+	kata.Kata
+	saved     map[string][]byte
+	revisions map[string]int
+	loseReply bool
+	replayed  int
+}
+
+func (k *replayKata) Observe(uid string, b []byte, expected int) (int, bool, error) {
+	if expected != 0 {
+		return 0, false, &kata.Error{Code: 3, Message: "unexpected initial revision"}
+	}
+	if previous := k.saved[uid]; previous != nil {
+		if !bytes.Equal(previous, b) {
+			return 0, false, &kata.Error{Code: 5}
+		}
+		k.replayed++
+		return k.revisions[uid], true, nil
+	}
+	k.saved[uid] = bytes.Clone(b)
+	k.revisions[uid] = 1
+	if k.loseReply {
+		k.loseReply = false
+		return 0, false, &kata.Error{Code: 7, Message: "mutation result may be unknown"}
+	}
+	return 1, false, nil
+}
+func TestUnsupportedAcceptedWriteReplaysOneRevision(t *testing.T) {
+	for _, crash := range []bool{false, true} {
+		o, p, _ := outboxFixture(t)
+		discover(t, o, p, []string{"missing"})
+		r := records(t, o)[0]
+		k := &replayKata{saved: map[string][]byte{}, revisions: map[string]int{}, loseReply: !crash}
+		if crash {
+			// The process dies after Kata accepts and before local delivery completion.
+			if _, _, err := k.Observe(r.RunUID, r.Body, 0); err != nil {
+				t.Fatal(err)
+			}
+		} else if err := deliver(t, o, k, at); err == nil {
+			t.Fatal("expected a lost reply")
+		}
+		if records(t, o)[0].State != "pending" {
+			t.Fatal("lost pending intent")
+		}
+		// A repaired current definition supplies no rediscovery; restart delivers saved evidence.
+		o = Outbox{Layout: o.Layout}
+		if err := deliver(t, o, k, at.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+		if len(k.saved) != 1 || k.revisions[r.RunUID] != 1 || k.replayed != 1 || !bytes.Equal(k.saved[r.RunUID], r.Body) || records(t, o)[0].State != "done" {
+			t.Fatalf("runs=%d revisions=%v replays=%d records=%v", len(k.saved), k.revisions, k.replayed, records(t, o))
+		}
 	}
 }

@@ -61,7 +61,7 @@ func fixture(t *testing.T) (config.Config, state.Layout, *fakeHC) {
 	t.Setenv("XDG_CONFIG_HOME", root)
 	t.Setenv("XDG_STATE_HOME", root)
 	t.Setenv("XDG_RUNTIME_DIR", root)
-	c := config.Config{Executor: "executor", HCSession: "fixture", Kata: config.KataCfg{Bin: "/bin/sh", Daemon: "fixture", Env: map[string]string{"KATA_HOME": "/srv/kata-home"}}, Projects: []config.Project{{Name: "example-project", Actor: "worker"}}, Checkouts: map[string]string{"example-project": root}, Profiles: map[string]config.Profile{"default": {Argv: []string{"/bin/sh"}}}, Limits: config.Limits{DefaultTimeout: 2 * time.Hour, MaxTimeout: 24 * time.Hour}}
+	c := config.Config{Executor: "executor", HCSession: "fixture", Kata: config.KataCfg{Bin: "/bin/sh", Daemon: "fixture", Env: map[string]string{"KATA_HOME": "/srv/kata-home"}}, Projects: []config.Project{{Name: "example-project", Actor: "worker"}}, Checkouts: map[string]string{"example-project": root}, Profiles: map[string]config.Profile{"default": {Argv: []string{"/bin/sh"}}}, Limits: config.Limits{MaxActiveRuns: 4, DefaultTimeout: 2 * time.Hour, MaxTimeout: 24 * time.Hour}}
 	return c, state.Layout{Root: root}, &fakeHC{root: root}
 }
 func TestDoctorListsUnsupportedWithReasons(t *testing.T) {

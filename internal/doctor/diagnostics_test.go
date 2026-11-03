@@ -130,3 +130,31 @@ func TestDoctorOutboxIncludesUnenrolledAndRefused(t *testing.T) {
 		}
 	}
 }
+
+func TestDoctorGlobalHeldCapacity(t *testing.T) {
+	for _, tt := range []struct {
+		name, heldProject, phase string
+		global                   int
+		want                     bool
+	}{
+		{"global only", "example-project", "held", 1, true},
+		{"other project holds global slot", "other-project", "held", 1, true},
+		{"settled uses no capacity", "other-project", "settled", 1, false},
+		{"room remains", "example-project", "held", 4, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, l, h := fixture(t)
+			c.Projects[0].MaxActiveRuns = 4
+			c.Limits.MaxActiveRuns = tt.global
+			uid := "01J00000000000000000000001"
+			if err := journal.New(l).Create(journal.Run{Version: 1, Key: journal.ManualKey("executor", tt.heldProject, uid), RunUID: uid, Project: tt.heldProject, Phase: tt.phase}); err != nil {
+				t.Fatal(err)
+			}
+			var out bytes.Buffer
+			_ = Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{}}, &out)
+			if strings.Contains(out.String(), "project example-project: held runs hold capacity: "+uid) != tt.want {
+				t.Fatal(out.String())
+			}
+		})
+	}
+}
