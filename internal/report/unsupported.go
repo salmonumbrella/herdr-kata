@@ -87,8 +87,9 @@ func (o Outbox) Discover(p defs.Plan, project, actor, executor string, reasons [
 		return err
 	}
 	details := make([]string, len(reasons))
+	lineBreaks := strings.NewReplacer("\r\n", " ", "\r", " ", "\n", " ")
 	for i, reason := range reasons {
-		details[i] = strings.Join(strings.Fields(reason), " ")
+		details[i] = lineBreaks.Replace(reason)
 	}
 	message := bounded("reason: unsupported\n" + strings.Join(details, ", "))
 	r := journal.Run{RunUID: ulid.Make().String(), Actor: actor, Executor: executor, Plan: p, Occurrence: "unsupported:" + p.JobEventUID, StartedAt: new(now.UTC())}

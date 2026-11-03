@@ -8,6 +8,9 @@ last_edited: 2026-11-03
 
 ## Unreleased
 
+- Preserve spaces and tabs in unsupported-run reasons while replacing embedded
+  line breaks, so reported profile and checkout keys match the definition.
+
 - Run enabled portable jobs with project `default_checkout` and `default_agent`,
   without per-job adapter fields. Explicit choices still win and prepared runs
   retain their frozen checkout and argv. Checkout mappings require selection

@@ -118,7 +118,8 @@ profile not configured: missing
 
 Fix the job or worker configuration; `herdr-kata doctor` shows the same
 reasons. Multiple reasons join with `, ` on line two, truncated to keep the
-message within 4,096 UTF-8 bytes. No terminal or issue is created and no job
+message within 4,096 UTF-8 bytes. Embedded CR/LF characters become spaces;
+other spaces and tabs are preserved so configured keys remain recognizable. No terminal or issue is created and no job
 checkpoint advances. The worker records each distinct combination of job
 definition event, workflow definition event and ordered reasons once for the
 life of its state directory. A changed cause gets a new report; returning
