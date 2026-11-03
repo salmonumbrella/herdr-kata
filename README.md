@@ -28,7 +28,8 @@ fresh and are not compatible with v1.
 
 ## Requirements
 
-- Go 1.27 to build: `make build` writes `bin/herdr-kata`.
+- A [release binary](https://github.com/salmonumbrella/herdr-kata/releases/latest)
+  for macOS or Linux, or Go 1.27 to build: `make build` writes `bin/herdr-kata`.
 - hc 0.1.15 or newer.
 - Kata 0.20.0 or newer and an authenticated daemon catalog entry.
 - Linux or macOS, an executable agent profile and a local checkout.

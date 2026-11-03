@@ -6,8 +6,11 @@ last_edited: 2026-11-02
 
 # Install
 
-Build `bin/herdr-kata` with `mise exec -- make build`, then copy it to an
-operator-owned directory on PATH. The module remains
+Download the archive for your platform (macOS or Linux, arm64 or amd64)
+from the [latest release](https://github.com/salmonumbrella/herdr-kata/releases/latest)
+and check it against `checksums.txt`, or build `bin/herdr-kata` with
+`mise exec -- make build`. Copy the binary to an operator-owned directory on
+PATH. The module remains
 `github.com/salmonumbrella/herdr-kata`. Use hc 0.1.15 or newer and Kata
 0.20.0 or newer. The live suite exercises hc 0.1.15 and 0.1.16. Linux and
 macOS are supported; Windows is not.
