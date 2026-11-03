@@ -65,6 +65,7 @@ func (k *fakeKata) Observe(_ string, b []byte, rev int) (int, bool, error) {
 }
 
 type fakeHC struct {
+	specs []hc.RunSpec
 	hc.HC
 	core        string
 	terms       map[string]hc.Terminal
@@ -74,6 +75,7 @@ type fakeHC struct {
 func (h *fakeHC) CoreID(context.Context) (string, error) { return h.core, nil }
 func (h *fakeHC) Run(_ context.Context, s hc.RunSpec) (hc.Launched, error) {
 	h.runs++
+	h.specs = append(h.specs, s)
 	id := fmt.Sprintf("t%d", h.runs)
 	h.terms[id] = hc.Terminal{Address: id, Name: s.Name, State: "live", CreatedMs: int64(h.runs), PID: uint32(100 + h.runs), Labels: s.Labels, Argv: append(slices.Clone(s.Prefix), s.Argv...)}
 	return hc.Launched{Address: id, Name: s.Name, State: "live"}, nil
