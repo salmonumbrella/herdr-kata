@@ -1,13 +1,14 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-02
+last_edited: 2026-11-03
 ---
 
 # Operations
 
 Use Kata's Jobs and Runs tabs for run history. `herdr-kata doctor` checks the
-configured execution environment and lists unsupported definitions. There
+configured execution environment, unsupported definitions and pending/refused
+unsupported-report counts with job UIDs and delivery errors. There
 is no adapter status command or TUI.
 
 `herdr-kata up` starts or adopts this installation's locked worker terminal,
@@ -25,6 +26,59 @@ rerun it once the condition clears.
 
 A worker badly stalled by hc or Kata timeouts across many runs can still drop
 a `skip` occurrence once lateness exceeds grace plus 2 minutes.
+
+## Runtime ownership
+
+Operate one effective runtime per project UID. Use one executing installation,
+or ensure every enrolled executor is on v0.3.0+ with distinct stable labels
+and matching job pins. Project names alone do not establish shared identity.
+Two workers enrolling the same project can both execute every unpinned job;
+Kata does not prevent duplicate occurrences.
+
+Pins are local filtering only. A v0.2.0 worker ignores `options.executor`, so
+pins do not isolate mixed-version installations. Two installations sharing
+one executor label cannot be distinguished. Inventory project UIDs and
+executors before enrolling another runtime or changing ownership.
+
+Doctor samples the newest 100 run observations per owned job, using server
+`created_at` within the last 7 days. It excludes `reason: unsupported` evidence
+and warns `warning: another executor reported job <uid>: <label>` for foreign
+labels, showing absent/empty labels as `unknown`. A full page still inside
+the window is marked truncated; a failed list read marks the check incomplete.
+This warning detects evidence after the fact. It does not prevent duplicates
+or prove that no other runtime is active.
+
+## Unsupported report delivery
+
+The `unsupported/` directory under the state root holds frozen observation
+intents separately from execution journals. These records reserve no capacity
+and never enter admission, release or launch. Delivery follows normal work,
+with at most one pending intent per tick and one shared Kata call-timeout
+budget, including conflict readback. Oldest attempts go first so a failing
+record cannot monopolize delivery.
+
+Accepted/replayed reports become `done` and stay for the life of this state
+directory as deduplication barriers. Unavailable or uncertain results stay
+`pending`; conflicts are read back and only identical evidence counts as
+delivered. Different evidence or definitive validation refusals become
+`refused` and are not retried automatically. A pending report for an unenrolled
+project stays local; it is never routed to another project. Doctor lists it
+even when its project is no longer configured.
+
+For a refused report, fix the cause, stop the worker, then delete only the
+record file doctor names to report anew under a new run UID. Start the worker
+again. Keep completed records and execution journals. See [Jobs](jobs.md#unsupported-definitions)
+for reason codes, visibility and federation delays.
+
+## Upgrade and rollback
+
+Drain active work and choose a quiet interval before replacing the worker
+binary or configuration. Keep the previous binary and its config together,
+replace the binary atomically, then start the worker and run doctor. Preserve
+executor labels, hc session and current state. v0.2.0 rejects the new project
+default keys: rollback restores the old binary and its config as a pair,
+while retaining current journals, checkpoints and unsupported-report records.
+Never restore a stale state snapshot or restart the core for this upgrade.
 
 ## Held runs
 
@@ -91,14 +145,14 @@ Before interrupt, kill or remove, the worker checks core ID, terminal
 creation time, PID and nonce. It leaves a changed occupant alone. A core
 restart can therefore hold affected work instead of launching it again.
 
-For runtime checks use a fresh `HC_SESSION=hk2-<random>`, scratch HOME and
+For runtime checks use a fresh `HC_SESSION=hk3-<random>`, scratch HOME and
 XDG directories, isolated Kata home/catalog/daemon and `example-project`.
 Remove inherited `HC_SOCKET`, `KATA_*` and native-agent configuration
 selectors. Verify the scratch core state path and ID before terminal calls
 and stopping it. Kill and remove only terminals the check created, then stop
 both scratch services and remove their directories. Never use an operator's
 session or real project. The gated `make test-live` automates these checks
-on checksum-verified hc 0.1.16 and 0.1.15. Add
+on the installed hc and checksum-verified hc 0.1.16 and 0.1.15. Add
 `HERDR_KATA_LIVE=1 HERDR_KATA_LIVE_CODEX=1` to include the real native Codex
 case; only its login file is copied into the disposable native home.
 `HERDR_KATA_LIVE_CODEX_SANDBOX` selects the native sandbox mode and defaults

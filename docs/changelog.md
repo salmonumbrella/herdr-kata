@@ -1,10 +1,30 @@
 ---
 title: Changelog
 description: Changes to the headless Kata adapter.
-last_edited: 2026-11-02
+last_edited: 2026-11-03
 ---
 
 # Changelog
+
+## Unreleased
+
+- Run enabled portable jobs with project `default_checkout` and `default_agent`,
+  without per-job adapter fields. Explicit choices still win and prepared runs
+  retain their frozen checkout and argv.
+- A job without `options.agent` moves from implicit profile `default` to the
+  project's `default_agent` when configured. Explicit `"default"` stays selected;
+  present non-string agents now report `agent must be a string`.
+- Interpret job `options.executor` as a local ownership pin. Other executors
+  skip the job and reject its manual requests; malformed pins are unsupported.
+- Record owned unsupported definitions once per distinct cause as failed Kata
+  runs starting `reason: unsupported`. Include missing mappings, unavailable
+  executables, invalid triggers and `once_in_past`. Persist replay-safe delivery
+  separately from execution journals and expose pending/refused reports in doctor.
+- Show foreign pins, existing-issue readiness gates and held capacity in doctor.
+  Sample recent run evidence per owned job to warn about other executor labels.
+  Document the single-runtime operating condition and mixed-version limits.
+- Exercise scheduled defaults, unsupported reporting and pin filtering across
+  ticks and restarts in isolated live runtimes, including the installed core.
 
 ## 0.2.0
 <small>2026-11-02</small>

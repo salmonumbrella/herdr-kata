@@ -1,7 +1,7 @@
 ---
 title: Install
 description: Build and configure the headless worker.
-last_edited: 2026-11-02
+last_edited: 2026-11-03
 ---
 
 # Install
@@ -12,7 +12,7 @@ and check it against `checksums.txt`, or build `bin/herdr-kata` with
 `mise exec -- make build`. Copy the binary to an operator-owned directory on
 PATH. The module remains
 `github.com/salmonumbrella/herdr-kata`. Use hc 0.1.15 or newer and Kata
-0.20.0 or newer. The live suite exercises hc 0.1.15 and 0.1.16. Linux and
+0.20.0 or newer. The live suite exercises the installed hc and checksum-verified 0.1.15 and 0.1.16. Linux and
 macOS are supported; Windows is not.
 
 v2 replaces the old plugin. Its configuration and state are incompatible
@@ -38,8 +38,24 @@ labels. Keep it stable with the state directory. `hc_session` defaults to
 
 Each project supplies `name`, `actor`, an optional `commands` opt-in
 (default false), and `max_active_runs` (default 1). The global limit defaults
-to 4. Held runs reserve capacity until released. Each job's `checkout_key`
-must name an absolute local path in `checkouts`.
+to 4. Held runs reserve capacity until released.
+
+Optional project defaults let portable jobs run without adapter fields:
+
+```toml
+[[projects]]
+name = "example-project"
+actor = "worker"
+commands = false
+max_active_runs = 1
+default_checkout = "example-project"
+default_agent = "default"
+```
+
+`default_checkout` must name a key in `[checkouts]`, and `default_agent` a key
+in `[profiles]`. An unknown default fails startup with the project and key.
+Both are optional. See [Jobs](jobs.md) for precedence and [Operations](operations.md)
+for upgrade and rollback.
 
 Profiles contain plain `argv` arrays. The first element is resolved to an
 absolute executable when a run is prepared. The worker appends one argument:
