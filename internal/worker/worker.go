@@ -319,9 +319,6 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			wfs[wf.UID] = wf
 		}
 		for _, job := range jobs {
-			if job.DeletedAt != nil || !job.Definition.Enabled {
-				continue
-			}
 			p, reasons := defs.Freeze(job, wfs, w.Config, project.Name, exec.LookPath)
 			if len(reasons) > 0 {
 				w.Unsupported[job.UID] = reasons

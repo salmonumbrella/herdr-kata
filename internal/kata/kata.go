@@ -232,9 +232,9 @@ func (c *cli) Capabilities() error { return c.call(nil, nil, "cron", "capabiliti
 // the ordinary client. Boundary doubles retain their own execution behavior.
 func WithContext(k Kata, ctx context.Context) Kata {
 	if c, ok := k.(*cli); ok {
-		copy := *c
-		copy.context = ctx
-		return &copy
+		clone := *c
+		clone.context = ctx
+		return &clone
 	}
 	return k
 }
