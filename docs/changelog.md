@@ -6,8 +6,12 @@ last_edited: 2026-11-02
 
 # Changelog
 
-## Unreleased
+## 0.2.0
+<small>2026-11-02</small>
 
+- Breaking: herdr-kata is now a headless worker on herdr-core (`hc`), not a
+  Herdr plugin. Uninstall the v1 plugin, build `bin/herdr-kata`, and start
+  with fresh configuration and state ([Install](install.md)).
 - Read the project-wide `kata ready` list only when an enabled job uses an
   existing issue or an `issue-scheduled` trigger. Projects with only per-run
   jobs no longer stall a tick when that large read times out.
