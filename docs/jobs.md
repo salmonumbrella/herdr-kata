@@ -67,7 +67,8 @@ gate and skips downstream steps without failing the run. Output is kept in
 the attempt's `output.log`, with the first 1 MiB and last 256 KiB retained.
 
 Checkout resolution uses a supplied job `checkout_key`, then the project's
-`default_checkout` when the key is absent. A supplied unknown key never falls
+`default_checkout` when the key is absent. A mapping requires a selected job key
+or project default. A supplied unknown key never falls
 back. With neither, the reason is `checkout not configured: set checkout_key
 or the project's default_checkout`.
 

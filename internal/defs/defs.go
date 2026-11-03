@@ -138,7 +138,9 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 	if d.CheckoutKey != nil {
 		checkout = *d.CheckoutKey
 	}
-	p.CheckoutPath = cfg.Checkouts[checkout]
+	if d.CheckoutKey != nil || checkout != "" {
+		p.CheckoutPath = cfg.Checkouts[checkout]
+	}
 	if !filepath.IsAbs(p.CheckoutPath) {
 		reason := "checkout not configured: " + checkout
 		if d.CheckoutKey == nil && checkout == "" {

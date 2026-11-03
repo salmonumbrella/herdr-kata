@@ -276,3 +276,20 @@ func TestOnceBeforeCreationUnsupported(t *testing.T) {
 		}
 	}
 }
+
+// A mapping with an empty name must not become an implicit project default.
+func TestCheckoutRequiresSelection(t *testing.T) {
+	j, w, c := fixture()
+	c.Checkouts[""] = "/srv/projects/example"
+	j.Definition.CheckoutKey = nil
+	p, reasons := Freeze(j, w, c, "example-project", look)
+	if p.CheckoutPath != "" || !slices.Equal(reasons, []string{"checkout not configured: set checkout_key or the project's default_checkout"}) {
+		t.Fatalf("unselected checkout resolved: %q, reasons %v", p.CheckoutPath, reasons)
+	}
+	// Preserve explicit selection of a configured key; no new key restriction.
+	j.Definition.CheckoutKey = new("")
+	p, reasons = Freeze(j, w, c, "example-project", look)
+	if p.CheckoutPath != "/srv/projects/example" || len(reasons) != 0 {
+		t.Fatalf("explicit checkout: %q, reasons %v", p.CheckoutPath, reasons)
+	}
+}

@@ -10,7 +10,8 @@ last_edited: 2026-11-03
 
 - Run enabled portable jobs with project `default_checkout` and `default_agent`,
   without per-job adapter fields. Explicit choices still win and prepared runs
-  retain their frozen checkout and argv.
+  retain their frozen checkout and argv. Checkout mappings require selection
+  by a job key or project default.
 - A job without `options.agent` moves from implicit profile `default` to the
   project's `default_agent` when configured. Explicit `"default"` stays selected;
   present non-string agents now report `agent must be a string`.
