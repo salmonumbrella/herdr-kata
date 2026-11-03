@@ -75,6 +75,11 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 		}
 	}
 	reasons := unsupported(d.Options)
+	if raw, present := d.Options["executor"]; present {
+		if pin, ok := raw.(string); !ok || pin == "" {
+			reasons = append(reasons, "options.executor must be a non-empty string")
+		}
+	}
 	if err := sched.Validate(d.Trigger, job.CreatedAt); err != nil {
 		reasons = append(reasons, "invalid_trigger")
 	} else if d.Trigger.Kind == "once" {

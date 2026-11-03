@@ -111,6 +111,12 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 			wfs[wf.UID] = wf
 		}
 		for _, job := range jobs {
+			if owned, reason := defs.Owned(job, p.Name, c); !owned {
+				if strings.HasPrefix(reason, "job is pinned to executor ") {
+					fmt.Fprintf(out, "pinned elsewhere %s: options.executor=%s\n", job.UID, job.Definition.Options["executor"])
+				}
+				continue
+			}
 			_, reasons := defs.Freeze(job, wfs, c, p.Name, exec.LookPath)
 			if len(reasons) > 0 {
 				fmt.Fprintf(out, "unsupported %s: %s\n", job.UID, strings.Join(reasons, ", "))

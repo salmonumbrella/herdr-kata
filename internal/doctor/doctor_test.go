@@ -38,9 +38,13 @@ func (h *fakeHC) Exec(_ context.Context, argv []string) (string, error) {
 type fakeKata struct {
 	kata.Kata
 	notify bool
+	jobs   []kata.CronJob
 }
 
 func (k fakeKata) Jobs() ([]kata.CronJob, error) {
+	if k.jobs != nil {
+		return k.jobs, nil
+	}
 	if !k.notify {
 		return nil, nil
 	}
@@ -59,10 +63,10 @@ func fixture(t *testing.T) (config.Config, state.Layout, *fakeHC) {
 func TestDoctorListsUnsupportedWithReasons(t *testing.T) {
 	c, l, h := fixture(t)
 	var out bytes.Buffer
-	if err := Check(context.Background(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{notify: true}}, &out); err != nil {
+	if err := Check(context.Background(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: []kata.CronJob{{UID: "job", Definition: kata.JobDefinition{Enabled: true, Trigger: kata.Trigger{Kind: "manual"}, Action: kata.Action{Kind: "execute"}}}}}}, &out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "notify_unsupported") {
+	if !strings.Contains(out.String(), "checkout not configured") {
 		t.Fatal(out.String())
 	}
 }
@@ -81,5 +85,22 @@ func TestDoctorRunsKataInCoreEnv(t *testing.T) {
 				t.Fatalf("core exec omitted %s: %q", want, args)
 			}
 		}
+	}
+}
+
+func TestDoctorFiltersUnownedAndShowsForeignPin(t *testing.T) {
+	c, l, h := fixture(t)
+	jobs := []kata.CronJob{
+		{UID: "foreign", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "execute"}, Options: map[string]any{"executor": "other"}}},
+		{UID: "disabled", Definition: kata.JobDefinition{Enabled: false, Action: kata.Action{Kind: "execute"}}},
+		{UID: "notify", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "notify"}}},
+		{UID: "adapter", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "execute"}, Options: map[string]any{"adapter": "other"}}},
+	}
+	var out bytes.Buffer
+	if err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: jobs}}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "pinned elsewhere foreign: options.executor=other") || strings.Contains(out.String(), "unsupported ") {
+		t.Fatal(out.String())
 	}
 }
