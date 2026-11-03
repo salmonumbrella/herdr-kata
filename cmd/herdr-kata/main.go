@@ -37,7 +37,7 @@ func run(args []string, out io.Writer) int {
 	case "exec-step":
 		return execStep(args[1:])
 	case "version":
-		fmt.Fprintln(out, "herdr-kata 0.2.0")
+		fmt.Fprintln(out, "herdr-kata 0.3.0")
 		return 0
 	case "up", "serve", "stop", "run", "release", "logs", "doctor":
 		return operatorCommand(args, configPath, statePath, out)

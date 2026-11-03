@@ -6,7 +6,8 @@ last_edited: 2026-11-03
 
 # Changelog
 
-## Unreleased
+## 0.3.0
+<small>2026-11-03</small>
 
 - Inventory previously unsupported jobs before enabling project defaults: they
   may launch missed occurrences through their existing catchup policy.
