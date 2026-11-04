@@ -206,6 +206,7 @@ func (w *Worker) releaseLookupFailure(q journal.Requests, req journal.Request, e
 	return errors.Join(err, q.Reject(req.ID, err.Error()))
 }
 func (w *Worker) Tick(ctx context.Context, now time.Time) error {
+	tickStarted := time.Now()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -215,7 +216,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	if w.StartedAt.IsZero() {
 		w.StartedAt = now.UTC()
 	}
-	ctx = report.WithNow(ctx, now)
+	ctx = report.WithCurrentTime(report.WithNow(ctx, now), func() time.Time { return now.Add(time.Since(tickStarted)) })
 	var errs []error
 	q := journal.Requests{Dir: w.Store.Layout.Requests()}
 	requests, err := q.Pending()

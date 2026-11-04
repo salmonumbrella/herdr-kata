@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +20,11 @@ import (
 
 type fakeKata struct {
 	kata.Kata
+	notifications                    []notification
+	createRequests                   []createRequest
+	created                          map[string]createRequest
+	events                           []string
+	onNotify                         func()
 	keys, parents                    []string
 	bodies                           [][]byte
 	createErr, observeErr, notifyErr error
@@ -26,9 +32,15 @@ type fakeKata struct {
 	issues                           map[string]string
 	deadlines, notifies, shows       int
 	loseCreateReply                  bool
+	omitCreateRef                    bool
 }
 
+type notification struct{ ref, to, message string }
+type createRequest struct{ title, body, key, parent string }
+
 func (f *fakeKata) CreateIssue(title, body, key, parent string) (string, string, error) {
+	request := createRequest{title, body, key, parent}
+	f.createRequests = append(f.createRequests, request)
 	f.keys = append(f.keys, key)
 	f.parents = append(f.parents, parent)
 	if f.createErr != nil {
@@ -36,7 +48,12 @@ func (f *fakeKata) CreateIssue(title, body, key, parent string) (string, string,
 	}
 	if f.issues == nil {
 		f.issues = make(map[string]string)
+		f.created = make(map[string]createRequest)
 	}
+	if previous, ok := f.created[key]; ok && previous != request {
+		return "", "", &kata.Error{Code: 5, Message: "idempotency_mismatch"}
+	}
+	f.created[key] = request
 	uid := f.issues[key]
 	if uid == "" {
 		uid = "01J00000000000000000000020"
@@ -46,11 +63,23 @@ func (f *fakeKata) CreateIssue(title, body, key, parent string) (string, string,
 		f.loseCreateReply = false
 		return "", "", &kata.Error{Code: 1}
 	}
+	if f.omitCreateRef {
+		return "", uid, nil
+	}
 	return "abcd", uid, nil
 }
 func (f *fakeKata) SetDeadline(string, time.Time) error { f.deadlines++; return nil }
-func (f *fakeKata) Notify(string, string, string) error { f.notifies++; return f.notifyErr }
+func (f *fakeKata) Notify(ref, to, message string) error {
+	f.notifies++
+	f.notifications = append(f.notifications, notification{ref, to, message})
+	f.events = append(f.events, "notify")
+	if f.onNotify != nil {
+		f.onNotify()
+	}
+	return f.notifyErr
+}
 func (f *fakeKata) Observe(uid string, b []byte, rev int) (int, bool, error) {
+	f.events = append(f.events, "observe")
 	f.bodies = append(f.bodies, bytes.Clone(b))
 	if f.observed == nil {
 		f.observed = make(map[string][]byte)
@@ -232,7 +261,7 @@ func TestExistingIssueGetsNoWrites(t *testing.T) {
 	if err := Hold(ctx, k, st, r.Key); err != nil {
 		t.Fatal(err)
 	}
-	if len(k.keys) != 0 || k.deadlines != 0 || k.notifies != 0 || body(t, k.bodies[0]).IssueUID == nil {
+	if len(k.keys) != 1 || k.deadlines != 0 || !slices.Equal(k.notifications, []notification{{"abcd", "worker", "held: no_result; hc "}}) || body(t, k.bodies[0]).IssueUID == nil || *body(t, k.bodies[1]).IssueUID != "01J00000000000000000000020" {
 		t.Fatal(k)
 	}
 }

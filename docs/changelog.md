@@ -22,6 +22,10 @@ last_edited: 2026-11-04
 - Preserve the startup/timeout prompt screen in run logs after cleanup, and
   report `reason: agent_not_started` or `reason: timeout` with replay-safe
   delivery through transient Kata errors.
+- Request the project actor's attention when a run settles failed or unknown.
+  Existing-policy jobs use a daily per-job carrier issue, keeping their
+  configured issue untouched. Alerts preserve intent across restarts and never
+  resend uncertain notifications.
 
 ## 0.3.0
 <small>2026-11-03</small>
