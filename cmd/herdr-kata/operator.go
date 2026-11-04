@@ -10,6 +10,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
+	"github.com/salmonumbrella/herdr-kata/internal/service"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"io"
 	"os"
@@ -80,11 +81,13 @@ func operatorCommand(args []string, configPath, root string, out io.Writer) int 
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-	if args[0] != "run" && args[0] != "release" && args[0] != "logs" && len(args) != 1 {
+	if args[0] != "run" && args[0] != "release" && args[0] != "logs" && args[0] != "service" && len(args) != 1 {
 		fmt.Fprintln(out, "unexpected arguments")
 		return 2
 	}
 	switch args[0] {
+	case "service":
+		return service.Current().Command(ctx, args[1:], path, root, bin, out)
 	case "run", "release":
 		return postRequest(ctx, args, st, out)
 	case "logs":
@@ -106,6 +109,7 @@ func operatorCommand(args []string, configPath, root string, out io.Writer) int 
 		err = serve(ctx, *c, st, h, clients, bin, out)
 	case "doctor":
 		err = doctor.Check(ctx, *c, l, h, clients, out)
+		fmt.Fprintln(out, service.Current().Status(root))
 	}
 	if err != nil {
 		fmt.Fprintln(out, err)

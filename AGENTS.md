@@ -30,7 +30,7 @@ definitions, issues and run evidence. Keep the adapter small and fast.
 - Configuration keys, documented in README and `docs/install.md`.
 - Install contract: module `github.com/salmonumbrella/herdr-kata`, binary
   `herdr-kata` built from `./cmd/herdr-kata` to `./bin/herdr-kata`, and CLI
-  `up serve stop run release logs report exec-step doctor version`.
+  `up serve stop run release logs report exec-step doctor service version`.
 
 An explicitly approved spec or plan unit authorizes exactly its changes.
 The v2 rewrite drops the old Herdr plugin manifest, panes and TUI. Keep
