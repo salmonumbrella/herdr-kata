@@ -16,6 +16,7 @@ import (
 
 	"github.com/oklog/ulid/v2"
 	"github.com/salmonumbrella/herdr-kata/internal/attempt"
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/config"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/flow"
@@ -106,7 +107,7 @@ func (w *Worker) capacityState(project config.Project, jobUID, overlap string) (
 	}
 	return total < w.Config.Limits.MaxActiveRuns && local < limit, false, nil
 }
-func (w *Worker) prepare(k kata.Kata, project config.Project, p defs.Plan, key, occurrence, requestID string, now time.Time) error {
+func (w *Worker) prepare(ctx context.Context, k kata.Kata, project config.Project, p defs.Plan, key, occurrence, requestID string, now time.Time, deadline ...time.Time) error {
 	title := strings.TrimSpace(p.Issue.Title + " " + occurrence)
 	if p.Issue.Kind == "existing" {
 		var err error
@@ -114,6 +115,9 @@ func (w *Worker) prepare(k kata.Kata, project config.Project, p defs.Plan, key, 
 		if err != nil {
 			return err
 		}
+	}
+	if len(deadline) > 0 && !clock.Current(ctx, now).Before(deadline[0]) {
+		return nil
 	}
 	r := journal.Run{Version: 1, Key: key, RunUID: ulid.Make().String(), Project: project.Name, Actor: project.Actor, Executor: w.Config.Executor, JobUID: p.JobUID, Occurrence: occurrence, RequestID: requestID, Phase: "prepared", Plan: p, IssueTitle: title, StartedAt: new(now.UTC()), ExpiresAt: now.Add(p.Timeout).UTC()}
 	if p.Issue.Kind == "existing" {
@@ -265,17 +269,16 @@ func (w *Worker) releaseLookupFailure(q journal.Requests, req journal.Request, e
 	return errors.Join(err, q.Reject(req.ID, err.Error()))
 }
 func (w *Worker) Tick(ctx context.Context, now time.Time) error {
-	tickStarted := time.Now()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	ctx = clock.Progress(ctx, now)
 	if err := w.init(now); err != nil {
 		return err
 	}
 	if w.StartedAt.IsZero() {
 		w.StartedAt = now.UTC()
 	}
-	ctx = report.WithCurrentTime(report.WithNow(ctx, now), func() time.Time { return now.Add(time.Since(tickStarted)) })
 	var errs []error
 	q := journal.Requests{Dir: w.Store.Layout.Requests()}
 	requests, err := q.Pending()
@@ -336,7 +339,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			errs = append(errs, fmt.Errorf("client missing for %s", project.Name))
 			continue
 		}
-		caps, known, capErr := w.capsFor(project.Name, now)
+		caps, known, capErr := w.capsFor(project.Name, clock.Current(ctx, now))
 		if capErr != nil {
 			errs = append(errs, capErr)
 		}
@@ -344,6 +347,10 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			allRead = false
 			pendingReason(project.Name, "", "project capabilities are unavailable")
 			continue
+		}
+		remote, e := w.controls(ctx, k, project.Name, caps, clock.Current(ctx, now))
+		if e != nil {
+			errs = append(errs, e)
 		}
 		list, e := k.Jobs()
 		if e != nil {
@@ -428,6 +435,26 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				rejectReason(project.Name, job.UID, "existing issue is not ready")
 				continue
 			}
+			for _, req := range remote {
+				if req.Kind != "run" || !slices.Contains(caps.Controls, "run_request") || req.JobUID != job.UID || req.DefinitionEventUID != job.DefinitionEventUID || !clock.Current(ctx, now).Before(req.ExpiresAt) {
+					continue
+				}
+				key := journal.RunKey(w.Config.Executor, project.Name, job.UID, "request:"+req.UID)
+				if w.Store.Exists(key) {
+					continue
+				}
+				can, err := w.capacity(project, job.UID, p.Overlap)
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
+				if can {
+					if err = w.prepare(ctx, k, project, p, key, "request:"+req.UID, "", now, req.ExpiresAt); err != nil {
+						errs = append(errs, err)
+					}
+				}
+			}
+
 			for _, req := range requests {
 				if consumed[req.ID] || req.Kind != "run" || req.JobUID != job.UID || req.Project != "" && req.Project != project.Name {
 					continue
@@ -454,7 +481,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				if req.InputSet || req.Input != "" {
 					manual.Input = req.Input
 				}
-				prepared, e := w.acknowledgePreparation(q, req, key, w.prepare(k, project, manual, key, "manual:"+req.ID, req.ID, now))
+				prepared, e := w.acknowledgePreparation(q, req, key, w.prepare(ctx, k, project, manual, key, "manual:"+req.ID, req.ID, now))
 				if e != nil {
 					pendingReason(project.Name, job.UID, "could not prepare run: "+e.Error())
 					errs = append(errs, e)
@@ -491,7 +518,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					continue
 				}
 				if can {
-					if e = w.prepare(k, project, p, key, o.Key, "", now); e != nil {
+					if e = w.prepare(ctx, k, project, p, key, o.Key, "", now); e != nil {
 						errs = append(errs, e)
 					}
 				}
@@ -526,7 +553,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					if !can {
 						break
 					}
-					if e = w.prepare(k, project, p, key, o.Key, "", now); e != nil {
+					if e = w.prepare(ctx, k, project, p, key, o.Key, "", now); e != nil {
 						errs = append(errs, e)
 						break
 					}
@@ -643,6 +670,9 @@ func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now ti
 	case "running":
 	default:
 		return nil
+	}
+	if cancelled(r) {
+		return w.cancel(ctx, k, r, now)
 	}
 	for idx, a := range r.Attempts {
 		if a.Hold != "" {

@@ -8,6 +8,10 @@ last_edited: 2026-11-04
 
 ## Unreleased
 
+- Honor advertised Kata run and cancel requests through durable journals.
+  Preserve terminal evidence and identity guards when cancelling; free capacity
+  only after a confirmed stop, retaining known cleanup results after restart.
+
 ## 0.4.0
 <small>2026-11-04</small>
 

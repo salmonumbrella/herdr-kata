@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
@@ -88,7 +89,7 @@ func stop(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, 
 		a.StopReason = reason
 		first := a.ExpiringAt == nil
 		if first {
-			a.ExpiringAt = new(now)
+			a.ExpiringAt = new(clock.Current(ctx, now))
 		}
 		if err = saveAttempt(st, key, idx, a); err != nil {
 			return Pending{}, err
@@ -101,7 +102,7 @@ func stop(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, 
 		}
 	}
 	if term.State == "live" {
-		if kind == "prompt" && now.Before(a.ExpiringAt.Add(10*time.Second)) {
+		if kind == "prompt" && clock.Current(ctx, now).Before(a.ExpiringAt.Add(10*time.Second)) {
 			return Pending{}, nil
 		}
 		if term, out, err = check(); out != nil {

@@ -65,6 +65,7 @@ type Kata interface {
 	Observe(string, []byte, int) (int, bool, error)
 	ShowRun(string) (int, []byte, error)
 	Whoami() error
+	Requests() ([]CronRequest, error)
 	Capabilities() (Caps, error)
 }
 
