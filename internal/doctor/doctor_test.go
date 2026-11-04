@@ -10,8 +10,11 @@ import (
 
 	"github.com/salmonumbrella/herdr-kata/internal/config"
 	"github.com/salmonumbrella/herdr-kata/internal/control"
+	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
+	"github.com/salmonumbrella/herdr-kata/internal/report"
+	"github.com/salmonumbrella/herdr-kata/internal/sched"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
@@ -156,5 +159,30 @@ func TestDoctorForeignPinIndependentOfAdapter(t *testing.T) {
 				t.Fatalf("output %s; ready=%d run lists=%v error=%v", out.String(), calls, requested, err)
 			}
 		})
+	}
+}
+
+type dropRefusal struct{ kata.Kata }
+
+func (dropRefusal) Observe(string, []byte, int) (int, bool, error) {
+	return 0, false, &kata.Error{Code: 3, Message: "invalid historical event"}
+}
+func TestDoctorDroppedRefusal(t *testing.T) {
+	c, l, h := fixture(t)
+	o := report.Outbox{Layout: l, Dir: l.Dropped()}
+	now := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+	p := defs.Plan{JobUID: "job", JobEventUID: "event"}
+	cp := sched.Checkpoint{Version: 1, JobUID: "job", EventUID: "event", Through: now}
+	if err := o.Drop(p, "example-project", "worker", "executor", "catchup_missed", "detail", "oldest", cp, now); err != nil {
+		t.Fatal(err)
+	}
+	_ = o.Deliver(map[string]kata.Kata{"example-project": dropRefusal{}}, now)
+	var out bytes.Buffer
+	if err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{}}, &out); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "dropped reports: pending=0 refused=1") || !strings.Contains(text, "invalid historical event") || strings.Contains(text, "delete ") {
+		t.Fatal(text)
 	}
 }

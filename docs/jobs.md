@@ -32,12 +32,42 @@ outage while bounding recovery after a longer outage or restart.
 Edits and re-enables preserve committed progress and the original interval
 anchor, then follow the job's catch-up policy, as Kata's native scheduler does.
 
+## Dropped occurrences
+
+Dropped scheduled occurrences appear in Kata as grouped `cancelled` runs. Each
+job produces at most one drop observation per tick, including schedules faster
+than the worker's 30-second tick. Its first message line is `reason: <code>`;
+the next line gives the counted occurrences and their first and last instants.
+The occurrence key is the oldest dropped instant. These observations have no
+issue UID and send no notifications.
+
+| Reason | Meaning |
+| --- | --- |
+| `overlap_skipped` | This job's own prepared, running or held run occupied its forbid gate when the occurrence expired or catchup discarded it. |
+| `catchup_missed` | Catchup selection, skip grace, or the 7-day/100-occurrence bounds discarded the occurrence. |
+| `paused_passed_over` | Reserved for future pause support; this worker does not produce it. |
+
+Counts cover enumerated instants and discarded pending entries. A scan clipped
+to seven days says that earlier occurrences are not counted. Already-prepared
+occurrences and pending work superseded by a changed definition are not drops.
+A disabled job preserves its checkpoint and follows catchup on re-enable.
+
+With `overlap: forbid` and positive `grace_seconds`, an occurrence waiting on
+its own job's run is dropped once its age exceeds grace. At the grace boundary
+it can still run. Zero or absent grace retains the existing waiting behavior.
+Other jobs' capacity limits alone do not expire occurrences. Expiry decisions
+become durable before release or normal settlement removes the gate; a failed
+decision defers that gate removal until a later tick can save it.
+Manual requests and issue-scheduled dates retain their existing waiting rules.
+See [drop delivery and recovery](operations.md#dropped-report-delivery).
+
 An `issue-scheduled` job uses an existing issue's current raw schedule value
 as its occurrence identity and requires the issue in `kata ready --limit 0`.
 The worker reads that list only when an enabled job needs it: an
 `issue-scheduled` trigger or an `existing` issue policy.
 Clearing or changing the date changes unprepared work. `overlap: forbid`
-blocks another occurrence while a prepared, running or held run exists.
+blocks another occurrence while a prepared, running or held run exists;
+scheduled occurrences wait until the gate clears or their positive grace expires.
 `herdr-kata run <full-job-uid> [--input <text>]` posts a local manual request;
 each invocation has its own request identity.
 The command waits up to 15 seconds for the worker to prepare or reject it.

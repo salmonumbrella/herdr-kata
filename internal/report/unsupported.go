@@ -17,12 +17,14 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
+	"github.com/salmonumbrella/herdr-kata/internal/sched"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
-// UnsupportedRecord is a separate, durable observation intent, never a run journal.
+// Record is a separate, durable observation intent, never a run journal.
 // Body is saved once and replayed byte for byte, including its actor and times.
-type UnsupportedRecord struct {
+type Record struct {
+	Checkpoint             *sched.Checkpoint `json:",omitempty"`
 	Version                int
 	Cause, Project, RunUID string
 	Body                   json.RawMessage
@@ -31,8 +33,8 @@ type UnsupportedRecord struct {
 }
 
 // UnmarshalJSON also accepts the base64 Body encoding used by earlier Version 1 files.
-func (r *UnsupportedRecord) UnmarshalJSON(b []byte) error {
-	type stored UnsupportedRecord
+func (r *Record) UnmarshalJSON(b []byte) error {
+	type stored Record
 	var decoded stored
 	if err := json.Unmarshal(b, &decoded); err != nil {
 		return err
@@ -44,46 +46,60 @@ func (r *UnsupportedRecord) UnmarshalJSON(b []byte) error {
 		}
 		decoded.Body = legacy
 	}
-	*r = UnsupportedRecord(decoded)
+	*r = Record(decoded)
 	return nil
 }
 
 // Outbox shares the worker's already-held lifetime lock; it acquires no lock.
-type Outbox struct{ Layout state.Layout }
-
-func (o Outbox) save(r UnsupportedRecord) error {
-	return state.WriteJSON(filepath.Join(o.Layout.Unsupported(), r.Cause+".json"), r)
+type Outbox struct {
+	Layout state.Layout
+	Dir    string
 }
 
-func (o Outbox) All() ([]UnsupportedRecord, error) {
-	entries, err := os.ReadDir(o.Layout.Unsupported())
+func (o Outbox) dir() string {
+	if o.Dir != "" {
+		return o.Dir
+	}
+	return o.Layout.Unsupported()
+}
+
+func (o Outbox) save(r Record) error {
+	return state.WriteJSON(filepath.Join(o.dir(), r.Cause+".json"), r)
+}
+
+func (o Outbox) All() ([]Record, error) {
+	entries, err := os.ReadDir(o.dir())
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	var records []UnsupportedRecord
+	var records []Record
 	var errs []error
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-		path := filepath.Join(o.Layout.Unsupported(), entry.Name())
+		path := filepath.Join(o.dir(), entry.Name())
 		b, err := os.ReadFile(path)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("unsupported record %s: %w", path, err))
+			errs = append(errs, fmt.Errorf("outbox record %s: %w", path, err))
 			continue
 		}
-		var r UnsupportedRecord
+		var r Record
 		if err = json.Unmarshal(b, &r); err != nil {
-			errs = append(errs, fmt.Errorf("unsupported record %s: %w", path, err))
+			errs = append(errs, fmt.Errorf("outbox record %s: %w", path, err))
 			continue
 		}
 		var body kata.ObserveCronRunBody
 		hash, hashErr := hex.DecodeString(r.Cause)
 		if r.Version != 1 || hashErr != nil || len(hash) != sha256.Size || entry.Name() != r.Cause+".json" || r.Project == "" || r.RunUID == "" || !slices.Contains([]string{"pending", "done", "refused"}, r.State) || json.Unmarshal(r.Body, &body) != nil || body.JobUID == nil {
-			errs = append(errs, fmt.Errorf("invalid unsupported record: %s", path))
+			errs = append(errs, fmt.Errorf("invalid outbox record: %s", path))
+			continue
+		}
+		if c := r.Checkpoint; o.Dir == o.Layout.Dropped() && (c == nil || c.Version != 1 || c.JobUID != *body.JobUID || body.DefinitionEventUID == nil || c.EventUID != *body.DefinitionEventUID || c.Through.IsZero()) {
+			errs = append(errs, fmt.Errorf("invalid dropped checkpoint: %s", path))
 			continue
 		}
 		records = append(records, r)
@@ -103,31 +119,43 @@ func (o Outbox) Discover(p defs.Plan, project, actor, executor string, reasons [
 	}
 	sum := sha256.Sum256(tuple)
 	cause := hex.EncodeToString(sum[:])
-	path := filepath.Join(o.Layout.Unsupported(), cause+".json")
-	if _, err := os.Stat(path); err == nil {
-		return nil
-	} else if !os.IsNotExist(err) {
-		return err
-	}
 	details := make([]string, len(reasons))
 	lineBreaks := strings.NewReplacer("\r\n", " ", "\r", " ", "\n", " ")
 	for i, reason := range reasons {
 		details[i] = lineBreaks.Replace(reason)
 	}
-	message := bounded("reason: unsupported\n" + strings.Join(details, ", "))
-	r := journal.Run{RunUID: ulid.Make().String(), Actor: actor, Executor: executor, Plan: p, Occurrence: "unsupported:" + p.JobEventUID, StartedAt: new(now.UTC())}
-	body, err := freeze(r, "failed", message, 0, new(now.UTC()))
+	return o.intent(p, project, actor, executor, cause, "unsupported:"+p.JobEventUID, "failed", "reason: unsupported\n"+strings.Join(details, ", "), nil, now)
+}
+
+// Drop freezes the decision and its checkpoint before any acknowledgement.
+func (o Outbox) Drop(p defs.Plan, project, actor, executor, code, detail, firstKey string, checkpoint sched.Checkpoint, now time.Time) error {
+	tuple, err := json.Marshal([]string{p.JobUID, p.JobEventUID, firstKey})
 	if err != nil {
 		return err
 	}
-	return o.save(UnsupportedRecord{Version: 1, Cause: cause, Project: project, RunUID: r.RunUID, Body: body, State: "pending"})
+	sum := sha256.Sum256(tuple)
+	return o.intent(p, project, actor, executor, hex.EncodeToString(sum[:]), firstKey, "cancelled", "reason: "+code+"\n"+detail, &checkpoint, now)
+}
+func (o Outbox) intent(p defs.Plan, project, actor, executor, cause, occurrence, status, message string, checkpoint *sched.Checkpoint, now time.Time) error {
+	path := filepath.Join(o.dir(), cause+".json")
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	r := journal.Run{RunUID: ulid.Make().String(), Actor: actor, Executor: executor, Plan: p, Occurrence: occurrence, StartedAt: new(now.UTC())}
+	body, err := freeze(r, status, bounded(message), 0, new(now.UTC()))
+	if err != nil {
+		return err
+	}
+	return o.save(Record{Checkpoint: checkpoint, Version: 1, Cause: cause, Project: project, RunUID: r.RunUID, Body: body, State: "pending"})
 }
 
 // Deliver tries one pending intent, oldest attempt first, after ordinary work.
 // Current definitions never decide whether a historical intent can be delivered.
 func (o Outbox) Deliver(clients map[string]kata.Kata, now time.Time) error {
 	records, scanErr := o.All()
-	slices.SortFunc(records, func(a, b UnsupportedRecord) int {
+	slices.SortFunc(records, func(a, b Record) int {
 		if n := a.LastAttempt.Compare(b.LastAttempt); n != 0 {
 			return n
 		}

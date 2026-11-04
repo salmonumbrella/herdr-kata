@@ -15,6 +15,27 @@ type Occurrence struct {
 	Key string
 	At  time.Time
 }
+type Dropped struct {
+	Count       int
+	First, Last time.Time
+	Clipped     bool
+}
+
+func (d *Dropped) Add(other Dropped) {
+	d.Clipped = d.Clipped || other.Clipped
+	if other.Count == 0 {
+		return
+	}
+	if d.Count == 0 || other.First.Before(d.First) {
+		d.First = other.First
+	}
+	if d.Count == 0 || other.Last.After(d.Last) {
+		d.Last = other.Last
+	}
+	d.Count += other.Count
+}
+func (d *Dropped) Include(at time.Time) { d.Add(Dropped{Count: 1, First: at, Last: at}) }
+
 type interval struct {
 	anchor time.Time
 	period time.Duration
@@ -97,18 +118,20 @@ func Validate(t kata.Trigger, created time.Time) error {
 }
 
 // Occurrences returns the newest bounded occurrences in (after, now].
-func Occurrences(trig kata.Trigger, created, after, now time.Time, catchup string, grace time.Duration) []Occurrence {
+func Occurrences(trig kata.Trigger, created, after, now time.Time, catchup string, grace time.Duration) ([]Occurrence, Dropped) {
+	var dropped Dropped
 	now = now.UTC()
 	after = after.UTC()
 	if !now.After(after) {
-		return nil
+		return nil, Dropped{}
 	}
 	if cutoff := now.Add(-7 * 24 * time.Hour); after.Before(cutoff) {
 		after = cutoff.Add(-time.Nanosecond)
+		dropped.Clipped = true
 	}
 	s, err := compile(trig, created)
 	if err != nil {
-		return nil
+		return nil, Dropped{}
 	}
 	limit := 100
 	if catchup != "all" {
@@ -116,6 +139,13 @@ func Occurrences(trig kata.Trigger, created, after, now time.Time, catchup strin
 	}
 	var at []time.Time
 	if i, ok := s.(interval); ok {
+		first := i.Next(after)
+		if !first.After(now) {
+			count := int(now.Sub(first)/i.period) + 1 - limit
+			if count > 0 {
+				dropped.Add(Dropped{Count: count, First: first, Last: first.Add(time.Duration(count-1) * i.period)})
+			}
+		}
 		last := i.Next(now.Add(-i.period))
 		for !last.After(now) && last.After(after) && !last.Before(i.anchor) && len(at) < limit {
 			at = append(at, last)
@@ -128,6 +158,7 @@ func Occurrences(trig kata.Trigger, created, after, now time.Time, catchup strin
 			if len(at) < limit {
 				at = append(at, next)
 			} else {
+				dropped.Include(at[head])
 				at[head] = next
 				head = (head + 1) % limit
 			}
@@ -137,14 +168,17 @@ func Occurrences(trig kata.Trigger, created, after, now time.Time, catchup strin
 		}
 	}
 	if len(at) > 0 && catchup == "skip" && now.Sub(at[len(at)-1]) > grace {
-		return nil
+		for _, t := range at {
+			dropped.Include(t)
+		}
+		return nil, dropped
 	}
 	out := make([]Occurrence, 0, len(at))
 	for _, t := range at {
 		t = t.UTC()
 		out = append(out, Occurrence{Key: t.Format(time.RFC3339Nano), At: t})
 	}
-	return out
+	return out, dropped
 }
 
 type Checkpoint struct {
@@ -155,7 +189,8 @@ type Checkpoint struct {
 }
 
 // Merge supersedes old-definition pending work and retains a bounded due queue.
-func (c *Checkpoint) Merge(event string, due []Occurrence, now time.Time) {
+func (c *Checkpoint) Merge(event string, due []Occurrence, now time.Time) Dropped {
+	var dropped Dropped
 	now = now.UTC()
 	c.Through = c.Through.UTC()
 	if c.Version == 0 {
@@ -171,8 +206,13 @@ func (c *Checkpoint) Merge(event string, due []Occurrence, now time.Time) {
 	seen := make(map[string]bool)
 	out := make([]Occurrence, 0, len(c.Pending)+len(due))
 	for _, o := range append(slices.Clone(c.Pending), due...) {
-		if !seen[o.Key] && !o.At.Before(now.Add(-7*24*time.Hour)) {
-			seen[o.Key] = true
+		if seen[o.Key] {
+			continue
+		}
+		seen[o.Key] = true
+		if o.At.Before(now.Add(-7 * 24 * time.Hour)) {
+			dropped.Include(o.At)
+		} else {
 			out = append(out, o)
 		}
 	}
@@ -183,7 +223,11 @@ func (c *Checkpoint) Merge(event string, due []Occurrence, now time.Time) {
 		return strings.Compare(a.Key, b.Key)
 	})
 	if len(out) > 100 {
+		for _, o := range out[:len(out)-100] {
+			dropped.Include(o.At)
+		}
 		out = out[len(out)-100:]
 	}
 	c.Pending = out
+	return dropped
 }

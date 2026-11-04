@@ -111,7 +111,7 @@ func TestUnsupportedDeliveryFollowsOrdinaryWork(t *testing.T) {
 	manual := k.jobs[0]
 	manual.UID = "manual"
 	k.jobs = append(k.jobs, supported, manual)
-	if _, err := w.checkpoint(supported, defs.Plan{Catchup: "all"}, at); err != nil {
+	if _, _, err := w.checkpoint(w.Config.Projects[0], supported, defs.Plan{Catchup: "all"}, false, at); err != nil {
 		t.Fatal(err)
 	}
 	for n := range 3 {

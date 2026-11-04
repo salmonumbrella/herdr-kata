@@ -20,7 +20,7 @@ func outboxFixture(t *testing.T) (Outbox, defs.Plan, *fakeKata) {
 	t.Helper()
 	return Outbox{Layout: state.Layout{Root: t.TempDir()}}, defs.Plan{JobUID: "job", JobEventUID: "event", WorkflowUID: "wf", WorkflowEventUID: "wf-event"}, &fakeKata{}
 }
-func records(t *testing.T, o Outbox) []UnsupportedRecord {
+func records(t *testing.T, o Outbox) []Record {
 	t.Helper()
 	r, err := o.All()
 	if err != nil {
