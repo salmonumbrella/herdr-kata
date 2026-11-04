@@ -28,16 +28,19 @@ import (
 
 type fakeKata struct {
 	kata.Kata
-	jobs      []kata.CronJob
-	workflows []kata.CronWorkflow
-	ready     map[string]bool
-	date      *kata.DateValue
-	err       error
-	failures  map[string]error
-	createErr error
-	creates   int
-	bodies    [][]byte
+	jobs          []kata.CronJob
+	workflows     []kata.CronWorkflow
+	ready         map[string]bool
+	date          *kata.DateValue
+	err           error
+	failures      map[string]error
+	createErr     error
+	creates       int
+	bodies        [][]byte
+	notifications []notification
 }
+
+type notification struct{ ref, to, message string }
 
 func (k *fakeKata) Jobs() ([]kata.CronJob, error) {
 	return k.jobs, errors.Join(k.err, k.failures["jobs"])
@@ -58,7 +61,10 @@ func (k *fakeKata) CreateIssue(string, string, string, string) (string, string, 
 	return "abcd", "01J00000000000000000000020", k.err
 }
 func (k *fakeKata) SetDeadline(string, time.Time) error { return k.err }
-func (k *fakeKata) Notify(string, string, string) error { return k.err }
+func (k *fakeKata) Notify(ref, to, message string) error {
+	k.notifications = append(k.notifications, notification{ref, to, message})
+	return k.err
+}
 func (k *fakeKata) Observe(_ string, b []byte, rev int) (int, bool, error) {
 	k.bodies = append(k.bodies, slices.Clone(b))
 	return rev + 1, false, k.err
@@ -254,8 +260,42 @@ func TestWorkflowWithGatedCommand(t *testing.T) {
 	h.terms[a.Address] = term
 	tick(t, w, at.Add(2*time.Second))
 	got, _ := w.Store.Load(r.Key)
-	if got.Phase != "reported" || got.Outcome != "succeeded" || h.runs != 1 {
+	if got.Phase != "reported" || got.Outcome != "succeeded" || h.runs != 1 || len(k.notifications) != 0 {
 		t.Fatal(got, h.runs)
+	}
+}
+
+func TestFailedCommandAlertsActor(t *testing.T) {
+	w, h, k := fixture(t)
+	workflow(k)
+	k.workflows[0].Definition.Steps = []kata.WorkflowStep{{Key: "main", Kind: "command", Command: new("exit 1")}}
+	request(t, w, journal.Request{ID: "failed-command", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	a := r.Attempts[0]
+	receipt := journal.Receipt{ExitCode: 1, StartedAt: a.LaunchedAt, EndedAt: a.LaunchedAt.Add(time.Second)}
+	if err := state.WriteJSON(filepath.Join(w.Store.Layout.Attempt(r.Key, a.Step, a.N), "receipt.json"), receipt); err != nil {
+		t.Fatal(err)
+	}
+	term := h.terms[a.Address]
+	term.State, term.Reason, term.ExitCode = "finished", "exited", new(1)
+	h.terms[a.Address] = term
+	tick(t, w, at.Add(2*time.Second))
+	// A restarted worker must leave the reported run and its attention alone.
+	w = New(w.Config, journal.New(w.Store.Layout), h, w.Clients, w.Bin)
+	tick(t, w, at.Add(3*time.Second))
+	tick(t, w, at.Add(4*time.Second))
+	got, err := w.Store.Load(r.Key)
+	if err != nil || got.Phase != "reported" || got.Outcome != "failed" || h.runs != 1 || len(h.terms) != 0 || len(k.bodies) != 2 {
+		t.Fatalf("failed command settlement: %+v %v runs=%d terminals=%d observations=%d", got, err, h.runs, len(h.terms), len(k.bodies))
+	}
+	want := notification{"abcd", "worker", "run failed: reason: failed; " + r.RunUID}
+	if !slices.Equal(k.notifications, []notification{want}) {
+		t.Fatalf("failure attention: %+v", k.notifications)
+	}
+	var obs kata.ObserveCronRunBody
+	if err := json.Unmarshal(k.bodies[1], &obs); err != nil || obs.Status != "failed" || obs.Summary.Message == nil || *obs.Summary.Message != "reason: failed" {
+		t.Fatalf("final observation: %+v %v", obs, err)
 	}
 }
 func TestCommandsDisabledUnsupported(t *testing.T) {

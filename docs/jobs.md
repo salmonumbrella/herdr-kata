@@ -120,8 +120,9 @@ is unsupported.
 The issue UID is saved before admission observation bytes are frozen.
 A prepared run without a saved issue UID after 6 days holds
 `admission_expired`. `existing` attaches the configured issue and does not
-mutate it. Agents own issue closure. A successful run may leave its issue
-open; the adapter never closes issues on the agent's behalf.
+mutate it. [Failure alerts](operations.md#failure-alerts) use a separate daily
+carrier for existing-policy jobs. Agents own issue closure. A successful run may
+leave its issue open; the adapter never closes issues on the agent's behalf.
 
 ## Startup and timeouts
 

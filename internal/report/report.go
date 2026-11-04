@@ -22,6 +22,14 @@ func WithNow(ctx context.Context, at time.Time) context.Context {
 func clock(ctx context.Context) time.Time {
 	return runclock.Now(ctx)
 }
+
+type currentTimeKey struct{}
+
+// WithCurrentTime supplies an advancing clock for time-sensitive create calls.
+// Observation timestamps continue to use the frozen tick time from WithNow.
+func WithCurrentTime(ctx context.Context, now func() time.Time) context.Context {
+	return context.WithValue(ctx, currentTimeKey{}, now)
+}
 func bounded(s string) string {
 	if len(s) > 4096 {
 		s = s[:4096]
@@ -170,13 +178,31 @@ func NotifyOnce(ctx context.Context, k kata.Kata, st *journal.Store, key, id, ms
 	if err != nil {
 		return err
 	}
-	if r.Plan.Issue.Kind == "existing" || r.IssueRef == "" || slices.Contains(r.Notified, id) {
+	settle := id == "held" || id == "settled"
+	if slices.Contains(r.Notified, id) ||
+		(settle && (slices.Contains(r.Notified, "held") || slices.Contains(r.Notified, "settled"))) {
+		return nil
+	}
+	ref := r.IssueRef
+	if r.Plan.Issue.Kind == "existing" {
+		if !settle {
+			return nil
+		}
+		ref, err = carrier(ctx, k, r)
+		if err != nil {
+			if class := kata.Classify(err); class == kata.Definitive || class == kata.Conflict {
+				return errors.Join(err, st.Update(key, func(r *journal.Run) error { r.Notified = append(r.Notified, id); return nil }))
+			}
+			return err
+		}
+	}
+	if ref == "" {
 		return nil
 	}
 	if err = st.Update(key, func(r *journal.Run) error { r.Notified = append(r.Notified, id); return nil }); err != nil {
 		return err
 	}
-	if err = k.Notify(r.IssueRef, r.Actor, msg); err == nil {
+	if err = k.Notify(ref, r.Actor, msg); err == nil {
 		return nil
 	}
 	if kata.Classify(err) == kata.Unavailable {
@@ -186,11 +212,36 @@ func NotifyOnce(ctx context.Context, k kata.Kata, st *journal.Store, key, id, ms
 		})
 		return errors.Join(err, save)
 	}
-	if kata.Classify(err) == kata.Definitive {
+	if kata.Classify(err) == kata.Definitive && id != "settled" {
 		return refused(st, key, err, false)
 	}
 	return err // Uncertain notifications keep their saved intent and are not retried.
 }
+
+func carrier(ctx context.Context, k kata.Kata, r journal.Run) (string, error) {
+	if r.StartedAt == nil || r.Plan.JobUID == "" {
+		return "", &kata.Error{Code: 3, Message: "alert carrier requires a frozen start time and job UID"}
+	}
+	// Kata remembers keys for seven days. Leave a full day for request latency
+	// from the earliest possible create in the shared UTC start-date group.
+	start := r.StartedAt.UTC()
+	cutoff := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC).Add(6 * 24 * time.Hour)
+	now := clock(ctx)
+	if current, ok := ctx.Value(currentTimeKey{}).(func() time.Time); ok {
+		now = current()
+	}
+	if !now.Before(cutoff) {
+		return "", &kata.Error{Code: 3, Message: "alert carrier create window expired"}
+	}
+	day, job := r.StartedAt.UTC().Format("2006-01-02"), r.Plan.JobUID
+	message := "herdr-kata requests attention here when a run of job " + job + " settles failed or unknown in the " + day + " UTC start-date group. Existing issues receive no adapter writes. Inspect runs with kata cron run list --job-uid " + job + "; close this issue when handled."
+	ref, _, err := k.CreateIssue("cron alerts: "+job+" "+day, message, "cron-worker:"+job+":alert:"+day, "")
+	if err == nil && ref == "" {
+		err = &kata.Error{Code: 3, Message: "alert carrier response omitted ref"}
+	}
+	return ref, err
+}
+
 func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, holding bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -256,6 +307,21 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 		}
 		if err = st.Update(key, func(saved *journal.Run) error { saved.ReportBody = r.ReportBody; saved.EndedAt = r.EndedAt; return nil }); err != nil {
 			return err
+		}
+	}
+	if !holding {
+		var frozen kata.ObserveCronRunBody
+		if err := json.Unmarshal(r.ReportBody, &frozen); err != nil {
+			return err
+		}
+		if frozen.Status == "failed" || frozen.Status == "unknown" {
+			reason := ""
+			if frozen.Summary.Message != nil {
+				reason, _, _ = strings.Cut(*frozen.Summary.Message, "\n")
+			}
+			if err := NotifyOnce(ctx, k, st, key, "settled", "run "+frozen.Status+": "+reason+"; "+r.RunUID); err != nil {
+				return err
+			}
 		}
 	}
 	rev, err, permanent := observe(k, r, r.ReportBody, r.ObsRev)

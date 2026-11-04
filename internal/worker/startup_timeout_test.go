@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,13 +17,40 @@ import (
 
 type stopKata struct {
 	*fakeKata
-	failFinal bool
-	writes    int
-	finals    [][]byte
+	failFinal  bool
+	writes     int
+	finals     [][]byte
+	createKeys []string
+	notifyRefs []string
 }
 
-func (k *stopKata) Notify(string, string, string) error { k.writes++; return nil }
+// CreateIssue records idempotency keys so the test can tell the daily failure
+// alert carrier apart from a per-run or existing-issue write.
+func (k *stopKata) CreateIssue(title, body, key, parent string) (string, string, error) {
+	k.createKeys = append(k.createKeys, key)
+	return k.fakeKata.CreateIssue(title, body, key, parent)
+}
+func (k *stopKata) Notify(ref, _, _ string) error {
+	k.notifyRefs = append(k.notifyRefs, ref)
+	return nil
+}
 func (k *stopKata) SetDeadline(string, time.Time) error { k.writes++; return nil }
+
+// onlyAlertCarrier reports whether every create was the failure-alert carrier
+// and every notification went to that carrier, never to the existing issue.
+func (k *stopKata) onlyAlertCarrier(existingRef string) bool {
+	for _, key := range k.createKeys {
+		if !strings.Contains(key, ":alert:") {
+			return false
+		}
+	}
+	for _, ref := range k.notifyRefs {
+		if ref == existingRef || len(k.createKeys) == 0 {
+			return false
+		}
+	}
+	return len(k.createKeys) == k.creates
+}
 func (k *stopKata) Observe(uid string, b []byte, rev int) (int, bool, error) {
 	var body kata.ObserveCronRunBody
 	if err := json.Unmarshal(b, &body); err != nil {
@@ -107,8 +135,8 @@ func TestStopFailureFreesOverlapAcrossRestartAndReportRetry(t *testing.T) {
 				k.failFinal = false
 				tick(t, w, at.Add(132*time.Second))
 				saved, err = w.Store.Load(r.Key)
-				if err != nil || saved.Phase != "reported" || len(k.finals) < 2 || !bytes.Equal(k.finals[0], k.finals[len(k.finals)-1]) || k.creates != 0 || k.writes != 0 {
-					t.Fatalf("report retry or existing issue writes: %+v %v finals=%d creates=%d writes=%d", saved, err, len(k.finals), k.creates, k.writes)
+				if err != nil || saved.Phase != "reported" || len(k.finals) < 2 || !bytes.Equal(k.finals[0], k.finals[len(k.finals)-1]) || k.writes != 0 || !k.onlyAlertCarrier(saved.IssueRef) {
+					t.Fatalf("report retry or existing issue writes: %+v %v finals=%d creates=%v notifies=%v writes=%d", saved, err, len(k.finals), k.createKeys, k.notifyRefs, k.writes)
 				}
 			})
 		}

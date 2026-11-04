@@ -118,9 +118,6 @@ its terminal for inspection. The hold is immediately reported to Kata as
 `unknown`, or `failed` when a step certainly failed, with `reason: <code>`.
 The reason code stands alone on the first line; detail and step summaries
 follow on later lines.
-Per-run issues receive one notification. A blocked agent gets one
-notification per blocked spell, rather than an attention metadata write.
-Existing-policy issues receive no adapter writes, including notifications.
 
 A malformed optional note does not hold a known command or agent outcome.
 It settles with a [normalized note](jobs.md#actions-and-issues), preserving
@@ -174,6 +171,43 @@ the agent the exact `herdr-kata report` command, which still enforces the note
 contract when writing a result.
 Attempt-directory I/O errors are retried on later ticks rather than reported
 as prompt validation failures.
+
+## Failure alerts
+
+Failed and unknown runs request the configured project `actor`'s attention in
+Kata's inbox. The alert names the frozen status, first reason line and run UID,
+for example `run failed: reason: failed; <runUID>`. Details and step output stay
+in the run observation.
+
+| Run state | Attention |
+| --- | --- |
+| Settled `failed` or `unknown`, including a needs-human handoff | One settle alert intent |
+| Held | One held alert intent with its reason and hc address |
+| Succeeded, gate skip or released | No settle alert |
+| Blocked agent | Existing per-spell notification on a per-run issue |
+| Unsupported definition | No alert; inspect doctor and Runs |
+
+Per-run jobs notify their run's issue. Existing-policy jobs create or reuse a
+separate issue titled `cron alerts: <jobUID> <YYYY-MM-DD>`, grouped by the
+run's UTC **start date**. Each failing run replaces the actor's current
+attention request on that carrier. It has no parent or links; the configured
+existing issue receives no adapter writes. A run starting before midnight
+and failing afterward still uses its start-date group. Closing the carrier
+suppresses requests for that group; reopening can expose an uncleared request.
+
+Held and settled intents exclude each other, including across worker restarts.
+The worker saves intent before sending and retries only known unavailability.
+An uncertain send is never resent. A crash after intent is saved but before
+sending, or an uncertain or refused send, can leave no delivered request.
+Notification refusal does not turn a settled run into a hold.
+
+Carrier creation stops six days after midnight on the frozen UTC start date,
+using an advancing clock at the create boundary. This leaves a full day's
+margin before Kata's seven-day create-key replay window expires. A journal
+without a start time or job identity also skips the carrier. These skipped
+alerts log one diagnostic and allow final observation reporting to continue;
+inspect Runs and held-run
+diagnostics for old or undated failures. There is no alert configuration key.
 
 ## Recovery and isolation
 
