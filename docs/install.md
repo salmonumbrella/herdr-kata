@@ -65,6 +65,17 @@ to avoid attaching a fresh attempt to a shared native daemon. Native agents
 use their own authentication and configuration; the adapter does not manage
 credentials.
 
+Optional `profiles.<name>.model_flag` declares a model-capable profile, for
+example `model_flag = "--model"`. Absent or empty means no model support.
+A non-empty flag starts with `-`, contains no whitespace or `=`, and is neither
+`-` nor `--`. Invalid flags fail configuration loading. The CLI must accept
+this flag and a separate value at the end of profile argv, before the prompt.
+Configuration loading rejects `model_flag` when profile argv ends in the CLI
+option terminator `--`.
+With a selected model the argv order is `<profile argv...> <model_flag> <model>
+<prompt-line>`. Duplicate-flag handling belongs to the agent CLI. Fixed models
+can remain in profile argv. See [Jobs](jobs.md#models) for model selection.
+
 The default timeout is 2 hours and the maximum is 24 hours. A job's timeout
 is capped by `limits.max_timeout`. Both values are duration strings.
 `limits.unset_env` removes named variables from launched children.

@@ -139,6 +139,17 @@ above applies only to unsupported records.
 Fix quarantined project entries before rolling back: v0.3.0 rejects the
 whole file when any project entry is invalid, including an unknown key.
 
+Before enabling per-job models, inventory raw job and workflow-step
+`options.model` values, or stage the new binary and run its doctor with the
+intended config before starting the upgraded worker. The v0.3.0 doctor ignores
+these options and cannot identify affected jobs. Previously ignored models
+now pass through a profile's `model_flag`, or make the job unsupported when
+the profile lacks it. Owned unsupported jobs receive a durable failed
+observation on first successful discovery, even without a due run.
+
+v0.3.0 rejects `model_flag`. Roll back the binary and its configuration together;
+retain current state, journals, checkpoints and unsupported-report records.
+
 
 Before adding project defaults, run the current binary's `herdr-kata doctor`
 and inventory the enabled job definitions. Record each unsupported job and all its reasons,

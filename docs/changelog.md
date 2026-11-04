@@ -35,6 +35,18 @@ last_edited: 2026-11-04
   Quarantine bad entries and report each in startup output and doctor. Doctor
   exits 1 for a quarantined entry, instead of rejecting the file with exit 2.
   Global settings and unknown keys outside project entries remain strict.
+- Choose models per job or prompt step with `options.model` on profiles declaring
+  optional `model_flag`. Model names pass through unchanged; prepared runs retain
+  their frozen argv. Profiles declaring `model_flag` with argv ending in `--`
+  are rejected at configuration load. Non-string models report
+  `model must be a string`; a model on a flagless profile reports
+  `model unsupported by profile: <p>`.
+- Doctor warns when an owned prompt step on a model-capable profile has no
+  explicit model in options or profile argv. Warnings do not block runs.
+- Previously ignored job and step model options now affect execution or produce
+  unsupported reports. Inventory them with raw definitions or the staged
+  new binary's doctor before starting the upgraded worker. Roll back binary and
+  config together because v0.3.0 rejects the new profile key.
 
 ## 0.3.0
 <small>2026-11-03</small>

@@ -68,6 +68,7 @@ example-project = "/srv/projects/example"
 
 [profiles.default]
 argv = ["codex", "--no-daemon"]
+model_flag = "--model"
 
 [limits]
 default_timeout = "2h"
