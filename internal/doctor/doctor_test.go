@@ -50,14 +50,14 @@ type fakeKata struct {
 	workflows []kata.CronWorkflow
 }
 
-func (k fakeKata) Jobs() ([]kata.CronJob, error) {
+func (k fakeKata) Jobs() (kata.JobList, error) {
 	if k.jobs != nil {
-		return k.jobs, nil
+		return kata.JobList{Jobs: k.jobs}, nil
 	}
 	if !k.notify {
-		return nil, nil
+		return kata.JobList{}, nil
 	}
-	return []kata.CronJob{{UID: "01J00000000000000000000010", Name: "example-job", Definition: kata.JobDefinition{Version: 1, Kind: "job", Enabled: true, Action: kata.Action{Kind: "notify"}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}, CheckoutKey: new("example-project")}}}, nil
+	return kata.JobList{Jobs: []kata.CronJob{{UID: "01J00000000000000000000010", Name: "example-job", Definition: kata.JobDefinition{Version: 1, Kind: "job", Enabled: true, Action: kata.Action{Kind: "notify"}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}, CheckoutKey: new("example-project")}}}}, nil
 }
 func (k fakeKata) Workflows() ([]kata.CronWorkflow, error) { return k.workflows, nil }
 func fixture(t *testing.T) (config.Config, state.Layout, *fakeHC) {

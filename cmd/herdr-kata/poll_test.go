@@ -15,7 +15,7 @@ import (
 type unavailableKata struct{ kata.Kata }
 
 func (unavailableKata) Capabilities() (kata.Caps, error) { return kata.Caps{}, &kata.Error{Code: 7} }
-func (unavailableKata) Jobs() ([]kata.CronJob, error)    { return nil, &kata.Error{Code: 7} }
+func (unavailableKata) Jobs() (kata.JobList, error)      { return kata.JobList{}, &kata.Error{Code: 7} }
 func (unavailableKata) Observe(string, []byte, int) (int, bool, error) {
 	return 0, false, &kata.Error{Code: 7}
 }

@@ -167,10 +167,14 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 			check("project "+p.Name, errors.New("client missing"))
 			continue
 		}
-		jobs, e := k.Jobs()
+		list, e := k.Jobs()
 		if e != nil {
 			check("definitions "+p.Name, e)
 			continue
+		}
+		jobs := list.Jobs
+		if list.Paused() {
+			fmt.Fprintf(out, "project %s: project cron is paused\n", p.Name)
 		}
 		workflows, e := k.Workflows()
 		if e != nil {

@@ -55,6 +55,10 @@ last_edited: 2026-11-04
   work until initial discovery succeeds, retaining legacy behavior for older
   daemon responses.
 
+
+- Fleet pause: keep new work and prepared journals waiting while the daemon's
+  project pause is set, including after restart. Admitted runs continue.
+
 ## 0.3.0
 <small>2026-11-03</small>
 

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -15,12 +16,16 @@ import (
 
 type fleetKata struct {
 	*fakeKata
+	pause    json.RawMessage
 	caps     kata.Caps
 	capsErr  error
 	capCalls int
 }
 
 func (k *fleetKata) Capabilities() (kata.Caps, error) { k.capCalls++; return k.caps, k.capsErr }
+func (k *fleetKata) Jobs() (kata.JobList, error) {
+	return kata.JobList{Jobs: k.jobs, ProjectPause: k.pause}, errors.Join(k.err, k.failures["jobs"])
+}
 func fleetFixture(t *testing.T) (*Worker, *fakeHC, *fleetKata) {
 	w, h, k := fixture(t)
 	f := &fleetKata{fakeKata: k}
@@ -114,4 +119,77 @@ func TestFleetOwnedRequiresExactAuthor(t *testing.T) {
 			ht.Fatalf("member %q author %q allowed %v", member, author, allowed)
 		}
 	})
+}
+
+func TestFleetPause(t *testing.T) {
+	for _, pause := range []string{"", "null", `{}`, `{"invalid":true}`, "false"} {
+		t.Run(pause, func(t *testing.T) {
+			w, h, k := fleetFixture(t)
+			k.pause = json.RawMessage(pause)
+			request(t, w, journal.Request{ID: "manual", Kind: "run", JobUID: k.jobs[0].UID})
+			tick(t, w, at)
+			paused := pause != "" && pause != "null"
+			if paused {
+				runs, err := w.Store.All()
+				if err != nil || len(runs) != 0 || h.runs != 0 || k.creates != 0 || len(k.bodies) != 0 {
+					t.Fatal("paused work escaped", runs, h.runs, k.creates, err)
+				}
+				done, _, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Result("manual")
+				if done || err != nil {
+					t.Fatal("paused request rejected", done, err)
+				}
+			} else if h.runs != 1 {
+				t.Fatal("unpaused did not launch", h.runs)
+			}
+		})
+	}
+}
+func TestFleetPauseHoldsPreparedAfterRestartAndFailedRead(t *testing.T) {
+	w, h, k := fleetFixture(t)
+	k.createErr = errors.New("admission unavailable")
+	request(t, w, journal.Request{ID: "manual", Kind: "run", JobUID: k.jobs[0].UID})
+	_ = w.Tick(context.Background(), at)
+	k.createErr = nil
+	k.pause = json.RawMessage(`{}`)
+	w = New(w.Config, w.Store, h, w.Clients, w.Bin)
+	tick(t, w, at.Add(time.Minute))
+	k.pause = nil
+	k.failures = map[string]error{"jobs": errors.New("read unavailable")}
+	_ = w.Tick(context.Background(), at.Add(2*time.Minute))
+	if h.runs != 0 || k.creates != 1 {
+		t.Fatal("prepared run bypassed pause", h.runs, k.creates)
+	}
+	k.failures = nil
+	tick(t, w, at.Add(3*time.Minute))
+	if h.runs != 1 {
+		t.Fatal("prepared run did not resume", h.runs)
+	}
+}
+
+func TestFleetPauseStillSettlesRunning(t *testing.T) {
+	w, h, k := fleetFixture(t)
+	request(t, w, journal.Request{ID: "manual", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	finishAgent(t, w, h, r)
+	k.pause = json.RawMessage(`{}`)
+	for n := 1; n < 8; n++ {
+		tick(t, w, at.Add(time.Duration(n)*time.Second))
+	}
+	saved, err := w.Store.Load(r.Key)
+	if err != nil || saved.Phase != "reported" || !saved.ReportDone || saved.Outcome != "succeeded" || h.runs != 1 {
+		t.Fatalf("phase=%s outcome=%s report=%v launches=%d error=%v", saved.Phase, saved.Outcome, saved.ReportDone, h.runs, err)
+	}
+}
+
+func TestFleetPauseEmptyJobsKeepsRequestPending(t *testing.T) {
+	w, _, k := fleetFixture(t)
+	request(t, w, journal.Request{ID: "manual", Kind: "run", JobUID: k.jobs[0].UID})
+	k.jobs = nil
+	k.pause = json.RawMessage(`{}`)
+	tick(t, w, at)
+	done, _, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Result("manual")
+	if done || err != nil {
+		t.Fatal("paused request rejected", done, err)
+	}
 }

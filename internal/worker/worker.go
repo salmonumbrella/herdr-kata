@@ -325,7 +325,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			break
 		}
 	}
-	knownCaps := make(map[string]bool)
+	admission := make(map[string]bool)
 	w.Unsupported = make(map[string][]string)
 	for _, project := range w.Config.Projects {
 		k := w.Clients[project.Name]
@@ -337,7 +337,6 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			continue
 		}
 		caps, known, capErr := w.capsFor(project.Name, now)
-		knownCaps[project.Name] = known
 		if capErr != nil {
 			errs = append(errs, capErr)
 		}
@@ -346,7 +345,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			pendingReason(project.Name, "", "project capabilities are unavailable")
 			continue
 		}
-		jobs, e := k.Jobs()
+		list, e := k.Jobs()
 		if e != nil {
 			allRead = false
 			blocked[project.Name] = true
@@ -354,13 +353,22 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			errs = append(errs, fmt.Errorf("%s definitions: %w", project.Name, e))
 			continue
 		}
-		ownedJobs := make([]kata.CronJob, 0, len(jobs))
+		jobs := list.Jobs
 		for _, job := range jobs {
 			for _, req := range requests {
 				if req.Kind == "run" && req.JobUID == job.UID && (req.Project == "" || req.Project == project.Name) {
 					matched[req.ID] = project.Name
 				}
 			}
+		}
+		if list.Paused() {
+			allRead = false
+			pendingReason(project.Name, "", "project cron is paused")
+			continue
+		}
+		admission[project.Name] = true
+		ownedJobs := make([]kata.CronJob, 0, len(jobs))
+		for _, job := range jobs {
 			owned, reason := defs.Owned(job, project.Name, w.Config)
 			if owned {
 				reason = caps.Excludes(job.Author)
@@ -562,7 +570,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		return errors.Join(append(errs, err)...)
 	}
 	for _, r := range runs {
-		if r.Phase == "prepared" && !knownCaps[r.Project] {
+		if r.Phase == "prepared" && !admission[r.Project] {
 			continue
 		}
 		if k := w.Clients[r.Project]; k != nil {

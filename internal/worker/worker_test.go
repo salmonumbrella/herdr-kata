@@ -44,8 +44,8 @@ type notification struct{ ref, to, message string }
 
 func (k *fakeKata) Capabilities() (kata.Caps, error) { return kata.Caps{}, nil }
 
-func (k *fakeKata) Jobs() ([]kata.CronJob, error) {
-	return k.jobs, errors.Join(k.err, k.failures["jobs"])
+func (k *fakeKata) Jobs() (kata.JobList, error) {
+	return kata.JobList{Jobs: k.jobs}, errors.Join(k.err, k.failures["jobs"])
 }
 func (k *fakeKata) Workflows() ([]kata.CronWorkflow, error) {
 	return k.workflows, errors.Join(k.err, k.failures["workflows"])
