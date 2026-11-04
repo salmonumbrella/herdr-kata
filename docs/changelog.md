@@ -50,6 +50,10 @@ last_edited: 2026-11-04
 - `herdr-kata service install` starts the worker at login with the current
   PATH, config and state. `service uninstall` removes autostart and leaves
   the worker running; doctor shows whether the service file is installed.
+- Respect the daemon's advertised replica execution policy before readiness,
+  unsupported reporting or execution. Doctor explains exclusions. Defer new
+  work until initial discovery succeeds, retaining legacy behavior for older
+  daemon responses.
 
 ## 0.3.0
 <small>2026-11-03</small>

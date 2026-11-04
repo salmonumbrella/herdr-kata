@@ -65,7 +65,7 @@ type Kata interface {
 	Observe(string, []byte, int) (int, bool, error)
 	ShowRun(string) (int, []byte, error)
 	Whoami() error
-	Capabilities() error
+	Capabilities() (Caps, error)
 }
 
 const CallTimeout = 15 * time.Second
@@ -225,8 +225,7 @@ func (c *cli) ShowRun(uid string) (int, []byte, error) {
 	err := json.Unmarshal(v.Run, &r)
 	return r.Revision, v.Run, err
 }
-func (c *cli) Whoami() error       { return c.call(nil, nil, "whoami") }
-func (c *cli) Capabilities() error { return c.call(nil, nil, "cron", "capabilities") }
+func (c *cli) Whoami() error { return c.call(nil, nil, "whoami") }
 
 // WithContext gives a sequence of CLI calls one shared deadline without changing
 // the ordinary client. Boundary doubles retain their own execution behavior.

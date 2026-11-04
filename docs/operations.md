@@ -90,6 +90,26 @@ the window is marked truncated; a failed list read marks the check incomplete.
 This warning detects evidence after the fact. It does not prevent duplicates
 or prove that no other runtime is active.
 
+## Fleet capabilities
+
+Upgrade the Kata daemon before the worker. The worker reads each project's
+advertised capabilities at most once every five minutes, retaining the last
+good snapshot when refresh fails. Until discovery first succeeds it defers
+new work and unsupported reports; already admitted runs keep advancing.
+A successful response without fleet fields retains legacy behavior.
+
+An advertised execution policy of `none` excludes every job; `owned` allows
+only exact matches between job author and the daemon's member actor; `all`
+allows normal local ownership. Unknown modes exclude all jobs. Excluded jobs
+produce neither execution nor unsupported reports. Local manual requests get
+the exclusion reason. Doctor lists each project's policy and feature flags,
+and prints `excluded <job>: <reason>` before readiness or definition checks.
+
+Policy changes can remain cached for five minutes. A job excluded after
+preparation can reach Kata's admission backstop and hold as `report_refused`;
+a per-run issue may already have been created. No terminal launches before
+admission is confirmed.
+
 ## Unsupported report delivery
 
 The `unsupported/` directory under the state root holds frozen observation

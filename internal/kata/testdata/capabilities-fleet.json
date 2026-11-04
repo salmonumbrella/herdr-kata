@@ -1,0 +1,1 @@
+{"event_features":["cron_v1","cron_run_summary_v2"],"features":["cron_runtimes_v1"],"controls":["run_request","cancel_request"],"execution":{"replica":true,"mode":"owned","member_actor":"worker","source":"project"},"future":true}

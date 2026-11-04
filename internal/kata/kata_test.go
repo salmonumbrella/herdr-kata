@@ -229,7 +229,7 @@ func TestWriteAndProbeArgv(t *testing.T) {
 				err = k.Whoami()
 				assertArgs(t, args(), "whoami")
 			case "capabilities":
-				err = k.Capabilities()
+				_, err = k.Capabilities()
 				assertArgs(t, args(), "cron", "capabilities")
 			case "show":
 				var rev int

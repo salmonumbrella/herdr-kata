@@ -313,3 +313,24 @@ func TestModelWorkflowWarnings(t *testing.T) {
 		})
 	}
 }
+
+type fleetHC struct{ *fakeHC }
+
+func (h fleetHC) Exec(ctx context.Context, argv []string) (string, error) {
+	if argv[len(argv)-1] == "capabilities" {
+		return `{"event_features":["cron_v1"],"execution":{"mode":"none"},"controls":["project_pause","run_request"],"features":["cron_runtimes_v1"]}`, nil
+	}
+	return h.fakeHC.Exec(ctx, argv)
+}
+func TestDoctorFleetCapabilities(t *testing.T) {
+	c, l, h := fixture(t)
+	reads := 0
+	k := fakeKata{readyCalls: &reads, jobs: []kata.CronJob{{UID: "job", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "execute"}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("issue")}}}}}
+	var out bytes.Buffer
+	if err := Check(context.Background(), c, l, fleetHC{h}, map[string]kata.Kata{"example-project": k}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if reads != 0 || !strings.Contains(out.String(), "excluded job: replica execution is not enabled") || !strings.Contains(out.String(), "execution=none() pause=true requests=true runtimes=true summary_v2=false") {
+		t.Fatal(reads, out.String())
+	}
+}

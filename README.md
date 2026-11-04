@@ -8,6 +8,8 @@ agents and commands on [herdr-core](https://github.com/herdrdev/herdr-core)
 
 ## How it works
 
+The worker adopts advertised [fleet capabilities](docs/operations.md#fleet-capabilities) per project.
+
 There is nothing to look at in herdr-kata itself. You work in Kata:
 
 - Create, edit, enable and run jobs with `kata cron` or in `kata tui`'s Jobs
