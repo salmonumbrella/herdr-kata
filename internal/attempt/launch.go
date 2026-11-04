@@ -84,6 +84,7 @@ func Launch(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	a.CoreID = core
 	a.Name = Name(spec.Labels["kata.executor"], r.RunUID, a.Step, a.N, a.Nonce)
 	a.LaunchedAt = clock.Now(ctx)
+	a.TaskStarted = new(false)
 	spec.Name = a.Name
 	spec.Labels = maps.Clone(spec.Labels)
 	if spec.Labels == nil {
@@ -118,6 +119,9 @@ func adopt(st *journal.Store, key string, idx int, t hc.Terminal) error {
 		a.CreatedMs = t.CreatedMs
 		a.PID = t.PID
 		a.Status = "running"
+		if t.Status == "working" || t.Turn > 0 {
+			a.TaskStarted = new(true)
+		}
 		return nil
 	})
 }

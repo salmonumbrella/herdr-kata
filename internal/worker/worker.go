@@ -569,6 +569,19 @@ func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now ti
 	if err != nil {
 		return err
 	}
+	for _, a := range r.Attempts {
+		if a.Status == "failed" && a.StopReason != "" {
+			if err = w.Store.Update(r.Key, func(r *journal.Run) error {
+				r.Phase = "settled"
+				r.Outcome = "failed"
+				r.EndedAt = new(now.UTC())
+				return nil
+			}); err != nil {
+				return err
+			}
+			return report.Final(ctx, k, w.Store, r.Key)
+		}
+	}
 	switch next := flow.Next(r.Plan, states(r)).(type) {
 	case flow.Invalid:
 		return w.held(ctx, k, r, "invalid_workflow", now)

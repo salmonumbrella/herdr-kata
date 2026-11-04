@@ -101,6 +101,15 @@ Never restore a stale state snapshot or restart the core for this upgrade.
 
 ## Held runs
 
+A run whose terminal the worker confirms stopped at its deadline settles
+`failed` with `reason: timeout`. A new prompt attempt with no observed startup
+activity at the two-minute cutoff is stopped and settles `failed` with
+`reason: agent_not_started`. These known failures end the whole run, bypass
+step retries and later steps, and free capacity and overlap for the next
+occurrence or manual request. Local settlement frees the slot even while a
+transient Kata error delays delivery of the frozen final observation. See
+[Jobs](jobs.md#startup-and-timeouts) for startup evidence and timing.
+
 Doctor names held run UIDs when either the project or global capacity limit
 blocks new work, including holds in another project consuming global slots.
 
@@ -125,8 +134,9 @@ Once the run settles, capacity and overlap gates are available to later work.
 | `occupant_changed` | Terminal identity no longer matches the saved execution |
 | `agent_lost` | The agent disappeared without a provable outcome |
 | `no_result` | A completed reported turn has no valid result after its grace period |
-| `no_activity` | A reported agent stayed idle at turn zero for 5 minutes |
-| `timeout` | The frozen run deadline expired |
+| `no_activity` | A grandfathered or previously started reported agent stayed idle at turn zero for 5 minutes |
+| `timeout` | Deadline expiry could not establish a stopped terminal without an ambiguous completion artifact, or no launch was proven |
+| `agent_not_started` | Startup termination could not establish a stopped terminal without an ambiguous completion artifact |
 | `command_outcome_unknown` | A command lacks a valid ordinary-exit receipt |
 | `invalid_prompt` | Prompt validation failed before launch |
 | `invalid_workflow` | Workflow dependencies cannot be resolved |
@@ -136,7 +146,14 @@ Once the run settles, capacity and overlap gates are available to later work.
 | `admission_expired` | Issue creation could outlive its keyed replay window |
 
 Inspect `herdr-kata logs <run-uid>`. Commands read their local `output.log`;
-live prompts use a guarded `hc read`. Use the configured hc session when
+prompt startup and timeout stops save the last 200 screen lines there before
+the initial interrupt, so dialogs remain readable after terminal removal.
+An incomplete snapshot is marked. Other live prompts use a guarded `hc read`.
+Until stop intent is saved, prompt logs keep reading the live terminal even
+if an interrupted startup check left a provisional snapshot.
+Capture failure defers stopping. A resumed stop preserves its snapshot;
+an older journal's already-pending timeout captures the remaining screen
+before further destructive work. Use the configured hc session when
 inspecting a terminal yourself. Do not edit a run journal to retry a prompt.
 After investigating, `herdr-kata release <run-uid>` posts a local release
 request. Once the hold has been observed or reporting has been refused,

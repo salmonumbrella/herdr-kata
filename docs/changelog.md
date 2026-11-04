@@ -12,6 +12,16 @@ last_edited: 2026-11-04
   result note is malformed. Normalize notes within the existing 280-byte limit,
   preserve the known outcome and pass the normalized note to dependent steps.
   Existing `invalid_note` holds still require investigation and release.
+<small>2026-11-04</small>
+
+- Keep jobs moving after a startup dialog or a confirmed timeout stop: new
+  prompt attempts without startup evidence begin stopping after two minutes;
+  proven stops fail the whole run and release capacity and overlap. Unknown
+  or ambiguous outcomes still hold for inspection. Older attempts retain
+  their normal deadline.
+- Preserve the startup/timeout prompt screen in run logs after cleanup, and
+  report `reason: agent_not_started` or `reason: timeout` with replay-safe
+  delivery through transient Kata errors.
 
 ## 0.3.0
 <small>2026-11-03</small>
