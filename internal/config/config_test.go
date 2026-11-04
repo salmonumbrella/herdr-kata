@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"hegel.dev/go/hegel"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 )
 
 const example = `executor = "work-runtime"
@@ -132,5 +134,71 @@ func TestProjectDefaults(t *testing.T) {
 				t.Fatalf("config = %+v, want project and %q", c, tt.wantReason)
 			}
 		})
+	}
+}
+
+// Catch accepted typos/terminators and rejection of usable separate-value flags.
+func TestProfileModelFlag(t *testing.T) {
+	for _, tt := range []struct{ flag, wantError string }{
+		{"", ""}, {"--model", ""}, {"-m", ""}, {"---", ""}, {"-模型", ""},
+		{"model", "profile default model_flag must be a flag"},
+		{"--with space", "profile default model_flag must be a flag"},
+		{"--with\tspace", "profile default model_flag must be a flag"},
+		{"--with\u2003space", "profile default model_flag must be a flag"},
+		{"-", "profile default model_flag must be a flag"},
+		{"--", "profile default model_flag must be a flag"},
+		{"--model=", "profile default model_flag must be a flag"},
+	} {
+		t.Run(fmt.Sprintf("%q", tt.flag), func(t *testing.T) {
+			_, err := loadText(t, example+fmt.Sprintf("model_flag = %q\n", tt.flag))
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || err.Error() != tt.wantError {
+				t.Fatalf("error %v, want %q", err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestModelFlagRejectsArgvTerminator(t *testing.T) {
+	text := strings.Replace(example, `["codex", "--no-daemon"]`, `["codex", "--"]`, 1)
+	_, err := loadText(t, text+`model_flag = "--model"`+"\n")
+	if err == nil || err.Error() != "profile default model_flag cannot be used when argv ends in --" {
+		t.Fatalf("error %v, want profile default model_flag cannot be used when argv ends in --", err)
+	}
+}
+
+// The grammar is an operator contract, including unusual but valid flag names.
+func TestModelFlagGrammar(t *testing.T) {
+	hegel.Test(t, func(ht *hegel.T) {
+		flag := hegel.Draw(ht, hegel.Text())
+		if hegel.Draw(ht, hegel.Integers(0, 1)) == 1 {
+			flag = "-" + flag
+		}
+		encoded, _ := json.Marshal(flag)
+		c, err := loadText(t, example+"model_flag = "+strings.ReplaceAll(string(encoded), "\x7f", `\u007f`)+"\n")
+		valid := flag == "" || strings.HasPrefix(flag, "-") && flag != "-" && flag != "--"
+		for _, r := range flag {
+			if r == '=' || unicode.IsSpace(r) {
+				valid = false
+			}
+		}
+		if valid {
+			if err != nil || c.Profiles["default"].ModelFlag != flag {
+				ht.Fatalf("flag %q: config %v error %v", flag, c, err)
+			}
+		} else if err == nil || err.Error() != "profile default model_flag must be a flag" {
+			ht.Fatalf("invalid flag %q: %v", flag, err)
+		}
+	})
+}
+
+// Keep the shrunk DEL case as valid TOML, so profile validation owns the error.
+func TestModelFlagEscapedDEL(t *testing.T) {
+	_, err := loadText(t, example+`model_flag = "\u007f"`+"\n")
+	if err == nil || err.Error() != "profile default model_flag must be a flag" {
+		t.Fatalf("error %v", err)
 	}
 }

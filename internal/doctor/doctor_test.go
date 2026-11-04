@@ -3,6 +3,7 @@ package doctor
 import (
 	"bytes"
 	"context"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -44,8 +45,9 @@ type fakeKata struct {
 	readyCalls *int
 	requested  *[]string
 	kata.Kata
-	notify bool
-	jobs   []kata.CronJob
+	notify    bool
+	jobs      []kata.CronJob
+	workflows []kata.CronWorkflow
 }
 
 func (k fakeKata) Jobs() ([]kata.CronJob, error) {
@@ -57,7 +59,7 @@ func (k fakeKata) Jobs() ([]kata.CronJob, error) {
 	}
 	return []kata.CronJob{{UID: "01J00000000000000000000010", Name: "example-job", Definition: kata.JobDefinition{Version: 1, Kind: "job", Enabled: true, Action: kata.Action{Kind: "notify"}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}, CheckoutKey: new("example-project")}}}, nil
 }
-func (k fakeKata) Workflows() ([]kata.CronWorkflow, error) { return nil, nil }
+func (k fakeKata) Workflows() ([]kata.CronWorkflow, error) { return k.workflows, nil }
 func fixture(t *testing.T) (config.Config, state.Layout, *fakeHC) {
 	root := t.TempDir()
 	t.Setenv("HOME", root)
@@ -204,5 +206,110 @@ func TestDoctorFailsQuarantinedEntriesWithoutCheckingTheirProjects(t *testing.T)
 		if i < 0 || i+1 >= len(argv) || argv[i+1] != "example-project" {
 			t.Fatalf("checked quarantined project: %q", argv)
 		}
+	}
+}
+
+// Compare the observable diagnostics, so wrong precedence or broad flag matching fails.
+func TestModelWarnings(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		model map[string]any
+		argv  []string
+		flag  string
+		want  bool
+	}{
+		{name: "absent", flag: "--model", want: true},
+		{name: "empty", model: map[string]any{"model": ""}, flag: "--model", want: true},
+		{name: "job model", model: map[string]any{"model": "small"}, flag: "--model"},
+		{name: "malformed", model: map[string]any{"model": false}, flag: "--model"},
+		{name: "null", model: map[string]any{"model": nil}, flag: "--model"},
+		{name: "flagless"},
+		{name: "fixed separate", flag: "--model", argv: []string{"--model", "small"}},
+		{name: "fixed equals", flag: "--model", argv: []string{"--model=small"}},
+		{name: "dangling", flag: "--model", argv: []string{"--model"}, want: true},
+		{name: "empty equals", flag: "--model", argv: []string{"--model="}, want: true},
+		{name: "empty separate", flag: "--model", argv: []string{"--model", ""}, want: true},
+		{name: "similar prefix", flag: "--model", argv: []string{"--model-other=small"}, want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, l, h := fixture(t)
+			c.Profiles["default"] = config.Profile{Argv: append([]string{"/bin/sh"}, tt.argv...), ModelFlag: tt.flag}
+			job := kata.CronJob{UID: "job", Definition: kata.JobDefinition{Enabled: true, Trigger: kata.Trigger{Kind: "manual"}, Action: kata.Action{Kind: "execute", Prompt: new("work")}, Options: tt.model}}
+			var out bytes.Buffer
+			if err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: []kata.CronJob{job}}}, &out); err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for line := range strings.SplitSeq(out.String(), "\n") {
+				if strings.HasPrefix(line, "warning: job ") {
+					got = append(got, line)
+				}
+			}
+			var want []string
+			if tt.want {
+				want = []string{"warning: job job step main: profile default has no explicit model in job options or profile argv; set options.model"}
+			}
+			if !slices.Equal(got, want) {
+				t.Fatalf("warnings %q want %q; output %s", got, want, out.String())
+			}
+		})
+	}
+}
+
+func TestModelWorkflowWarnings(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		job, step        map[string]any
+		enabled, deleted bool
+		workflow         bool
+		want             []string
+	}{
+		{name: "project and step profiles", enabled: true, workflow: true, want: []string{"warning: job job step project: profile project has no explicit model in job options or profile argv; set options.model", "warning: job job step custom: profile custom has no explicit model in job options or profile argv; set options.model"}},
+		{name: "job agent", enabled: true, workflow: true, job: map[string]any{"agent": "custom"}, want: []string{"warning: job job step project: profile custom has no explicit model in job options or profile argv; set options.model", "warning: job job step custom: profile custom has no explicit model in job options or profile argv; set options.model"}},
+		{name: "step model", enabled: true, workflow: true, step: map[string]any{"model": "small"}},
+		{name: "job model", enabled: true, workflow: true, job: map[string]any{"model": "small"}},
+		{name: "invalid job overridden", enabled: true, workflow: true, job: map[string]any{"model": false}, step: map[string]any{"model": "small"}},
+		{name: "invalid step", enabled: true, workflow: true, step: map[string]any{"model": false}},
+		{name: "foreign", enabled: true, workflow: true, job: map[string]any{"executor": "other"}},
+		{name: "disabled", workflow: true},
+		{name: "deleted", enabled: true, deleted: true, workflow: true},
+		{name: "missing workflow", enabled: true},
+		{name: "missing profile", enabled: true, workflow: true, job: map[string]any{"agent": "missing"}, step: map[string]any{"agent": "missing"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, l, h := fixture(t)
+			c.Projects[0].DefaultAgent = "project"
+			for _, name := range []string{"project", "custom"} {
+				c.Profiles[name] = config.Profile{Argv: []string{"/bin/sh"}, ModelFlag: "--model"}
+			}
+			job := kata.CronJob{UID: "job", Definition: kata.JobDefinition{Enabled: tt.enabled, Trigger: kata.Trigger{Kind: "manual"}, Action: kata.Action{Kind: "execute", WorkflowUID: new("wf")}, Options: tt.job}}
+			if tt.deleted {
+				job.DeletedAt = new(time.Now())
+			}
+			custom := map[string]any{"agent": "custom"}
+			maps.Copy(custom, tt.step)
+			wf := kata.CronWorkflow{UID: "wf", Definition: kata.WorkflowDefinition{Options: map[string]any{"model": false}, Steps: []kata.WorkflowStep{
+				{Key: "project", Kind: "prompt", Prompt: new("x"), Options: tt.step},
+				{Key: "custom", Kind: "prompt", Prompt: new("y"), Options: custom},
+				{Key: "command", Kind: "command", Command: new("true"), Options: map[string]any{"model": false}},
+			}}}
+			k := fakeKata{jobs: []kata.CronJob{job}}
+			if tt.workflow {
+				k.workflows = []kata.CronWorkflow{wf}
+			}
+			var out bytes.Buffer
+			if err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": k}, &out); err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			for line := range strings.SplitSeq(out.String(), "\n") {
+				if strings.HasPrefix(line, "warning: job ") {
+					got = append(got, line)
+				}
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("warnings %q want %q; output %s", got, tt.want, out.String())
+			}
+		})
 	}
 }

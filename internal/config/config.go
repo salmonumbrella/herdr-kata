@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/BurntSushi/toml"
 )
@@ -59,7 +60,8 @@ type Project struct {
 }
 
 type Profile struct {
-	Argv []string `toml:"argv"`
+	Argv      []string `toml:"argv"`
+	ModelFlag string   `toml:"model_flag"`
 }
 
 type Limits struct {
@@ -136,6 +138,12 @@ func Load(path string) (*Config, error) {
 	for key, p := range c.Profiles {
 		if len(p.Argv) == 0 || p.Argv[0] == "" {
 			return nil, fmt.Errorf("profile %s requires argv", key)
+		}
+		if p.ModelFlag != "" && (!strings.HasPrefix(p.ModelFlag, "-") || p.ModelFlag == "-" || p.ModelFlag == "--" || strings.Contains(p.ModelFlag, "=") || strings.ContainsFunc(p.ModelFlag, unicode.IsSpace)) {
+			return nil, fmt.Errorf("profile %s model_flag must be a flag", key)
+		}
+		if p.ModelFlag != "" && p.Argv[len(p.Argv)-1] == "--" {
+			return nil, fmt.Errorf("profile %s model_flag cannot be used when argv ends in --", key)
 		}
 	}
 	if c.Limits.DefaultTimeout <= 0 || c.Limits.MaxTimeout <= 0 || c.Limits.DefaultTimeout > c.Limits.MaxTimeout || c.Limits.MaxActiveRuns <= 0 {

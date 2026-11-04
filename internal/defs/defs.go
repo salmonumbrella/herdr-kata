@@ -167,13 +167,6 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 	} else if d.Action.Prompt != nil {
 		steps = []kata.WorkflowStep{{Key: "main", Kind: "prompt", Prompt: d.Action.Prompt}}
 	}
-	agent := projectCfg.DefaultAgent
-	if agent == "" {
-		agent = "default"
-	}
-	if override := option(d.Options, "agent"); override != "" {
-		agent = override
-	}
 	if raw, present := d.Options["agent"]; present {
 		if _, ok := raw.(string); !ok {
 			reasons = append(reasons, "agent must be a string")
@@ -196,11 +189,19 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 		switch s.Kind {
 		case "prompt":
 			frozen.Text = text(s.Prompt)
-			profile := agent
-			if override := option(s.Options, "agent"); override != "" {
-				profile = override
+			profile, model, valid := promptOptions(s, d.Options, projectCfg.DefaultAgent)
+			if !valid {
+				reasons = append(reasons, "model must be a string")
 			}
-			argv := slices.Clone(cfg.Profiles[profile].Argv)
+			selected, configured := cfg.Profiles[profile]
+			argv := slices.Clone(selected.Argv)
+			if model != "" && configured {
+				if selected.ModelFlag == "" {
+					reasons = append(reasons, "model unsupported by profile: "+profile)
+				} else {
+					argv = append(argv, selected.ModelFlag, model)
+				}
+			}
 			if len(argv) == 0 {
 				reasons = append(reasons, "profile not configured: "+profile)
 			} else {
@@ -267,4 +268,63 @@ func issueUID(s string) bool {
 		}
 	}
 	return true
+}
+
+// promptOptions shares precedence and raw model validity with diagnostics.
+func promptOptions(s kata.WorkflowStep, job map[string]any, agent string) (string, string, bool) {
+	if agent == "" {
+		agent = "default"
+	}
+	model, valid := "", true
+	for _, opts := range []map[string]any{job, s.Options} {
+		if v := option(opts, "agent"); v != "" {
+			agent = v
+		}
+		if raw, present := opts["model"]; present {
+			v, ok := raw.(string)
+			valid = valid && ok
+			if v != "" {
+				model = v
+			}
+		}
+	}
+	return agent, model, valid
+}
+
+// DefaultModelSteps reports prompt steps without an explicit model selection.
+func DefaultModelSteps(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Config, project string) []string {
+	agent := ""
+	for _, p := range cfg.Projects {
+		if p.Name == project {
+			agent = p.DefaultAgent
+			break
+		}
+	}
+	var steps []kata.WorkflowStep
+	if uid := job.Definition.Action.WorkflowUID; uid != nil {
+		wf, ok := wfs[*uid]
+		if !ok || wf.DeletedAt != nil {
+			return nil
+		}
+		steps = wf.Definition.Steps
+	} else if job.Definition.Action.Prompt != nil {
+		steps = []kata.WorkflowStep{{Key: "main", Kind: "prompt"}}
+	}
+	var warnings []string
+	for _, s := range steps {
+		profile, model, valid := promptOptions(s, job.Definition.Options, agent)
+		p := cfg.Profiles[profile]
+		if s.Kind == "prompt" && valid && model == "" && p.ModelFlag != "" && !fixedModel(p) {
+			warnings = append(warnings, fmt.Sprintf("warning: job %s step %s: profile %s has no explicit model in job options or profile argv; set options.model", job.UID, s.Key, profile))
+		}
+	}
+	return warnings
+}
+func fixedModel(p config.Profile) bool {
+	for i, arg := range p.Argv {
+		if arg == p.ModelFlag && i+1 < len(p.Argv) && p.Argv[i+1] != "" || strings.HasPrefix(arg, p.ModelFlag+"=") && arg != p.ModelFlag+"=" {
+			return true
+		}
+	}
+	return false
 }

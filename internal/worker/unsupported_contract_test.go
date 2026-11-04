@@ -163,7 +163,8 @@ func TestPreparedRunKeepsFrozenDefaultsAfterRestart(t *testing.T) {
 	w.Config.Projects[0].DefaultCheckout = "original"
 	w.Config.Projects[0].DefaultAgent = "original"
 	w.Config.Checkouts["original"] = original
-	w.Config.Profiles["original"] = config.Profile{Argv: []string{"/bin/sh", "--original"}}
+	w.Config.Profiles["original"] = config.Profile{Argv: []string{"/bin/sh", "--original"}, ModelFlag: "--model"}
+	k.jobs[0].Definition.Options = map[string]any{"model": "small"}
 	k.jobs[0].Definition.CheckoutKey = nil
 	if err := w.init(at); err != nil {
 		t.Fatal(err)
@@ -180,13 +181,15 @@ func TestPreparedRunKeepsFrozenDefaultsAfterRestart(t *testing.T) {
 	if err != nil || saved.Phase != "prepared" || h.runs != 0 {
 		t.Fatal(saved, err, h.runs)
 	}
+	w.Config.Profiles["original"] = config.Profile{Argv: []string{"/bin/sh", "--original"}}
+	k.jobs[0].Definition.Options["model"] = "changed"
 	w.Config.Projects[0].DefaultCheckout = "changed"
 	w.Config.Projects[0].DefaultAgent = "changed"
 	w.Config.Checkouts["changed"] = t.TempDir()
 	w.Config.Profiles["changed"] = config.Profile{Argv: []string{"/bin/sh", "--changed"}}
 	restarted := New(w.Config, journal.New(w.Store.Layout), h, w.Clients, w.Bin)
 	tick(t, restarted, at.Add(time.Second))
-	want := []string{"/bin/sh", "--original", "Read " + filepath.Join(w.Store.Layout.Attempt(key, "main", 1), "prompt.md") + " and do exactly what it says."}
+	want := []string{"/bin/sh", "--original", "--model", "small", "Read " + filepath.Join(w.Store.Layout.Attempt(key, "main", 1), "prompt.md") + " and do exactly what it says."}
 	if len(h.specs) != 1 {
 		t.Fatalf("launch count %d, want 1", len(h.specs))
 	}
@@ -194,4 +197,13 @@ func TestPreparedRunKeepsFrozenDefaultsAfterRestart(t *testing.T) {
 	if launch.Cwd != original || !slices.Equal(launch.Argv, want) {
 		t.Fatalf("launch cwd %q argv %v; want cwd %q argv %v", launch.Cwd, launch.Argv, original, want)
 	}
+}
+
+func TestModelUnsupportedReportedOnce(t *testing.T) {
+	w, h, k := fixture(t)
+	k.jobs[0].Definition.Options = map[string]any{"model": "small"}
+	tick(t, w, at)
+	tick(t, w, at.Add(time.Second))
+	assertUnsupportedObservation(t, k, "model unsupported by profile: default")
+	assertNoUnsupportedExecution(t, w, h, k)
 }

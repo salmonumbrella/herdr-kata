@@ -126,6 +126,36 @@ at job or step scope overrides a project default. A present non-string agent
 is unsupported with `agent must be a string`. Resolution freezes the checkout
 path and argv when work is prepared; config edits do not change prepared runs.
 
+### Models
+
+A prompt step uses step `options.model`, then job `options.model`. Empty strings
+count as absent; an empty step model cannot clear a job model. Workflow-level
+models are ignored. A present non-string model at either scope is unsupported,
+even if a valid step overrides it. Command steps ignore job and step models,
+including malformed values.
+
+The resolved profile must declare `model_flag` for a non-empty model. The
+worker appends the flag and the unchanged model as two argv elements before
+the prompt line. It does not validate model names, split values, or interpret
+shell text. The agent CLI reports invalid names. Do not put secrets in model
+options. Models and flags are frozen in the prepared argv; later edits do not
+change prepared runs. A model on a profile without `model_flag` is unsupported.
+
+Doctor prints one warning per owned prompt step with no explicit model in
+options or profile argv on a model-capable profile:
+
+```text
+warning: job <uid> step <key>: profile <profile> has no explicit model in job options or profile argv; set options.model
+```
+
+An exact flag followed by a non-empty value, or `flag=value` with a non-empty
+value, counts as explicit profile selection. Dangling flags, empty values and
+similar prefixes do not. Native configuration and wrappers are opaque.
+Malformed model options suppress the warning; unrelated unsupported reasons
+do not. This diagnostic neither blocks runs nor writes to Kata.
+
+### Other job options
+
 Job `options.executor` is an optional non-empty string equal to the worker's
 stable `executor` label. A different pin excludes the job from this worker;
 a manual request is rejected with `job is pinned to executor <x>`, and doctor
@@ -225,6 +255,8 @@ Doctor lists these owned-definition reasons:
 | agent_mode other than fresh | `agent_mode_unsupported` | Fresh attempts |
 | scheduled_offset_seconds | `scheduled_offset_unsupported` | Native scheduling |
 | Agent value is not a string | `agent must be a string` | A profile name |
+| Model value is not a string | `model must be a string` | A model name string |
+| Model on a profile without model support | `model unsupported by profile: <p>` | A profile declaring `model_flag` |
 | Malformed executor pin | `options.executor must be a non-empty string` | A stable executor label or no pin |
 | Once time at or before job creation | `once_in_past` | A future instant |
 

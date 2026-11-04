@@ -196,6 +196,9 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 			if owned, _ := defs.Owned(job, p.Name, c); !owned {
 				continue
 			}
+			for _, warning := range defs.DefaultModelSteps(job, wfs, c, p.Name) {
+				fmt.Fprintln(out, warning)
+			}
 			_, reasons := defs.Freeze(job, wfs, c, p.Name, exec.LookPath)
 			if len(reasons) > 0 {
 				fmt.Fprintf(out, "unsupported %s: %s\n", job.UID, strings.Join(reasons, ", "))
