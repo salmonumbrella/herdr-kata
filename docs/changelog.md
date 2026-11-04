@@ -8,11 +8,13 @@ last_edited: 2026-11-04
 
 ## Unreleased
 
+## 0.4.0
+<small>2026-11-04</small>
+
 - Keep jobs moving when an optional command note or an otherwise valid agent
   result note is malformed. Normalize notes within the existing 280-byte limit,
   preserve the known outcome and pass the normalized note to dependent steps.
   Existing `invalid_note` holds still require investigation and release.
-<small>2026-11-04</small>
 
 - Keep jobs moving after a startup dialog or a confirmed timeout stop: new
   prompt attempts without startup evidence begin stopping after two minutes;
@@ -54,7 +56,6 @@ last_edited: 2026-11-04
   unsupported reporting or execution. Doctor explains exclusions. Defer new
   work until initial discovery succeeds, retaining legacy behavior for older
   daemon responses.
-
 
 - Fleet pause: keep new work and prepared journals waiting while the daemon's
   project pause is set, including after restart. Admitted runs continue.
