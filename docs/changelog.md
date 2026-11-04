@@ -31,6 +31,10 @@ last_edited: 2026-11-04
 - Forbid jobs with positive grace drop expired occurrences before their gate
   clears. Saved drop decisions recover with their checkpoints after a crash,
   so cancelled work cannot launch later.
+- Keep valid projects running when another project entry is invalid or duplicated.
+  Quarantine bad entries and report each in startup output and doctor. Doctor
+  exits 1 for a quarantined entry, instead of rejecting the file with exit 2.
+  Global settings and unknown keys outside project entries remain strict.
 
 ## 0.3.0
 <small>2026-11-03</small>

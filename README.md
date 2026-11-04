@@ -38,7 +38,10 @@ fresh and are not compatible with v1.
 
 Save `$XDG_CONFIG_HOME/herdr-kata/config.toml` (default
 `~/.config/herdr-kata/config.toml`). All filesystem paths are absolute.
-Unknown keys are rejected. `--config` and `--state` select explicit paths.
+Invalid `[[projects]]` entries are quarantined so other projects keep running;
+unknown keys outside project entries and invalid global settings reject the file.
+`--config` and `--state` select explicit paths. See
+[quarantine recovery](docs/operations.md#quarantined-projects).
 
 ```toml
 executor = "work-runtime"

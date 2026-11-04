@@ -48,6 +48,9 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 	if os.Getenv("HC_SOCKET") != "" {
 		fmt.Fprintln(out, "warning: HC_SOCKET is set and ignored")
 	}
+	for _, q := range c.Quarantined {
+		check("config", fmt.Errorf("quarantined %s", q))
+	}
 	info, err := h.Info(ctx)
 	check("core", err)
 	if err == nil {

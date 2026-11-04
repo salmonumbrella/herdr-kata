@@ -109,24 +109,27 @@ func TestConfiguredLimitsPreserved(t *testing.T) {
 	})
 }
 
-// Project defaults must be usable mappings, with errors identifying the project and key.
+// Unknown project defaults quarantine the entry and identify the project and key.
 func TestProjectDefaults(t *testing.T) {
-	for _, tt := range []struct{ name, settings, wantError string }{
+	for _, tt := range []struct{ name, settings, wantReason string }{
 		{"optional", "", ""},
 		{"configured", "default_checkout = \"example-project\"\ndefault_agent = \"default\"\n", ""},
 		{"unknown checkout", "default_checkout = \"missing-checkout\"\n", "missing-checkout"},
 		{"unknown agent", "default_agent = \"missing-agent\"\n", "missing-agent"},
-		{"unknown project key", "default_agnet = \"default\"\n", "unknown configuration keys"},
+		{"unknown project key", "default_agnet = \"default\"\n", "unknown keys: default_agnet"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			text := strings.Replace(example, "commands = false\n", "commands = false\n"+tt.settings, 1)
-			_, err := loadText(t, text)
-			if tt.wantError == "" {
-				if err != nil {
-					t.Fatal(err)
+			c, err := loadText(t, text)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantReason == "" {
+				if len(c.Projects) != 1 || len(c.Quarantined) != 0 {
+					t.Fatalf("valid defaults quarantined: %+v", c)
 				}
-			} else if err == nil || !strings.Contains(err.Error(), tt.wantError) || (tt.name != "unknown project key" && !strings.Contains(err.Error(), "example-project")) {
-				t.Fatalf("error = %v, want project and %q", err, tt.wantError)
+			} else if len(c.Projects) != 0 || len(c.Quarantined) != 1 || c.Quarantined[0].Name != "example-project" || !strings.Contains(c.Quarantined[0].Reason, tt.wantReason) {
+				t.Fatalf("config = %+v, want project and %q", c, tt.wantReason)
 			}
 		})
 	}

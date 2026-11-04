@@ -27,6 +27,46 @@ rerun it once the condition clears.
 A worker badly stalled by hc or Kata timeouts across many runs can still drop
 a `skip` occurrence once lateness exceeds grace plus 2 minutes.
 
+## Quarantined projects
+
+An invalid `[[projects]]` entry is excluded from the loaded configuration.
+Missing names or actors, negative limits, unknown defaults, unknown keys and
+wrong value types quarantine that entry. Every entry sharing a repeated name
+is quarantined, including an entry already invalid for another reason. Global
+settings and TOML syntax stay strict. A file with no valid projects loads and
+the worker idles.
+
+Project keys are case-insensitive; agreeing name aliases remain accepted.
+Conflicting `name` and `NAME` values quarantine that entry; every declared string name participates
+in duplicate checks. Differently cased root containers such as `[[projects]]`
+and `[[PROJECTS]]` in the same file are ambiguous and reject the whole file.
+
+`serve` logs `warning: quarantined project entry N (name): reason` once per
+entry at each worker start. A successful `up` prints the same warnings before
+the worker address. `doctor` prints `FAIL config: quarantined ...` and exits 1
+until all entries are fixed. Entry numbers follow file order, starting at 1;
+a missing name is omitted from the diagnostic. `up` and `doctor` inspect the
+file on disk. An adopted worker still uses its original loaded configuration.
+If an entry has several wrong value types, `invalid value:` reports one of
+them; which field appears first may vary between loads.
+
+Quarantined projects have no definition reads, new launches or unsupported
+report delivery. Active runs remain journaled and reserve global capacity;
+automatic advancement, settlement, reporting and deadline enforcement wait.
+Already launched terminals keep executing, and their results can still appear.
+Frozen deadlines do not reset. Explicit release requests retain their existing
+rules. A manual request for an excluded project's job is rejected as `job is
+unknown` after configured-project reads succeed; read failures can leave it
+pending instead.
+
+Fix the entries, run `herdr-kata stop`, then `herdr-kata up` and
+`herdr-kata doctor`. Processing resumes under the ordinary recovery rules:
+saved launch intent without an address recovers by labels and argv, addressed
+attempts resume settlement, and held runs stay held. Timeouts and lost or
+ambiguous execution can require operator attention. Scheduled checkpoint
+catchup remains bounded to 7 days and 100 occurrences under the job's catchup
+policy; issue-scheduled jobs inspect the issue's current planning date.
+
 ## Runtime ownership
 
 Operate one effective runtime per project UID. Use one executing installation,
@@ -95,6 +135,10 @@ Keep the record while fixing the cause. Unsupported-report deletion guidance
 above applies only to unsupported records.
 
 ## Upgrade and rollback
+
+Fix quarantined project entries before rolling back: v0.3.0 rejects the
+whole file when any project entry is invalid, including an unknown key.
+
 
 Before adding project defaults, run the current binary's `herdr-kata doctor`
 and inventory the enabled job definitions. Record each unsupported job and all its reasons,
