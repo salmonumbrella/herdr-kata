@@ -81,26 +81,32 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 		}
 		check("checkout "+name, e)
 	}
-	outbox, err := (report.Outbox{Layout: l}).All()
-	check("unsupported outbox", err)
-	pending, refused := 0, 0
-	for _, r := range outbox {
-		if r.State == "done" {
-			continue
+	for _, kind := range []string{"unsupported", "dropped"} {
+		dir := l.Unsupported()
+		if kind == "dropped" {
+			dir = l.Dropped()
 		}
-		if r.State == "pending" {
-			pending++
-		} else {
-			refused++
+		outbox, err := (report.Outbox{Layout: l, Dir: dir}).All()
+		check(kind+" outbox", err)
+		pending, refused := 0, 0
+		for _, r := range outbox {
+			if r.State == "done" {
+				continue
+			}
+			if r.State == "pending" {
+				pending++
+			} else {
+				refused++
+			}
+			var b kata.ObserveCronRunBody
+			_ = json.Unmarshal(r.Body, &b)
+			fmt.Fprintf(out, "%s %s: report %s: %s\n", kind, *b.JobUID, r.State, r.Error)
+			if kind == "unsupported" && r.State == "refused" {
+				fmt.Fprintf(out, "fix the cause, then delete %s to report anew under a new run UID\n", filepath.Join(dir, r.Cause+".json"))
+			}
 		}
-		var b kata.ObserveCronRunBody
-		_ = json.Unmarshal(r.Body, &b)
-		fmt.Fprintf(out, "unsupported %s: report %s: %s\n", *b.JobUID, r.State, r.Error)
-		if r.State == "refused" {
-			fmt.Fprintf(out, "fix the cause, then delete %s to report anew under a new run UID\n", filepath.Join(l.Unsupported(), r.Cause+".json"))
-		}
+		fmt.Fprintf(out, "%s reports: pending=%d refused=%d\n", kind, pending, refused)
 	}
-	fmt.Fprintf(out, "unsupported reports: pending=%d refused=%d\n", pending, refused)
 	active, err := journal.New(l).Active()
 	check("run journals", err)
 	total := 0

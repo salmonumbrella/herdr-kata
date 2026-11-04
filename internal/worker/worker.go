@@ -78,9 +78,13 @@ func (w *Worker) init(now time.Time) error {
 	return nil
 }
 func (w *Worker) capacity(project config.Project, jobUID, overlap string) (bool, error) {
+	can, _, err := w.capacityState(project, jobUID, overlap)
+	return can, err
+}
+func (w *Worker) capacityState(project config.Project, jobUID, overlap string) (bool, bool, error) {
 	runs, err := w.Store.Active()
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	total, local := 0, 0
 	for _, r := range runs {
@@ -91,7 +95,7 @@ func (w *Worker) capacity(project config.Project, jobUID, overlap string) (bool,
 		if r.Project == project.Name {
 			local++
 			if overlap == "forbid" && r.JobUID == jobUID {
-				return false, nil
+				return false, true, nil
 			}
 		}
 	}
@@ -99,7 +103,7 @@ func (w *Worker) capacity(project config.Project, jobUID, overlap string) (bool,
 	if limit == 0 {
 		limit = 1
 	}
-	return total < w.Config.Limits.MaxActiveRuns && local < limit, nil
+	return total < w.Config.Limits.MaxActiveRuns && local < limit, false, nil
 }
 func (w *Worker) prepare(k kata.Kata, project config.Project, p defs.Plan, key, occurrence, requestID string, now time.Time) error {
 	title := strings.TrimSpace(p.Issue.Title + " " + occurrence)
@@ -138,7 +142,8 @@ func (w *Worker) acknowledgeExisting(q journal.Requests, req journal.Request, ke
 	}
 	return q.Done(req.ID)
 }
-func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched.Checkpoint, error) {
+func (w *Worker) checkpoint(project config.Project, job kata.CronJob, p defs.Plan, occupied bool, now time.Time) (sched.Checkpoint, sched.Dropped, error) {
+	var dropped sched.Dropped
 	c := sched.Checkpoint{Version: 1, JobUID: job.UID, Through: w.installed}
 	if job.CreatedAt.After(c.Through) {
 		c.Through = job.CreatedAt
@@ -146,14 +151,38 @@ func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched
 	b, err := os.ReadFile(w.Store.Layout.Job(job.UID))
 	if err == nil {
 		if err = json.Unmarshal(b, &c); err != nil {
-			return c, err
+			return c, dropped, err
 		}
 		if c.Version != 1 || c.JobUID != job.UID {
-			return c, errors.New("invalid checkpoint identity or version")
+			return c, dropped, errors.New("invalid checkpoint identity or version")
 		}
 	} else if !os.IsNotExist(err) {
-		return c, err
+		return c, dropped, err
 	}
+	records, err := (report.Outbox{Layout: w.Store.Layout, Dir: w.Store.Layout.Dropped()}).All()
+	if err != nil {
+		return c, dropped, err
+	}
+	for _, r := range records {
+		saved := r.Checkpoint
+		if r.Project != project.Name || saved.JobUID != job.UID || saved.Through.Before(c.Through) {
+			continue
+		}
+		if saved.Through.After(c.Through) {
+			if saved.EventUID == job.DefinitionEventUID || saved.EventUID == c.EventUID || c.EventUID == "" {
+				c = *saved
+			} else {
+				c.Through = saved.Through
+			}
+		} else if saved.EventUID == c.EventUID {
+			c.Pending = slices.DeleteFunc(c.Pending, func(o sched.Occurrence) bool {
+				return !slices.ContainsFunc(saved.Pending, func(keep sched.Occurrence) bool { return keep.Key == o.Key })
+			})
+		}
+	}
+	c.Pending = slices.DeleteFunc(c.Pending, func(o sched.Occurrence) bool {
+		return w.Store.Exists(journal.RunKey(w.Config.Executor, project.Name, job.UID, o.Key))
+	})
 	if c.EventUID != "" && c.EventUID != job.DefinitionEventUID {
 		c.Pending = nil
 	}
@@ -166,15 +195,44 @@ func (w *Worker) checkpoint(job kata.CronJob, p defs.Plan, now time.Time) (sched
 	if policy == "skip" {
 		policy = "latest"
 	}
-	due := sched.Occurrences(job.Definition.Trigger, job.CreatedAt, c.Through, now, policy, p.Grace)
-	c.Merge(job.DefinitionEventUID, due, now)
+	due, dropped := sched.Occurrences(job.Definition.Trigger, job.CreatedAt, c.Through, now, policy, p.Grace)
+	dropped.Add(c.Merge(job.DefinitionEventUID, due, now))
 	if p.Catchup != "all" && len(c.Pending) > 1 {
+		for _, o := range c.Pending[:len(c.Pending)-1] {
+			dropped.Include(o.At)
+		}
 		c.Pending = c.Pending[len(c.Pending)-1:]
 	}
 	if p.Catchup == "skip" && len(c.Pending) > 0 && (!c.Pending[0].At.After(cutoff) || now.Sub(c.Pending[0].At) > p.Grace+2*time.Minute) {
+		dropped.Include(c.Pending[0].At)
 		c.Pending = nil
 	}
-	return c, state.WriteJSON(w.Store.Layout.Job(job.UID), c)
+	if occupied && p.Grace > 0 {
+		c.Pending = slices.DeleteFunc(c.Pending, func(o sched.Occurrence) bool {
+			if now.Sub(o.At) <= p.Grace {
+				return false
+			}
+			dropped.Include(o.At)
+			return true
+		})
+	}
+	return c, dropped, nil
+}
+func (w *Worker) commitCheckpoint(project config.Project, p defs.Plan, c sched.Checkpoint, dropped sched.Dropped, occupied bool, now time.Time) error {
+	if dropped.Count > 0 {
+		code, detail := "catchup_missed", fmt.Sprintf("catchup %s, grace %ds", p.Catchup, int64(p.Grace/time.Second))
+		if occupied {
+			code, detail = "overlap_skipped", fmt.Sprintf("overlap forbid, grace %ds", int64(p.Grace/time.Second))
+		}
+		detail = fmt.Sprintf("%d occurrences %s..%s not launched (%s)", dropped.Count, dropped.First.UTC().Format(time.RFC3339Nano), dropped.Last.UTC().Format(time.RFC3339Nano), detail)
+		if dropped.Clipped {
+			detail += "; earlier occurrences beyond the 7-day scan not counted"
+		}
+		if err := (report.Outbox{Layout: w.Store.Layout, Dir: w.Store.Layout.Dropped()}).Drop(p, project.Name, project.Actor, w.Config.Executor, code, detail, dropped.First.UTC().Format(time.RFC3339Nano), c, now); err != nil {
+			return err
+		}
+	}
+	return state.WriteJSON(w.Store.Layout.Job(c.JobUID), c)
 }
 func (w *Worker) release(q journal.Requests, req journal.Request) error {
 	r, err := w.Store.Find(req.Run)
@@ -226,6 +284,10 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	if err != nil {
 		errs = append(errs, err)
 	}
+	blocked := make(map[string]bool)
+	protected := func(r journal.Run) bool {
+		return blocked[r.Project] || blocked[r.Project+":"+r.JobUID]
+	}
 	consumed := make(map[string]bool)
 	matched := make(map[string]string)
 	allRead := true
@@ -262,18 +324,12 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			break
 		}
 	}
-	for _, req := range requests {
-		if req.Kind == "release" {
-			if err = w.release(q, req); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
 	w.Unsupported = make(map[string][]string)
 	for _, project := range w.Config.Projects {
 		k := w.Clients[project.Name]
 		if k == nil {
 			allRead = false
+			blocked[project.Name] = true
 			pendingReason(project.Name, "", "project client is unavailable")
 			errs = append(errs, fmt.Errorf("client missing for %s", project.Name))
 			continue
@@ -281,6 +337,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		jobs, e := k.Jobs()
 		if e != nil {
 			allRead = false
+			blocked[project.Name] = true
 			pendingReason(project.Name, "", "project definitions are unavailable")
 			errs = append(errs, fmt.Errorf("%s definitions: %w", project.Name, e))
 			continue
@@ -299,9 +356,19 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			}
 		}
 		jobs = ownedJobs
+		protectJob := func(job kata.CronJob) {
+			d := job.Definition
+			blocked[project.Name+":"+job.UID] = d.Overlap == "forbid" && d.GraceSeconds != nil && *d.GraceSeconds > 0 && d.Trigger.Kind != "manual" && d.Trigger.Kind != "issue-scheduled"
+		}
+		protectJobs := func() {
+			for _, job := range jobs {
+				protectJob(job)
+			}
+		}
 		workflows, e := k.Workflows()
 		if e != nil {
 			allRead = false
+			protectJobs()
 			pendingReason(project.Name, "", "project workflows are unavailable")
 			errs = append(errs, e)
 			continue
@@ -310,6 +377,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		if defs.NeedsReadiness(jobs) {
 			if ready, e = k.Ready(); e != nil {
 				allRead = false
+				protectJobs()
 				pendingReason(project.Name, "", "project readiness is unavailable")
 				errs = append(errs, e)
 				continue
@@ -322,6 +390,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		for _, job := range jobs {
 			p, reasons := defs.Freeze(job, wfs, w.Config, project.Name, exec.LookPath)
 			if len(reasons) > 0 {
+				protectJob(job)
 				w.Unsupported[job.UID] = reasons
 				if e := (report.Outbox{Layout: w.Store.Layout}).Discover(p, project.Name, project.Actor, w.Config.Executor, reasons, now); e != nil {
 					errs = append(errs, e)
@@ -330,6 +399,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				continue
 			}
 			if p.Issue.Kind == "existing" && !ready[p.Issue.UID] {
+				protectJob(job)
 				rejectReason(project.Name, job.UID, "existing issue is not ready")
 				continue
 			}
@@ -402,8 +472,17 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				}
 				continue
 			}
-			c, e := w.checkpoint(job, p, now)
+			_, occupied, e := w.capacityState(project, job.UID, p.Overlap)
+			var c sched.Checkpoint
+			var dropped sched.Dropped
+			if e == nil {
+				c, dropped, e = w.checkpoint(project, job, p, occupied, now)
+			}
+			if e == nil {
+				e = w.commitCheckpoint(project, p, c, dropped, occupied, now)
+			}
 			if e != nil {
+				protectJob(job)
 				errs = append(errs, e)
 				continue
 			}
@@ -436,6 +515,17 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		}
 	}
 	for _, req := range requests {
+		if req.Kind == "release" {
+			if r, e := w.Store.Find(req.Run); e == nil && protected(r) {
+				errs = append(errs, q.Block(req.ID, "scheduled expiry decision is not durable"))
+				continue
+			}
+			if err = w.release(q, req); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	for _, req := range requests {
 		if req.Kind == "run" && !consumed[req.ID] {
 			var e error
 			if reason := permanent[req.ID]; reason != "" {
@@ -456,7 +546,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	}
 	for _, r := range runs {
 		if k := w.Clients[r.Project]; k != nil {
-			if err = w.advance(ctx, k, r, now); err != nil {
+			if err = w.advance(ctx, k, r, now, protected(r)); err != nil {
 				errs = append(errs, fmt.Errorf("run %s: %w", r.RunUID, err))
 			}
 		}
@@ -466,6 +556,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		clients[project.Name] = w.Clients[project.Name]
 	}
 	if err := (report.Outbox{Layout: w.Store.Layout}).Deliver(clients, now); err != nil {
+		errs = append(errs, err)
+	}
+	if err := (report.Outbox{Layout: w.Store.Layout, Dir: w.Store.Layout.Dropped()}).Deliver(clients, now); err != nil {
 		errs = append(errs, err)
 	}
 	return errors.Join(errs...)
@@ -498,7 +591,7 @@ func (w *Worker) held(ctx context.Context, k kata.Kata, r journal.Run, reason st
 	}
 	return report.Hold(ctx, k, w.Store, r.Key)
 }
-func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now time.Time) error {
+func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now time.Time, protectGate bool) error {
 	if r.Phase == "prepared" {
 		if err := report.Admit(ctx, k, w.Store, r.Key); err != nil {
 			if saved, e := w.Store.Load(r.Key); e != nil {
@@ -591,6 +684,9 @@ func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now ti
 	case flow.Wait:
 		return nil
 	case flow.Finish:
+		if protectGate {
+			return nil
+		}
 		if err = w.Store.Update(r.Key, func(r *journal.Run) error {
 			r.Phase = "settled"
 			r.Outcome = next.Outcome

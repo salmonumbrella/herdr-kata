@@ -8,7 +8,7 @@ last_edited: 2026-11-04
 
 Use Kata's Jobs and Runs tabs for run history. `herdr-kata doctor` checks the
 configured execution environment, unsupported definitions and pending/refused
-unsupported-report counts with job UIDs and delivery errors. There
+unsupported- and dropped-report counts with job UIDs and delivery errors. There
 is no adapter status command or TUI.
 
 `herdr-kata up` starts or adopts this installation's locked worker terminal,
@@ -73,6 +73,26 @@ For a refused report, fix the cause, stop the worker, then delete only the
 record file doctor names to report anew under a new run UID. Start the worker
 again. Keep completed records and execution journals. See [Jobs](jobs.md#unsupported-definitions)
 for reason codes, visibility and federation delays.
+
+## Dropped report delivery
+
+The `dropped/` state directory holds the frozen observations described in
+[Jobs](jobs.md#dropped-occurrences). Each Version 1 record also saves the exact
+post-drop checkpoint before the job checkpoint advances. Recovery applies that
+decision before scheduling new work, even if its observation is already `done`
+or `refused`. Checkpoint files and unsupported records keep their existing
+formats and Version values.
+
+Delivery tries one pending drop per tick, separately from the unsupported
+outbox, with the same frozen-byte retries and conflict readback. Records reserve
+no execution capacity. Keep pending, done and refused records: they preserve
+recovery and deduplication evidence. There is no automatic pruning.
+
+Doctor prints `dropped reports: pending=<n> refused=<n>` and each refusal's
+error. Refused drops need operator investigation; deleting a record does not
+resend it because the checkpoint may already have passed those occurrences.
+Keep the record while fixing the cause. Unsupported-report deletion guidance
+above applies only to unsupported records.
 
 ## Upgrade and rollback
 

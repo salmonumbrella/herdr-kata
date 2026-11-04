@@ -26,6 +26,11 @@ last_edited: 2026-11-04
   Existing-policy jobs use a daily per-job carrier issue, keeping their
   configured issue untouched. Alerts preserve intent across restarts and never
   resend uncertain notifications.
+- Dropped scheduled occurrences now appear in Kata as grouped cancelled runs
+  with a reason, count and time range. Doctor lists pending and refused drops.
+- Forbid jobs with positive grace drop expired occurrences before their gate
+  clears. Saved drop decisions recover with their checkpoints after a crash,
+  so cancelled work cannot launch later.
 
 ## 0.3.0
 <small>2026-11-03</small>
