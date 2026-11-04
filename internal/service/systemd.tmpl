@@ -1,0 +1,13 @@
+[Unit]
+Description=herdr-kata worker {{.Name}}
+After=default.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=:{{range $i, $v := .Argv}}{{if $i}} {{end}}{{quote $v}}{{end}}
+{{range $k, $v := .Env}}Environment={{quote (printf "%s=%s" $k $v)}}
+{{end}}Restart=on-failure
+RestartSec=30
+KillMode=process
+[Install]
+WantedBy=default.target

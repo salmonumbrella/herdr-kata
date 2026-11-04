@@ -10,6 +10,8 @@ Use Kata's Jobs and Runs tabs for run history. `herdr-kata doctor` checks the
 configured execution environment, unsupported definitions and pending/refused
 unsupported- and dropped-report counts with job UIDs and delivery errors. There
 is no adapter status command or TUI.
+Its optional `service` line reports login-service file presence; see
+[Install](install.md#start-at-login) for setup, refresh and removal.
 
 `herdr-kata up` starts or adopts this installation's locked worker terminal,
 named `herdr-kata-<state-path-hash>`. `stop` kills and removes only that

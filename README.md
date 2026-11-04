@@ -119,33 +119,5 @@ request and waits for the worker's decision. Use `herdr-kata logs <run-uid>` to 
 
 ## Starting at login
 
-Run `herdr-kata up` from your login environment. Pass a PATH that can find
-your agent binaries. `up` passes the operator environment to the worker.
-
-A systemd user unit can invoke it as a oneshot:
-
-```ini
-[Unit]
-Description=Kata job worker
-[Service]
-Type=oneshot
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
-ExecStart=/usr/local/bin/herdr-kata up
-RemainAfterExit=yes
-ExecStop=/usr/local/bin/herdr-kata stop
-[Install]
-WantedBy=default.target
-```
-
-A launchd user agent can run the same command at login:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>Label</key><string>example.kata-worker</string>
-  <key>ProgramArguments</key><array><string>/usr/local/bin/herdr-kata</string><string>up</string></array>
-  <key>RunAtLoad</key><true/>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/usr/local/bin:/usr/bin:/bin</string></dict>
-</dict></plist>
-```
+Run `herdr-kata service install` from the shell where `herdr-kata up` works.
+See [Install](docs/install.md#start-at-login) for login startup, refresh and removal.

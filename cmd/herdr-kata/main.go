@@ -11,7 +11,7 @@ func main() { os.Exit(run(os.Args[1:], os.Stdout)) }
 
 func run(args []string, out io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(out, "usage: herdr-kata <up|serve|stop|run|release|logs|report|exec-step|doctor|version>")
+		fmt.Fprintln(out, "usage: herdr-kata <up|serve|stop|run|release|logs|report|exec-step|doctor|service|version>")
 		return 2
 	}
 	configPath, statePath := "", ""
@@ -32,6 +32,12 @@ func run(args []string, out io.Writer) int {
 		return 2
 	}
 	switch args[0] {
+	case "service":
+		if len(args) < 2 || (args[1] != "install" && args[1] != "uninstall") || (len(args) != 2 && !(len(args) == 3 && args[1] == "install" && args[2] == "--print")) {
+			fmt.Fprintln(out, "usage: herdr-kata [--config <path>] [--state <path>] service <install [--print]|uninstall>")
+			return 2
+		}
+		return operatorCommand(args, configPath, statePath, out)
 	case "report":
 		return report(args[1:], out)
 	case "exec-step":

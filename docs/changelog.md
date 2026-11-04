@@ -47,6 +47,9 @@ last_edited: 2026-11-04
   unsupported reports. Inventory them with raw definitions or the staged
   new binary's doctor before starting the upgraded worker. Roll back binary and
   config together because v0.3.0 rejects the new profile key.
+- `herdr-kata service install` starts the worker at login with the current
+  PATH, config and state. `service uninstall` removes autostart and leaves
+  the worker running; doctor shows whether the service file is installed.
 
 ## 0.3.0
 <small>2026-11-03</small>
