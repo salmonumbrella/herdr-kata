@@ -287,3 +287,10 @@ or transport problem. These cases do not create a new unsupported run:
 A not-ready existing issue alone is a gate. An independently unsupported
 definition still reports its defect after successful project reads. A
 command's `skip_exit` is a successful skip, not an unsupported failure.
+
+## Why didn't my job run?
+
+A replica may exclude the job through its advertised execution policy.
+`herdr-kata doctor` prints the policy and each exclusion reason. See
+[Fleet capabilities](operations.md#fleet-capabilities) for refresh behavior
+and the admission race.

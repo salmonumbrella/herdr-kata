@@ -147,18 +147,21 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 			fmt.Fprintf(out, "project %s: held runs hold capacity: %s\n", p.Name, strings.Join(held, ", "))
 		}
 		base := append(attempt.LaunchEnv(c.Limits.UnsetEnv, c.Kata.Env), c.Kata.Bin, "--project", p.Name, "--daemon", c.Kata.Daemon, "--as", p.Actor, "--teammate", "herdr-kata", "--json")
+		var caps kata.Caps
 		for _, command := range [][]string{{"whoami"}, {"cron", "capabilities"}} {
 			raw, e := h.Exec(ctx, append(slices.Clone(base), command...))
 			if e == nil && command[0] == "cron" {
-				var v struct {
-					Features []string `json:"event_features"`
-				}
-				if json.Unmarshal([]byte(raw), &v) != nil || !slices.Contains(v.Features, "cron_v1") {
+				if json.Unmarshal([]byte(raw), &caps) != nil || !slices.Contains(caps.EventFeatures, "cron_v1") {
 					e = errors.New("cron_v1 capability missing")
 				}
 			}
 			check("project "+p.Name+" "+strings.Join(command, " "), e)
 		}
+		execution := "legacy"
+		if caps.Execution != nil {
+			execution = caps.Execution.Mode + "(" + caps.Execution.MemberActor + ")"
+		}
+		fmt.Fprintf(out, "project %s capabilities: execution=%s pause=%t requests=%t runtimes=%t summary_v2=%t\n", p.Name, execution, slices.Contains(caps.Controls, "project_pause"), slices.Contains(caps.Controls, "run_request") || slices.Contains(caps.Controls, "cancel_request"), slices.Contains(caps.Features, "cron_runtimes_v1"), slices.Contains(caps.EventFeatures, "cron_run_summary_v2"))
 		k := clients[p.Name]
 		if k == nil {
 			check("project "+p.Name, errors.New("client missing"))
@@ -180,7 +183,7 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 		}
 		ownedJobs := []kata.CronJob{}
 		for _, job := range jobs {
-			if owned, _ := defs.Owned(job, p.Name, c); owned {
+			if owned, _ := defs.Owned(job, p.Name, c); owned && caps.Excludes(job.Author) == "" {
 				ownedJobs = append(ownedJobs, job)
 			}
 		}
@@ -194,6 +197,10 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 				fmt.Fprintf(out, "pinned elsewhere %s: options.executor=%s\n", job.UID, pin)
 			}
 			if owned, _ := defs.Owned(job, p.Name, c); !owned {
+				continue
+			}
+			if reason := caps.Excludes(job.Author); reason != "" {
+				fmt.Fprintf(out, "excluded %s: %s\n", job.UID, reason)
 				continue
 			}
 			for _, warning := range defs.DefaultModelSteps(job, wfs, c, p.Name) {

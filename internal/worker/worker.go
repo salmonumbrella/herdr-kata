@@ -29,6 +29,7 @@ import (
 )
 
 type Worker struct {
+	caps         map[string]capsEntry
 	Config       config.Config
 	Store        *journal.Store
 	HC           hc.HC
@@ -41,7 +42,7 @@ type Worker struct {
 }
 
 func New(c config.Config, st *journal.Store, h hc.HC, clients map[string]kata.Kata, bin string) *Worker {
-	return &Worker{Config: c, Store: st, HC: h, Clients: clients, Bin: bin, Unsupported: make(map[string][]string), SeenRequests: make(map[string]bool)}
+	return &Worker{Config: c, Store: st, HC: h, Clients: clients, Bin: bin, Unsupported: make(map[string][]string), SeenRequests: make(map[string]bool), caps: make(map[string]capsEntry)}
 }
 func (w *Worker) init(now time.Time) error {
 	if !w.installed.IsZero() {
@@ -324,6 +325,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			break
 		}
 	}
+	knownCaps := make(map[string]bool)
 	w.Unsupported = make(map[string][]string)
 	for _, project := range w.Config.Projects {
 		k := w.Clients[project.Name]
@@ -332,6 +334,16 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			blocked[project.Name] = true
 			pendingReason(project.Name, "", "project client is unavailable")
 			errs = append(errs, fmt.Errorf("client missing for %s", project.Name))
+			continue
+		}
+		caps, known, capErr := w.capsFor(project.Name, now)
+		knownCaps[project.Name] = known
+		if capErr != nil {
+			errs = append(errs, capErr)
+		}
+		if !known {
+			allRead = false
+			pendingReason(project.Name, "", "project capabilities are unavailable")
 			continue
 		}
 		jobs, e := k.Jobs()
@@ -349,7 +361,12 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					matched[req.ID] = project.Name
 				}
 			}
-			if owned, reason := defs.Owned(job, project.Name, w.Config); !owned {
+			owned, reason := defs.Owned(job, project.Name, w.Config)
+			if owned {
+				reason = caps.Excludes(job.Author)
+				owned = reason == ""
+			}
+			if !owned {
 				rejectReason(project.Name, job.UID, reason)
 			} else {
 				ownedJobs = append(ownedJobs, job)
@@ -545,6 +562,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		return errors.Join(append(errs, err)...)
 	}
 	for _, r := range runs {
+		if r.Phase == "prepared" && !knownCaps[r.Project] {
+			continue
+		}
 		if k := w.Clients[r.Project]; k != nil {
 			if err = w.advance(ctx, k, r, now, protected(r)); err != nil {
 				errs = append(errs, fmt.Errorf("run %s: %w", r.RunUID, err))

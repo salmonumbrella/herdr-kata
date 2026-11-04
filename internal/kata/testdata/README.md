@@ -15,3 +15,7 @@ validator dependency, as permitted by the v2 dependency rule.
 
 `runs.json` is a hand-authored bounded run-list response for executor
 diagnostics, using neutral identifiers and the documented wire fields.
+
+`capabilities-fleet.json` is a hand-authored fixture for the in-flight Kata
+fleet contracts (execution opt-in, pause controls, runtime heartbeat and
+summary v2). Recheck these fields against merged upstream JSON before release.
