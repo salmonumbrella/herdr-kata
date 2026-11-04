@@ -1,11 +1,16 @@
 package worker
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"github.com/oklog/ulid/v2"
 	"github.com/salmonumbrella/herdr-kata/internal/attempt"
 	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/report"
+	"github.com/salmonumbrella/herdr-kata/internal/version"
 	"slices"
 	"strings"
 	"time"
@@ -14,6 +19,7 @@ import (
 )
 
 type capsEntry struct {
+	beat  time.Time
 	at    time.Time
 	caps  kata.Caps
 	known bool
@@ -87,4 +93,30 @@ func (w *Worker) cancel(ctx context.Context, k kata.Kata, r journal.Run, now tim
 		return err
 	}
 	return report.Final(ctx, k, w.Store, r.Key)
+}
+
+func (w *Worker) beat(ctx context.Context, k kata.Kata, project string, now time.Time) error {
+	now = clock.Current(ctx, now)
+	entry := w.caps[project]
+	if !slices.Contains(entry.caps.Features, "cron_runtimes_v1") || !entry.beat.IsZero() && now.Before(entry.beat.Add(time.Minute)) {
+		return nil
+	}
+	entry.beat = now
+	w.caps[project] = entry
+	sum := sha256.Sum256([]byte("herdr-kata-runtime|" + w.Config.Executor + "|" + w.Store.Layout.Root))
+	uid, err := ulid.New(ulid.Timestamp(w.installed), bytes.NewReader(sum[:10]))
+	if err != nil {
+		return err
+	}
+	body, err := json.Marshal(map[string]any{
+		"label": w.Config.Executor, "adapter": "herdr-kata", "adapter_version": version.Version,
+		"features":         []string{"cron_v1", "execution_optin", "project_pause", "run_request", "cancel_request"},
+		"interval_seconds": 60, "state": "active",
+	})
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	return kata.WithContext(k, ctx).Beat(uid.String(), body)
 }

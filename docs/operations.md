@@ -1,7 +1,7 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-04
+last_edited: 2026-11-05
 ---
 
 # Operations
@@ -363,3 +363,9 @@ and saved removal intent still recovers after a lost reply. Terminals remain
 inspectable.
 Lost or ambiguous execution still holds for the operator. No later step or
 retry starts after cancellation intent is saved.
+
+Workers advertise active runtime presence only when `cron_runtimes_v1` is
+advertised. Beats include the adapter version and compiled adoptions, at most
+once per minute per project, measured from each attempt. Failures use the same
+interval and a three-second call budget. The derived identity survives restart
+without another state file. Older daemons retain legacy behavior.
