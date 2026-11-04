@@ -108,11 +108,22 @@ type ObserveCronRunBody struct {
 	WorkflowDefinitionEventUID *string    `json:"workflow_definition_event_uid,omitempty"`
 	WorkflowUID                *string    `json:"workflow_uid,omitempty"`
 }
+type SummaryStep struct {
+	Key      string  `json:"key"`
+	Status   string  `json:"status"`
+	Attempts int     `json:"attempts"`
+	ExitCode *int    `json:"exit_code,omitempty"`
+	Reason   *string `json:"reason,omitempty"`
+	Message  string  `json:"message,omitempty"`
+}
 type Summary struct {
 	InputTokens  *int64  `json:"input_tokens,omitempty"`
 	Message      *string `json:"message,omitempty"`
 	OutputTokens *int64  `json:"output_tokens,omitempty"`
 	Version      int64   `json:"version"`
+
+	Reason *string       `json:"reason,omitempty"`
+	Steps  []SummaryStep `json:"steps,omitempty"`
 }
 type DateValue struct {
 	Field    string    `json:"field"`

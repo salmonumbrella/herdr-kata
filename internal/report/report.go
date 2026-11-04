@@ -2,6 +2,7 @@
 package report
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,11 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
 )
 
+type summaryV2Key struct{}
+
+func WithSummaryV2(ctx context.Context, enabled bool) context.Context {
+	return context.WithValue(ctx, summaryV2Key{}, enabled)
+}
 func WithNow(ctx context.Context, at time.Time) context.Context {
 	return runclock.WithNow(ctx, at)
 }
@@ -39,7 +45,7 @@ func bounded(s string) string {
 	}
 	return s
 }
-func freeze(r journal.Run, status, message string, expected int, ended *time.Time) ([]byte, error) {
+func freeze(r journal.Run, status, message string, expected int, ended *time.Time, v2 ...bool) ([]byte, error) {
 	b := kata.ObserveCronRunBody{ExpectedRevision: int64(expected), Actor: new(r.Actor), ExecutorLabel: new(r.Executor), Teammate: new("herdr-kata"), Status: status, Summary: kata.Summary{Version: 1, Message: new(message)}, StartedAt: r.StartedAt, EndedAt: ended}
 	if r.Plan.JobUID != "" {
 		b.JobUID = new(r.Plan.JobUID)
@@ -54,6 +60,11 @@ func freeze(r journal.Run, status, message string, expected int, ended *time.Tim
 	}
 	if r.IssueUID != "" {
 		b.IssueUID = new(r.IssueUID)
+	}
+	if len(v2) > 0 && v2[0] {
+		if err := enrich(&b.Summary, r); err != nil {
+			return nil, err
+		}
 	}
 	return json.Marshal(b)
 }
@@ -75,6 +86,10 @@ func observe(k kata.Kata, r journal.Run, b []byte, expected int) (int, error, bo
 	if err == nil {
 		return rev, nil, false
 	}
+	if _, changed, _ := projectV1(b); changed && unsupportedFeatures(err) {
+		return 0, err, false
+	}
+
 	switch kata.Classify(err) {
 	case kata.Conflict:
 		current, raw, readErr := k.ShowRun(r.RunUID)
@@ -301,7 +316,8 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 		if r.EndedAt == nil {
 			r.EndedAt = new(clock(ctx))
 		}
-		r.ReportBody, err = freeze(r, status, bounded(message), r.ObsRev, r.EndedAt)
+		v2, _ := ctx.Value(summaryV2Key{}).(bool)
+		r.ReportBody, err = freeze(r, status, bounded(message), r.ObsRev, r.EndedAt, v2)
 		if err != nil {
 			return err
 		}
@@ -325,6 +341,19 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 		}
 	}
 	rev, err, permanent := observe(k, r, r.ReportBody, r.ObsRev)
+	if unsupportedFeatures(err) {
+		projected, changed, e := projectV1(r.ReportBody)
+		if e != nil {
+			return e
+		}
+		if changed {
+			if e = st.Update(key, func(r *journal.Run) error { r.ReportBody = projected; return nil }); e != nil {
+				return e
+			}
+			return publish(ctx, k, st, key, holding)
+		}
+	}
+
 	if err != nil {
 		if permanent {
 			return refused(st, key, err, true)
@@ -356,4 +385,81 @@ func Hold(ctx context.Context, k kata.Kata, st *journal.Store, key string) error
 }
 func Final(ctx context.Context, k kata.Kata, st *journal.Store, key string) error {
 	return publish(ctx, k, st, key, false)
+}
+
+func enrich(v *kata.Summary, r journal.Run) error {
+	if message := v.Message; message != nil && strings.HasPrefix(*message, "reason: ") {
+		v.Reason = new(strings.SplitN(strings.TrimPrefix(*message, "reason: "), "\n", 2)[0])
+	}
+	latest := make(map[string]journal.Attempt)
+	for _, a := range r.Attempts {
+		if a.N >= latest[a.Step].N {
+			latest[a.Step] = a
+		}
+	}
+	for _, step := range r.Plan.Steps {
+		a, ok := latest[step.Key]
+		if !ok {
+			continue
+		}
+		s := kata.SummaryStep{Key: step.Key, Status: a.Status, Attempts: a.N}
+		if !slices.Contains([]string{"succeeded", "failed", "skipped"}, s.Status) {
+			s.Status = "unknown"
+		}
+		if a.Status == "needs-human" {
+			s.Reason = new("needs-human")
+		}
+		if a.Receipt != nil {
+			s.ExitCode = new(a.Receipt.ExitCode)
+		}
+		s.Message = bounded(strings.ToValidUTF8(a.Summary, "�"))
+		v.Steps = append(v.Steps, s)
+	}
+	previous := 0
+	for {
+		encoded, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		if len(encoded) <= 64*1024 {
+			return nil
+		}
+		if len(encoded) == previous {
+			return errors.New("summary metadata exceeds 64 KiB")
+		}
+		previous = len(encoded)
+		if m := v.Message; m != nil {
+			v.Message = new(strings.ToValidUTF8((*m)[:len(*m)/2], ""))
+		}
+		for i, s := range v.Steps {
+			v.Steps[i].Message = strings.ToValidUTF8(s.Message[:len(s.Message)/2], "")
+		}
+	}
+}
+func unsupportedFeatures(err error) bool {
+	e, ok := errors.AsType[*kata.Error](err)
+	if !ok || e.Code != 5 {
+		return false
+	}
+	var v struct{ Error struct{ Kind, Code string } }
+	return json.Unmarshal([]byte(e.Message), &v) == nil && v.Error.Kind == "conflict" && v.Error.Code == "unsupported_event_features"
+}
+func projectV1(b []byte) ([]byte, bool, error) {
+	var v map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.UseNumber()
+	if err := decoder.Decode(&v); err != nil {
+		return nil, false, err
+	}
+	summary, ok := v["summary"].(map[string]any)
+	if !ok {
+		return nil, false, errors.New("invalid frozen summary")
+	}
+	if summary["reason"] == nil && summary["steps"] == nil {
+		return b, false, nil
+	}
+	delete(summary, "reason")
+	delete(summary, "steps")
+	b, err := json.Marshal(v)
+	return b, true, err
 }

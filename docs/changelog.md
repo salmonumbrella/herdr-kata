@@ -8,6 +8,10 @@ last_edited: 2026-11-04
 
 ## Unreleased
 
+- Enrich advertised summary v2 reports with structured reasons and latest step
+  outcomes. Preserve frozen evidence and save a legacy projection before retry
+  after an exact unsupported-feature refusal.
+
 ## 0.4.0
 <small>2026-11-04</small>
 
