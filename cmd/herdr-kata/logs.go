@@ -27,7 +27,17 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 	}
 	a := r.Attempts[len(r.Attempts)-1]
 	path := filepath.Join(st.Layout.Attempt(r.Key, a.Step, a.N), "output.log")
-	f, err := os.Open(path)
+	useSnapshot := true
+	for _, step := range r.Plan.Steps {
+		if step.Key == a.Step && step.Kind == "prompt" {
+			useSnapshot = a.StopReason != ""
+		}
+	}
+	var f *os.File
+	err = os.ErrNotExist
+	if useSnapshot {
+		f, err = os.Open(path)
+	}
 	if err == nil {
 		defer func() { _ = f.Close() }()
 		_, err = io.Copy(out, f)

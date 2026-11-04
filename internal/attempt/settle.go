@@ -93,52 +93,6 @@ func accept(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	}
 	return cleanup(ctx, h, st, key, idx, a)
 }
-func expire(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, a journal.Attempt, kind string, now time.Time) (Outcome, error) {
-	lost := "agent_lost"
-	if kind == "command" {
-		lost = "command_outcome_unknown"
-	}
-	term, err := guarded(ctx, h, a)
-	if errors.Is(err, hc.ErrNotFound) {
-		return held(st, key, idx, lost)
-	}
-	if errors.Is(err, ErrOccupantChanged) {
-		return held(st, key, idx, "occupant_changed")
-	}
-	if err != nil {
-		return Pending{}, err
-	}
-	if term.State == "finished" {
-		return held(st, key, idx, "timeout")
-	}
-	if a.ExpiringAt == nil {
-		a.ExpiringAt = new(now)
-		if err = saveAttempt(st, key, idx, a); err != nil {
-			return Pending{}, err
-		}
-		if kind == "prompt" {
-			return Pending{}, h.Interrupt(ctx, a.Address)
-		}
-	}
-	if kind == "prompt" && now.Before(a.ExpiringAt.Add(10*time.Second)) {
-		return Pending{}, nil
-	}
-	// Revalidate again immediately before the destructive operation.
-	err = Guard(ctx, h, a)
-	if errors.Is(err, hc.ErrNotFound) {
-		return held(st, key, idx, lost)
-	}
-	if errors.Is(err, ErrOccupantChanged) {
-		return held(st, key, idx, "occupant_changed")
-	}
-	if err != nil {
-		return Pending{}, err
-	}
-	if err = h.Kill(ctx, a.Address); err != nil {
-		return Pending{}, err
-	}
-	return held(st, key, idx, "timeout")
-}
 func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, now time.Time) (Outcome, error) {
 	r, err := st.Load(key)
 	if err != nil {
@@ -181,7 +135,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		return Pending{}, err
 	}
 	if a.ExpiringAt != nil || term.State == "live" && !r.ExpiresAt.IsZero() && !now.Before(r.ExpiresAt) {
-		return expire(ctx, h, st, key, idx, a, kind, now)
+		return stop(ctx, h, st, key, idx, a, kind, "timeout", now)
 	}
 	dir := st.Layout.Attempt(key, a.Step, a.N)
 	if kind == "command" {
@@ -219,6 +173,18 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	var result prompt.Result
 	if resultErr == nil {
 		result, resultErr = prompt.ParseResult(resultBytes, r.RunUID, a.Step, a.N)
+	}
+	if term.CreatedMs != a.CreatedMs || term.PID != a.PID || term.Labels["kata.nonce"] != a.Nonce {
+		return held(st, key, idx, "occupant_changed")
+	}
+	if (a.TaskStarted == nil || !*a.TaskStarted) && (term.Status == "working" || term.Turn > 0 || resultErr == nil) {
+		a.TaskStarted = new(true)
+		if err = saveAttempt(st, key, idx, a); err != nil {
+			return Pending{}, err
+		}
+	}
+	if term.State == "live" && a.TaskStarted != nil && !*a.TaskStarted && !now.Before(a.LaunchedAt.Add(2*time.Minute)) {
+		return stop(ctx, h, st, key, idx, a, kind, "agent_not_started", now)
 	}
 	if term.State == "finished" {
 		if term.Reason != "exited" || resultErr != nil {

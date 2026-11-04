@@ -123,6 +123,35 @@ A prepared run without a saved issue UID after 6 days holds
 mutate it. Agents own issue closure. A successful run may leave its issue
 open; the adapter never closes issues on the agent's behalf.
 
+## Startup and timeouts
+
+Each new prompt attempt has a fixed two-minute startup decision window from
+its saved launch time. The worker latches startup when hc reports `working`
+or a completed turn, or a valid matching result appears. A current activity
+snapshot wins at the cutoff; activity observed during launch or recovery
+also survives worker restart. Later blocked spells retain their notification
+behavior. Custom agents without hc status reporting must produce a valid
+result within this window. The worker never answers dialogs or trusts hooks.
+
+Without startup evidence, the next tick begins a guarded stop with reason
+`agent_not_started`. The frozen run deadline takes priority when it is
+already due, using reason `timeout`. Prompt stops interrupt first, then
+allow ten seconds from durable stop intent before killing a still-live
+terminal. Commands kill immediately at their deadline. Normal ticks are
+30 seconds, so the cutoff, interrupt grace and cleanup can span several
+ticks. Unavailable terminal evidence or output capture can delay progress.
+
+The worker confirms the same terminal is finished and no completion artifact
+exists before settling the run failed. An unstoppable or lost terminal,
+changed occupant or result/receipt racing the stop remains held for inspection.
+A known stop ends the whole run without step retries or later steps and frees
+its capacity and overlap gate. Startup/timeout prompt screens remain in
+`herdr-kata logs`; see [Operations](operations.md#held-runs).
+
+Older attempt journals without the nullable startup marker are grandfathered
+out of the new startup cutoff and retain their normal run deadline. Already
+held runs still require investigated release. No configuration key changes.
+
 ## Unsupported definitions
 
 An owned definition that cannot run produces a failed Kata run with this

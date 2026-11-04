@@ -9,7 +9,5 @@ github.com/oklog/ulid/v2 v2.1.2/go.mod h1:rcEKHmBBKfef9DhnvX7y1HZBYxjXb0cP5ExxNs
 github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
 golang.org/x/sys v0.48.0 h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=
 golang.org/x/sys v0.48.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
-hegel.dev/go/hegel v0.9.28 h1:7dSrScsZBQWv1KwvymZvGVbterTfQkNGQzinNgcE5NY=
-hegel.dev/go/hegel v0.9.28/go.mod h1:32oDGA+F4vXA9fLQ/IoyZGIKir8JWjop3fcb6LNs2t4=
 hegel.dev/go/hegel v0.9.29 h1:Tgxp7n0SIJn6BWlJcBo6KBKsvM98DBQwgpJUfF1tpLA=
 hegel.dev/go/hegel v0.9.29/go.mod h1:32oDGA+F4vXA9fLQ/IoyZGIKir8JWjop3fcb6LNs2t4=

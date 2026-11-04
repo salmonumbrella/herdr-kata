@@ -29,6 +29,8 @@ type Attempt struct {
 	Spec                                                    hc.RunSpec
 	Cleanup, SettlementStatus, SettlementNote, ResultDigest string
 	ExpiringAt                                              *time.Time
+	TaskStarted                                             *bool
+	StopReason                                              string
 	Blocked                                                 bool
 	BlockedSpell                                            int
 	Step                                                    string

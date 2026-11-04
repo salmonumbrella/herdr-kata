@@ -68,6 +68,9 @@ func (f *fakeHC) List(_ context.Context, all bool, labels map[string]string) ([]
 	}
 	return out, nil
 }
+func (f *fakeHC) Read(context.Context, string, int) (string, bool, error) {
+	return "terminal output", true, nil
+}
 func (f *fakeHC) Interrupt(_ context.Context, target string) error {
 	f.calls = append(f.calls, "interrupt:"+target)
 	return nil
@@ -380,7 +383,7 @@ func TestExpiryInterruptThenKill(t *testing.T) {
 		t.Fatal(f.calls)
 	}
 	out := advance(t, st, f, r, r.ExpiresAt.Add(10*time.Second))
-	if h, ok := out.(Held); !ok || h.Reason != "timeout" || !reflect.DeepEqual(f.calls, []string{"interrupt:t1", "kill:t1"}) {
+	if d, ok := out.(Done); !ok || d.Status != "failed" || !reflect.DeepEqual(f.calls, []string{"interrupt:t1", "kill:t1", "rm:t1"}) {
 		t.Fatal(out, f.calls)
 	}
 }
@@ -640,7 +643,7 @@ func TestCommandLiveAndExpiry(t *testing.T) {
 		t.Fatal(out)
 	}
 	out := advance(t, st, f, r, r.ExpiresAt)
-	if h, ok := out.(Held); !ok || h.Reason != "timeout" || !reflect.DeepEqual(f.calls, []string{"kill:t1"}) {
+	if d, ok := out.(Done); !ok || d.Status != "failed" || !reflect.DeepEqual(f.calls, []string{"kill:t1", "rm:t1"}) {
 		t.Fatal(out, f.calls)
 	}
 }

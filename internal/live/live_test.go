@@ -116,7 +116,11 @@ func codexSandbox() string {
 
 func newFixture(t *testing.T, bin, coreBin, auth string) *fixture {
 	t.Helper()
-	root, err := os.MkdirTemp("", "hk3-")
+	root, err := os.MkdirTemp("/tmp", "hk3-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err = filepath.EvalSymlinks(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,6 +357,7 @@ func TestLive(t *testing.T) {
 				coreBin = download(t, root, version)
 			}
 			t.Run("zero-config", func(t *testing.T) { zeroConfigJobs(t, bin, coreBin, script) })
+			t.Run("startup-timeout", func(t *testing.T) { startupTimeout(t, bin, coreBin) })
 			t.Run("scripted", func(t *testing.T) {
 				f := newFixture(t, bin, coreBin, "")
 				f.configure([]string{"/bin/sh", script})
