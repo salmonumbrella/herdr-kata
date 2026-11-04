@@ -194,7 +194,7 @@ func TestDefinitionsParse(t *testing.T) {
 	t.Run("jobs", func(t *testing.T) {
 		k, args := stub(t, "jobs", "0")
 		got, err := k.Jobs()
-		if err != nil || len(got) != 1 || got[0].UID != "01J00000000000000000000010" || got[0].Definition.Action.Kind != "execute" {
+		if err != nil || len(got.Jobs) != 1 || got.Jobs[0].UID != "01J00000000000000000000010" || got.Jobs[0].Definition.Action.Kind != "execute" {
 			t.Fatalf("jobs: %+v %v", got, err)
 		}
 		assertArgs(t, args(), "cron", "job", "list")

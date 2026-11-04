@@ -342,3 +342,8 @@ case; only its login file is copied into the disposable native home.
 to `workspace-write`. Use `danger-full-access` only where the operator has
 chosen the surrounding container as the security boundary. The test does
 not add host capabilities or disable the container's seccomp policy.
+
+The job-list `project_pause` field stops new preparation and admission. An
+absent or null value allows work; every other value pauses it. A failed
+job-list read also keeps prepared journals waiting. Admitted runs keep
+settling and reporting. Resume applies each job's existing catch-up policy.

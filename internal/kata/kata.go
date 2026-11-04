@@ -53,7 +53,7 @@ func Classify(err error) Class {
 }
 
 type Kata interface {
-	Jobs() ([]CronJob, error)
+	Jobs() (JobList, error)
 	Workflows() ([]CronWorkflow, error)
 	Runs(jobUID string, limit int) ([]CronRun, error)
 	Ready() (map[string]bool, error)
@@ -122,10 +122,10 @@ func (c *cli) call(input []byte, out any, args ...string) error {
 	d.UseNumber()
 	return d.Decode(out)
 }
-func (c *cli) Jobs() ([]CronJob, error) {
-	var v struct{ Jobs []CronJob }
+func (c *cli) Jobs() (JobList, error) {
+	var v JobList
 	err := c.call(nil, &v, "cron", "job", "list")
-	return v.Jobs, err
+	return v, err
 }
 func (c *cli) Workflows() ([]CronWorkflow, error) {
 	var v struct{ Workflows []CronWorkflow }

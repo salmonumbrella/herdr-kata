@@ -1,6 +1,10 @@
 package kata
 
-import "fmt"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+)
 
 type Caps struct {
 	EventFeatures []string   `json:"event_features"`
@@ -31,4 +35,14 @@ func (c *cli) Capabilities() (Caps, error) {
 	var v Caps
 	err := c.call(nil, &v, "cron", "capabilities")
 	return v, err
+}
+
+// JobList keeps the pause advertisement even when definitions are empty.
+type JobList struct {
+	Jobs         []CronJob       `json:"jobs"`
+	ProjectPause json.RawMessage `json:"project_pause"`
+}
+
+func (j JobList) Paused() bool {
+	return len(j.ProjectPause) > 0 && !bytes.Equal(bytes.TrimSpace(j.ProjectPause), []byte("null"))
 }

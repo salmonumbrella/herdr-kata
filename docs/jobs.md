@@ -294,3 +294,6 @@ A replica may exclude the job through its advertised execution policy.
 `herdr-kata doctor` prints the policy and each exclusion reason. See
 [Fleet capabilities](operations.md#fleet-capabilities) for refresh behavior
 and the admission race.
+
+A project pause holds local run requests pending. Prepared journals wait for
+an unpaused job-list read before admission; admitted runs keep advancing.
