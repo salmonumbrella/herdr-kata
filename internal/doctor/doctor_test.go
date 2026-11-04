@@ -186,3 +186,23 @@ func TestDoctorDroppedRefusal(t *testing.T) {
 		t.Fatal(text)
 	}
 }
+
+func TestDoctorFailsQuarantinedEntriesWithoutCheckingTheirProjects(t *testing.T) {
+	c, l, h := fixture(t)
+	c.Quarantined = []config.Quarantine{{Entry: 2, Name: "broken-project", Reason: "duplicate project name"}}
+	var out bytes.Buffer
+	err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{}, "broken-project": nil}, &out)
+	want := "FAIL config: quarantined project entry 2 (broken-project): duplicate project name\n"
+	if err == nil || strings.Count(out.String(), want) != 1 {
+		t.Fatalf("doctor error=%v output=%q", err, out.String())
+	}
+	if len(h.argv) != 2 {
+		t.Fatalf("project checks: %q", h.argv)
+	}
+	for _, argv := range h.argv {
+		i := slices.Index(argv, "--project")
+		if i < 0 || i+1 >= len(argv) || argv[i+1] != "example-project" {
+			t.Fatalf("checked quarantined project: %q", argv)
+		}
+	}
+}

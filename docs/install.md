@@ -28,7 +28,8 @@ back to `~/.config/herdr-kata/config.toml`. State defaults to
 `$XDG_STATE_HOME/herdr-kata`, falling back to `~/.local/state/herdr-kata`.
 Place `--config <path>` and `--state <directory>` before the command to
 override them. All configured filesystem paths must be absolute. Unknown
-keys fail configuration loading.
+keys outside `[[projects]]` fail configuration loading. Invalid project entries
+are quarantined; the remaining valid projects can run.
 
 `executor` identifies this installation in Kata observations and terminal
 labels. Keep it stable with the state directory. `hc_session` defaults to
@@ -53,7 +54,7 @@ default_agent = "default"
 ```
 
 `default_checkout` must name a key in `[checkouts]`, and `default_agent` a key
-in `[profiles]`. An unknown default fails startup with the project and key.
+in `[profiles]`. An unknown default quarantines that project with its name and key.
 Both are optional. See [Jobs](jobs.md) for precedence and [Operations](operations.md)
 for upgrade and rollback.
 

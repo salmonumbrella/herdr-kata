@@ -25,6 +25,9 @@ func serve(ctx context.Context, c config.Config, st *journal.Store, h hc.HC, cli
 		return err
 	}
 	defer func() { _ = os.Remove(st.Layout.PID()) }()
+	for _, q := range c.Quarantined {
+		fmt.Fprintln(out, "warning: quarantined", q)
+	}
 	w := worker.New(c, st, h, clients, bin)
 	w.StartedAt = startedAt
 	advance := func() {

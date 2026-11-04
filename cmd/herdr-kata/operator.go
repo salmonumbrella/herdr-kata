@@ -94,6 +94,9 @@ func operatorCommand(args []string, configPath, root string, out io.Writer) int 
 			var t hc.Terminal
 			t, err = control.Up(ctx, h, l, bin, path, attempt.LaunchEnv(c.Limits.UnsetEnv, c.Kata.Env))
 			if err == nil {
+				for _, q := range c.Quarantined {
+					fmt.Fprintln(out, "warning: quarantined", q)
+				}
 				fmt.Fprintln(out, "worker", t.Address)
 			}
 		}
