@@ -74,6 +74,7 @@ func ParseResult(b []byte, runUID, step string, n int) (Result, error) {
 	if r.RunUID != runUID || r.Step != step || r.Attempt != n {
 		return r, fmt.Errorf("stale result identity")
 	}
+	r.Note = NormalizeNote(r.Note)
 	return r, validate(r)
 }
 func WriteResult(path string, r Result) error {

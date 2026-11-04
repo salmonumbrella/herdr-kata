@@ -1,10 +1,17 @@
 ---
 title: Changelog
 description: Changes to the headless Kata adapter.
-last_edited: 2026-11-03
+last_edited: 2026-11-04
 ---
 
 # Changelog
+
+## Unreleased
+
+- Keep jobs moving when an optional command note or an otherwise valid agent
+  result note is malformed. Normalize notes within the existing 280-byte limit,
+  preserve the known outcome and pass the normalized note to dependent steps.
+  Existing `invalid_note` holds still require investigation and release.
 
 ## 0.3.0
 <small>2026-11-03</small>
