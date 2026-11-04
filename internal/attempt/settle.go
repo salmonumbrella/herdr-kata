@@ -7,10 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
@@ -205,16 +203,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		if !r.ExpiresAt.IsZero() && receipt.EndedAt.After(r.ExpiresAt) {
 			return held(st, key, idx, "timeout")
 		}
-		note := ""
-		b, e = prompt.ReadRegular(filepath.Join(dir, "note.txt"), 282)
-		if e == nil {
-			note = strings.TrimSuffix(strings.TrimSuffix(string(b), "\n"), "\r")
-			if !prompt.ValidNote(note) {
-				return held(st, key, idx, "invalid_note")
-			}
-		} else if !os.IsNotExist(e) {
-			return held(st, key, idx, "invalid_note")
-		}
+		note := prompt.ReadNote(filepath.Join(dir, "note.txt"))
 		status := "failed"
 		if receipt.ExitCode == 0 {
 			status = "succeeded"

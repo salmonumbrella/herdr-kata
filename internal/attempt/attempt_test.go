@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
@@ -522,9 +523,36 @@ func TestInvalidCommandNote(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := advance(t, st, f, r, now)
-	if h, ok := out.(Held); !ok || h.Reason != "invalid_note" {
+	if d, ok := out.(Done); !ok || d.Status != "succeeded" || d.Note != "two lines" {
 		t.Fatal(out)
 	}
+}
+
+// Optional note bytes cannot undo a command receipt or strand its terminal.
+func TestCommandNoteBytesPreserveOutcome(t *testing.T) {
+	hegel.Test(t, func(ht *hegel.T) {
+		note := hegel.Draw(ht, hegel.Binary(0, -1))
+		code := hegel.Draw(ht, hegel.Integers(0, 255))
+		st, f, r := command(t, code)
+		if err := os.WriteFile(filepath.Join(st.Layout.Attempt(r.Key, "main", 1), "note.txt"), note, 0600); err != nil {
+			ht.Fatal(err)
+		}
+		out := advance(t, st, f, r, now.Add(time.Second))
+		want := "failed"
+		if code == 0 {
+			want = "succeeded"
+		} else if code == 7 {
+			want = "skipped"
+		}
+		d, ok := out.(Done)
+		if !ok || d.Status != want || len(d.Note) > 280 || !utf8.ValidString(d.Note) || strings.ContainsAny(d.Note, "\r\n") {
+			ht.Fatalf("note %q, exit %d: %v", note, code, out)
+		}
+		saved, err := st.Load(r.Key)
+		if err != nil || saved.Attempts[0].Status != want || saved.Attempts[0].Note != d.Note || saved.Attempts[0].Hold != "" || saved.Attempts[0].Receipt == nil || saved.Attempts[0].Receipt.ExitCode != code || len(f.terms) != 0 {
+			ht.Fatalf("settlement not durable or terminal not removed: %+v terms=%v err=%v", saved.Attempts, f.terms, err)
+		}
+	}, hegel.WithTestCases(1000))
 }
 func TestLaunchPrefixHasPathHomeAndAbsoluteArgv(t *testing.T) {
 	t.Setenv("PATH", "/usr/local/bin:/usr/bin:/bin")

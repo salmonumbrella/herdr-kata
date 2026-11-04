@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/BurntSushi/toml v1.6.0
-	hegel.dev/go/hegel v0.9.28
+	hegel.dev/go/hegel v0.9.29
 )
 
 require (

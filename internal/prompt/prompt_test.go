@@ -51,7 +51,7 @@ func TestPromptCarriesKataPrefix(t *testing.T) {
 		}
 	}
 }
-func TestResultRejectsSymlinkStaleOversizeBadNote(t *testing.T) {
+func TestResultRejectsSymlinkStaleOversize(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "result.json")
 	valid := Result{RunUID: "01J00000000000000000000001", Step: "main", Attempt: 1, Status: "succeeded", Summary: "Completed"}
@@ -77,13 +77,21 @@ func TestResultRejectsSymlinkStaleOversizeBadNote(t *testing.T) {
 	if _, err := ReadResult(path, valid.RunUID, "main", 1); err == nil {
 		t.Fatal("oversize accepted")
 	}
-	for _, note := range []string{"two\nlines", strings.Repeat("é", 141), "bad\rline"} {
-		valid.Note = note
+	for _, tc := range []struct{ note, want string }{
+		{"two\nlines", "two lines"},
+		{strings.Repeat("é", 141), strings.Repeat("é", 134) + " [truncated]"},
+		{"bad\rline", "bad line"},
+	} {
+		valid.Note = tc.note
 		if err := state.WriteJSON(path, valid); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := ReadResult(path, valid.RunUID, "main", 1); err == nil {
-			t.Fatalf("note accepted: %q", note)
+		got, err := ReadResult(path, valid.RunUID, "main", 1)
+		if err != nil || got.Note != tc.want || got.Status != "succeeded" || got.Summary != "Completed" {
+			t.Fatalf("bad note changed outcome: %+v %v", got, err)
+		}
+		if err := WriteResult(filepath.Join(dir, "strict.json"), valid); err == nil {
+			t.Fatalf("strict writer accepted note %q", tc.note)
 		}
 	}
 }

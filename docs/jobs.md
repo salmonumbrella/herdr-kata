@@ -1,7 +1,7 @@
 ---
 title: Jobs
 description: Supported Kata definitions and execution behavior.
-last_edited: 2026-11-03
+last_edited: 2026-11-04
 ---
 
 # Jobs
@@ -65,6 +65,23 @@ termination signal forbids a receipt, including when a child traps it and
 exits zero. `steps[].options.skip_exit` accepts 1–255: that exit closes the
 gate and skips downstream steps without failing the run. Output is kept in
 the attempt's `output.log`, with the first 1 MiB and last 256 KiB retained.
+
+Commands may write an optional note to `KATA_CRON_NOTE_FILE`. The settled note
+is one line of valid UTF-8, at most 280 bytes. A missing file means an empty
+note. For a complete file, one trailing LF and then one trailing CR are
+removed; remaining CRLF, CR and LF become spaces. Consecutive invalid UTF-8
+bytes become one replacement character. Text exceeding 280 bytes is cut at a
+UTF-8 boundary with ` [truncated]` included in that limit. The reader consumes
+at most 283 source bytes; a clipped prefix carries the same marker even if
+newline normalization makes it shorter. An unreadable or non-regular file,
+including a symlink, yields `[unreadable note]`.
+
+Note formatting never changes the receipt's exit decision: a successful gate
+still dispatches its dependents, which receive the normalized note through
+`{{previous}}`. A `skip_exit` still produces `gate_closed`. Otherwise valid
+agent result files use the same normalization, without command-file trailing
+newline removal. The `herdr-kata report` command remains strict and rejects
+notes outside the one-line, 280-byte contract.
 
 Checkout resolution uses a supplied job `checkout_key`, then the project's
 `default_checkout` when the key is absent. A mapping requires a selected job key

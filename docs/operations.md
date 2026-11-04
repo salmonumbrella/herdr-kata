@@ -1,7 +1,7 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-03
+last_edited: 2026-11-04
 ---
 
 # Operations
@@ -113,6 +113,11 @@ Per-run issues receive one notification. A blocked agent gets one
 notification per blocked spell, rather than an attention metadata write.
 Existing-policy issues receive no adapter writes, including notifications.
 
+A malformed optional note does not hold a known command or agent outcome.
+It settles with a [normalized note](jobs.md#actions-and-issues), preserving
+the command's exit decision or the otherwise valid agent result's status.
+Once the run settles, capacity and overlap gates are available to later work.
+
 | Reason | Meaning |
 | --- | --- |
 | `launch_ambiguous` | Saved intent cannot identify exactly one matching launch |
@@ -125,7 +130,7 @@ Existing-policy issues receive no adapter writes, including notifications.
 | `command_outcome_unknown` | A command lacks a valid ordinary-exit receipt |
 | `invalid_prompt` | Prompt validation failed before launch |
 | `invalid_workflow` | Workflow dependencies cannot be resolved |
-| `invalid_note` | A command note is too long, malformed or unreadable |
+| `invalid_note` | Legacy hold from a malformed command note; new attempts normalize notes |
 | `agent_error` | The agent explicitly reported an error state |
 | `report_refused` | Kata definitively refused a write or read-back differs |
 | `admission_expired` | Issue creation could outlive its keyed replay window |
@@ -137,6 +142,8 @@ After investigating, `herdr-kata release <run-uid>` posts a local release
 request. Once the hold has been observed or reporting has been refused,
 release frees the slot and overlap gate. It preserves the outcome and does
 not rerun the attempt, remove its terminal or prove that work succeeded.
+Upgrading does not clear existing `invalid_note` holds. Investigate and release
+those runs through this same procedure to free capacity for later work.
 
 An agent reporting `needs-human` ends the run as `unknown` and keeps its
 terminal. A lost or killed agent cannot be assumed successful from its exit
@@ -145,8 +152,9 @@ agents can settle from an ordinary exit with a valid result, or a result
 stable for 30 seconds. Reported idle/done agents require a completed turn;
 a missing result has a 10-second grace period. Valid result files are regular
 UTF-8 JSON files no larger than 64 KiB, with matching run/step/attempt
-identity, status and a one-line note of at most 280 bytes. The prompt gives
-the agent the exact `herdr-kata report` command.
+identity and status. Their notes are normalized at settlement; the prompt gives
+the agent the exact `herdr-kata report` command, which still enforces the note
+contract when writing a result.
 Attempt-directory I/O errors are retried on later ticks rather than reported
 as prompt validation failures.
 
