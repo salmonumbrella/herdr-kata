@@ -245,7 +245,7 @@ func carrier(ctx context.Context, k kata.Kata, r journal.Run) (string, error) {
 	}
 	day, job := r.StartedAt.UTC().Format("2006-01-02"), r.Plan.JobUID
 	message := "herdr-kata requests attention here when a run of job " + job + " settles failed or unknown in the " + day + " UTC start-date group. Existing issues receive no adapter writes. Inspect runs with kata cron run list --job-uid " + job + "; close this issue when handled."
-	ref, _, err := k.CreateIssue("cron alerts: "+job+" "+day, message, "cron-worker:"+job+":alert:"+day, "")
+	ref, err := k.CreateAlertCarrier("cron alerts: "+job+" "+day, message, "cron-worker:"+job+":alert:"+day)
 	if err == nil && ref == "" {
 		err = &kata.Error{Code: 3, Message: "alert carrier response omitted ref"}
 	}

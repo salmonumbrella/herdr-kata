@@ -30,6 +30,10 @@ func (k *stopKata) CreateIssue(title, body, key, parent string) (string, string,
 	k.createKeys = append(k.createKeys, key)
 	return k.fakeKata.CreateIssue(title, body, key, parent)
 }
+func (k *stopKata) CreateAlertCarrier(title, body, key string) (string, error) {
+	ref, _, err := k.CreateIssue(title, body, key, "")
+	return ref, err
+}
 func (k *stopKata) Notify(ref, _, _ string) error {
 	k.notifyRefs = append(k.notifyRefs, ref)
 	return nil

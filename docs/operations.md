@@ -305,6 +305,24 @@ existing issue receives no adapter writes. A run starting before midnight
 and failing afterward still uses its start-date group. Closing the carrier
 suppresses requests for that group; reopening can expose an uncleared request.
 
+With a Kata CLI supporting `create --priority none`, explicit unset priority
+keeps historical unprioritized carriers replayable across client default
+changes. Per-run issue creation retains its configured defaults. A prior
+numeric-priority carrier still conflicts and requires investigation.
+
+For an older numeric-only CLI, only its exact pre-dispatch parser refusal of
+`none` permits a retry using the prior create defaults. This preserves existing
+behavior and still verifies creation evidence, but changed defaults can still
+conflict. Upgrade Kata to enable the default-drift repair. Other usage errors
+and create conflicts never trigger adoption or a fresh key.
+
+Before notification, the adapter verifies the immutable creation event and key,
+project, author, teammate and original content. It also reads the current issue
+and refuses closed carriers or changes to content, ownership, priority, labels,
+relationships or non-notification metadata. Missing evidence and unrelated
+conflicts fail closed. These checks do not replay previously consumed alert
+intents; existing notification retry rules below still apply.
+
 Held and settled intents exclude each other, including across worker restarts.
 The worker saves intent before sending and retries only known unavailability.
 An uncertain send is never resent. A crash after intent is saved but before

@@ -60,6 +60,7 @@ type Kata interface {
 	PlanningDates(string) (*DateValue, error)
 	IssueTitle(string) (string, error)
 	CreateIssue(title, body, key, parent string) (string, string, error)
+	CreateAlertCarrier(title, body, key string) (string, error)
 	SetDeadline(string, time.Time) error
 	Notify(string, string, string) error
 	Observe(string, []byte, int) (int, bool, error)
@@ -73,13 +74,14 @@ type Kata interface {
 const CallTimeout = 15 * time.Second
 
 type cli struct {
-	context     context.Context
-	bin         string
-	prefix, env []string
+	context        context.Context
+	bin            string
+	prefix, env    []string
+	project, actor string
 }
 
 func New(bin, daemon string, overrides map[string]string, project, actor string) Kata {
-	c := &cli{bin: bin, prefix: []string{"--project", project, "--daemon", daemon, "--as", actor, "--teammate", "herdr-kata", "--json"}}
+	c := &cli{bin: bin, project: project, actor: actor, prefix: []string{"--project", project, "--daemon", daemon, "--as", actor, "--teammate", "herdr-kata", "--json"}}
 	for _, e := range os.Environ() {
 		key, _, _ := strings.Cut(e, "=")
 		if key == "KATA_AUTH_TOKEN" {
