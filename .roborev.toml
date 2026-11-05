@@ -31,6 +31,13 @@ explicit child environment prefix, no credentials in argv. Command success
 requires a receipt and reason exited; termination forbids a receipt even
 when trapped. At most 6,000 lines of non-test Go.
 
+Fleet adoption: known capabilities and a fresh successful unpaused job-list
+read gate prepared admission. Request TTL ends at durable preparation.
+Persist cancellation before cleanup or workflow completion; retain cancelled
+terminals and preserve loss/ambiguity holds. Only a structured unsupported
+feature conflict may replace frozen v2 bytes with a saved v1 projection before
+keyed retry. Runtime beats are keyed, per-project and rate-limited.
+
 Do not demand extra machinery for hypothetical edges. Do flag concrete
 violations of the specified settlement/recovery tables. You have no network:
 do not claim a pinned tool version, action SHA or checksum does not exist.

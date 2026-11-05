@@ -744,3 +744,45 @@ func TestFleetBeatStartsAfterSettlement(t *testing.T) {
 		t.Fatal("settlement or heartbeat missing", len(k.beats), h.runs)
 	}
 }
+
+func TestFleetSummaryPerProject(t *testing.T) {
+	w, h, k := fleetFixture(t)
+	k.caps.EventFeatures = []string{"cron_run_summary_v2"}
+	otherJob := k.jobs[0]
+	other := &fleetKata{fakeKata: &fakeKata{jobs: []kata.CronJob{otherJob}}}
+	w.Clients["other-project"] = other
+	w.Config.Projects = append(w.Config.Projects, config.Project{Name: "other-project", Actor: "worker", MaxActiveRuns: 1})
+	request(t, w, journal.Request{ID: "one", Kind: "run", Project: "example-project", JobUID: k.jobs[0].UID})
+	request(t, w, journal.Request{ID: "two", Kind: "run", Project: "other-project", JobUID: otherJob.UID})
+	tick(t, w, at)
+	runs, err := w.Store.Active()
+	if err != nil || len(runs) != 2 {
+		t.Fatal(len(runs), err)
+	}
+	for _, r := range runs {
+		finishAgent(t, w, h, r)
+	}
+	tick(t, w, at.Add(time.Second))
+	for project, client := range map[string]*fleetKata{"example-project": k, "other-project": other} {
+		if len(client.bodies) != 2 {
+			t.Fatal(project, len(client.bodies))
+		}
+		var admission, final kata.ObserveCronRunBody
+		if err := json.Unmarshal(client.bodies[0], &admission); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(client.bodies[1], &final); err != nil {
+			t.Fatal(err)
+		}
+		if len(admission.Summary.Steps) != 0 || admission.Summary.Reason != nil {
+			t.Fatal("admission enriched", project)
+		}
+		want := 0
+		if project == "example-project" {
+			want = 1
+		}
+		if len(final.Summary.Steps) != want || final.Summary.Reason != nil {
+			t.Fatal("project feature leaked", project, final.Summary)
+		}
+	}
+}
