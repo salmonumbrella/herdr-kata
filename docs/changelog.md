@@ -10,8 +10,9 @@ last_edited: 2026-11-05
 
 - Keep daily failure alerts replayable when the Kata client's default priority
   changes. Carriers use an explicit unset priority and require matching immutable
-  creation evidence and an open, unchanged issue before notification. Upgrade
-  Kata to a CLI supporting `create --priority none` before this adapter.
+  creation evidence and an open, unchanged issue before notification. Numeric-only
+  older CLIs retain their prior create defaults and conflict behavior; install a
+  Kata CLI supporting `create --priority none` to enable the default-drift repair.
 - Honor advertised Kata run and cancel requests through durable journals.
   Preserve terminal evidence and identity guards when cancelling; free capacity
   only after a confirmed stop, retaining known cleanup results after restart.

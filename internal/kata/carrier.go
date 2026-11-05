@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/oklog/ulid/v2"
@@ -44,8 +45,18 @@ func (c *cli) CreateAlertCarrier(title, body, key string) (string, error) {
 		Event         *event
 		OriginalEvent *event `json:"original_event"`
 	}
-	if err := client.call(nil, &created, "create", title, "--body", body, "--force-new", "--idempotency-key", key, "--priority", "none"); err != nil {
-		return "", err
+	args := []string{"create", title, "--body", body, "--force-new", "--idempotency-key", key}
+	legacy := false
+	if err := client.call(nil, &created, append(args, "--priority", "none")...); err != nil {
+		if !legacyPriorityRefusal(err) {
+			return "", err
+		}
+		// This exact numeric-flag parser refusal precedes command dispatch.
+		// Keep old clients' defaults without adopting any create conflict.
+		legacy = true
+		if err := client.call(nil, &created, args...); err != nil {
+			return "", err
+		}
 	}
 	refused := func() (string, error) {
 		return "", &Error{Code: 3, Message: "daily alert carrier identity was not verified"}
@@ -66,12 +77,17 @@ func (c *cli) CreateAlertCarrier(title, body, key string) (string, error) {
 		return refused()
 	}
 	fingerprint, err := hex.DecodeString(original.Fingerprint)
+	var priority *int
+	if legacy {
+		priority = original.Priority
+	}
 	if err != nil || len(fingerprint) != 32 || key == "" || original.Key != key ||
+		(priority != nil && (*priority < 0 || *priority > 4)) ||
 		!validCarrierUID(e.UID) || !validCarrierUID(created.Issue.UID) || !validCarrierUID(e.ProjectUID) ||
 		e.Type != "issue.created" || e.ProjectName != c.project || e.Actor != c.actor ||
 		e.IssueUID != created.Issue.UID || e.ProjectUID != created.Issue.ProjectUID ||
-		original.UID != created.Issue.UID || !original.matches(title, body, c.actor, true) ||
-		!created.Issue.matches(title, body, c.actor, false) {
+		original.UID != created.Issue.UID || !original.matches(title, body, c.actor, true, priority) ||
+		!created.Issue.matches(title, body, c.actor, false, priority) {
 		return refused()
 	}
 	var current struct {
@@ -83,7 +99,7 @@ func (c *cli) CreateAlertCarrier(title, body, key string) (string, error) {
 	}
 	if current.Issue.UID != created.Issue.UID || current.Issue.ShortID == "" ||
 		current.Issue.ShortID != created.Issue.ShortID || current.Issue.ProjectUID != e.ProjectUID ||
-		!current.Issue.matches(title, body, c.actor, false) ||
+		!current.Issue.matches(title, body, c.actor, false, priority) ||
 		current.Labels == nil || current.Links == nil || len(*current.Labels) != 0 || len(*current.Links) != 0 {
 		return refused()
 	}
@@ -92,9 +108,10 @@ func (c *cli) CreateAlertCarrier(title, body, key string) (string, error) {
 
 func validCarrierUID(value string) bool { _, err := ulid.ParseStrict(value); return err == nil }
 
-func (i carrierIssue) matches(title, body, actor string, initial bool) bool {
+func (i carrierIssue) matches(title, body, actor string, initial bool, priority *int) bool {
 	if i.Title != title || i.Body != body || i.Author != actor || i.Status != "open" ||
-		i.Owner != nil || i.Priority != nil || i.DeletedAt != nil || len(i.Labels) != 0 || len(i.Links) != 0 {
+		i.Owner != nil || (i.Priority == nil) != (priority == nil) || (priority != nil && *i.Priority != *priority) ||
+		i.DeletedAt != nil || len(i.Labels) != 0 || len(i.Links) != 0 {
 		return false
 	}
 	var teammate string
@@ -107,4 +124,19 @@ func (i carrierIssue) matches(title, body, actor string, initial bool) bool {
 		}
 	}
 	return true
+}
+
+func legacyPriorityRefusal(err error) bool {
+	e, ok := errors.AsType[*Error](err)
+	if !ok || e.Code != 2 {
+		return false
+	}
+	var response struct {
+		Error struct {
+			Kind, Message string
+			ExitCode      int `json:"exit_code"`
+		}
+	}
+	return json.Unmarshal([]byte(e.Message), &response) == nil && response.Error.Kind == "usage" && response.Error.ExitCode == 2 &&
+		response.Error.Message == `invalid argument "none" for "--priority" flag: strconv.ParseInt: parsing "none": invalid syntax`
 }

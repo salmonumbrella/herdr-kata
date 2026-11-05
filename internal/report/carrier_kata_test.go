@@ -250,3 +250,50 @@ func TestDailyCarrierRealKataRejectsMutatedOriginal(t *testing.T) {
 		t.Fatalf("adopted mutated original %q: %v", ref, err)
 	}
 }
+
+// An installed numeric-only CLI keeps its prior create behavior. Default drift
+// must remain a conflict, never a reason to adopt a different fingerprint.
+func TestDailyCarrierRealKataLegacyContinuity(t *testing.T) {
+	legacy := os.Getenv("HERDR_KATA_LEGACY_BINARY")
+	if legacy == "" {
+		t.Skip("set HERDR_KATA_LEGACY_BINARY to the older Kata CLI")
+	}
+	t.Setenv("HERDR_KATA_TEST_BINARY", legacy)
+	f := realCarrierFixture(t)
+	f.defaults(t, "2")
+	ctx, st, _, r := setup(t)
+	if err := st.Update(r.Key, func(r *journal.Run) error { r.Plan.Issue.Kind = "existing"; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if err := NotifyOnce(ctx, f.client(), st, r.Key, "settled", "first legacy failure"); err != nil {
+		t.Fatal(err)
+	}
+	issues := f.run(t, "--project", "example-project", "list", "--limit", "0")["issues"].([]any)
+	if len(issues) != 1 {
+		t.Fatalf("legacy carrier count %d", len(issues))
+	}
+	issue := issues[0].(map[string]any)
+	if issue["priority"] != float64(2) {
+		t.Fatal("legacy default was not preserved")
+	}
+	saved, err := st.Load(r.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved.Key = journal.ManualKey("executor", "example-project", "legacy-second")
+	saved.Notified = nil
+	if err = st.Create(saved); err != nil {
+		t.Fatal(err)
+	}
+	if err = NotifyOnce(ctx, f.client(), st, saved.Key, "settled", "second legacy failure"); err != nil {
+		t.Fatal(err)
+	}
+	f.defaults(t, "3")
+	if ref, err := f.client().CreateAlertCarrier(issue["title"].(string), issue["body"].(string), "cron-worker:01J00000000000000000000010:alert:2026-11-02"); err == nil || ref != "" || kata.Classify(err) != kata.Conflict {
+		t.Fatalf("legacy drift adopted %q: %v", ref, err)
+	}
+	issues = f.run(t, "--project", "example-project", "list", "--limit", "0")["issues"].([]any)
+	if len(issues) != 1 {
+		t.Fatal("legacy drift duplicated carrier")
+	}
+}

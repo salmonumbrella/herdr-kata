@@ -47,7 +47,14 @@ func carrierClient(t *testing.T, create, show map[string]any, code string) (Kata
 printf '%s\n' "$@" >> "$FIXTURE_CALLS"
 shift 9
 case "$1" in
- create) cat "$FIXTURE_CREATE"; exit "$FIXTURE_CODE";;
+ create)
+  if [ "$FIXTURE_LEGACY" = 1 ]; then
+   case " $* " in *" --priority none "*)
+    printf '%s\n' '{"error":{"kind":"usage","exit_code":2,"message":"invalid argument \"none\" for \"--priority\" flag: strconv.ParseInt: parsing \"none\": invalid syntax"}}' >&2
+    exit 2;;
+   esac
+  fi
+  if [ "$FIXTURE_CODE" = 0 ]; then cat "$FIXTURE_CREATE"; else cat "$FIXTURE_CREATE" >&2; fi; exit "$FIXTURE_CODE";;
  show) cat "$FIXTURE_SHOW";;
  *) exit 3;;
 esac
@@ -165,4 +172,40 @@ func TestAlertCarrierRejectsArbitraryOriginalBodies(t *testing.T) {
 			ht.Fatalf("adopted changed original body %q: %v", ref, err)
 		}
 	})
+}
+
+// An old numeric flag rejects none before dispatch; only that exact refusal
+// permits the unchanged legacy create path, whose evidence must still match.
+func TestAlertCarrierLegacyPriority(t *testing.T) {
+	t.Setenv("FIXTURE_LEGACY", "1")
+	create, show := carrierReplies()
+	create["issue"].(map[string]any)["priority"] = 2
+	create["original_event"].(map[string]any)["payload"].(map[string]any)["priority"] = 2
+	k, calls := carrierClient(t, create, show, "0")
+	if ref, err := resolveCarrier(t, k); err != nil || ref != carrierUID {
+		t.Fatalf("legacy carrier %q: %v", ref, err)
+	}
+	b, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(b), "create\n") != 2 {
+		t.Fatalf("legacy dispatch: %s", b)
+	}
+}
+
+func TestAlertCarrierOtherUsageIsNotRetried(t *testing.T) {
+	_, show := carrierReplies()
+	reply := map[string]any{"error": map[string]any{"kind": "usage", "exit_code": 2, "message": "unknown flag: --priority"}}
+	k, calls := carrierClient(t, reply, show, "2")
+	if ref, err := resolveCarrier(t, k); ref != "" || err == nil {
+		t.Fatalf("accepted usage refusal %q: %v", ref, err)
+	}
+	b, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(b), "create\n") != 1 {
+		t.Fatalf("unsafe fallback: %s", b)
+	}
 }
