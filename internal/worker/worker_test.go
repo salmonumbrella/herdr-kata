@@ -63,6 +63,10 @@ func (k *fakeKata) CreateIssue(string, string, string, string) (string, string, 
 	return "abcd", "01J00000000000000000000020", k.err
 }
 func (k *fakeKata) SetDeadline(string, time.Time) error { return k.err }
+func (k *fakeKata) CreateAlertCarrier(title, body, key string) (string, error) {
+	ref, _, err := k.CreateIssue(title, body, key, "")
+	return ref, err
+}
 func (k *fakeKata) Notify(ref, to, message string) error {
 	k.notifications = append(k.notifications, notification{ref, to, message})
 	return k.err

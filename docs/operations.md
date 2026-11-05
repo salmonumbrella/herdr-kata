@@ -1,7 +1,7 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-04
+last_edited: 2026-11-05
 ---
 
 # Operations
@@ -291,6 +291,19 @@ attention request on that carrier. It has no parent or links; the configured
 existing issue receives no adapter writes. A run starting before midnight
 and failing afterward still uses its start-date group. Closing the carrier
 suppresses requests for that group; reopening can expose an uncleared request.
+
+Daily carriers require a Kata CLI supporting `create --priority none`. Upgrade
+Kata before this adapter. The explicit unset priority keeps historical
+unprioritized carriers replayable across client default changes; per-run issue
+creation retains its configured defaults. A prior numeric-priority carrier
+still conflicts and requires investigation.
+
+Before notification, the adapter verifies the immutable creation event and key,
+project, author, teammate and original content. It also reads the current issue
+and refuses closed carriers or changes to content, ownership, priority, labels,
+relationships or non-notification metadata. Missing evidence and unrelated
+conflicts fail closed. These checks do not replay previously consumed alert
+intents; existing notification retry rules below still apply.
 
 Held and settled intents exclude each other, including across worker restarts.
 The worker saves intent before sending and retries only known unavailability.

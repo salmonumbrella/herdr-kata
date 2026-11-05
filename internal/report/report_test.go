@@ -38,6 +38,11 @@ type fakeKata struct {
 type notification struct{ ref, to, message string }
 type createRequest struct{ title, body, key, parent string }
 
+func (f *fakeKata) CreateAlertCarrier(title, body, key string) (string, error) {
+	ref, _, err := f.CreateIssue(title, body, key, "")
+	return ref, err
+}
+
 func (f *fakeKata) CreateIssue(title, body, key, parent string) (string, string, error) {
 	request := createRequest{title, body, key, parent}
 	f.createRequests = append(f.createRequests, request)
