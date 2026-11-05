@@ -171,6 +171,14 @@ above applies only to unsupported records.
 
 ## Upgrade and rollback
 
+v0.5.0 retains the v0.4.0 configuration and state formats. Keep the existing
+state and executor identity when upgrading; held runs remain held. Fleet
+requests, runtime heartbeats and structured summaries require advertised daemon
+support. Daily alert replay across priority-default changes also requires a
+Kata CLI supporting `create --priority none`; older CLIs retain their previous
+defaults and conflict behavior. Previously consumed alert intents are not
+backfilled. See [Failure alerts](#failure-alerts) for carrier safeguards.
+
 Fix quarantined project entries before rolling back: v0.3.0 rejects the
 whole file when any project entry is invalid, including an unknown key.
 

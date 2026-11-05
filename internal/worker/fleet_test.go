@@ -599,7 +599,7 @@ func TestFleetBeats(t *testing.T) {
 	if err := json.Unmarshal(k.beats[0], &body); err != nil {
 		t.Fatal(err)
 	}
-	if body["adapter"] != "herdr-kata" || body["adapter_version"] != "0.4.0" || body["interval_seconds"] != float64(60) || body["state"] != "active" || body["label"] != "executor" || len(body) != 6 {
+	if body["adapter"] != "herdr-kata" || body["adapter_version"] != "0.5.0" || body["interval_seconds"] != float64(60) || body["state"] != "active" || body["label"] != "executor" || len(body) != 6 {
 		t.Fatal(body)
 	}
 	if features, ok := body["features"].([]any); !ok || len(features) != 5 {
