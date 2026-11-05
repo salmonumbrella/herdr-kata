@@ -360,3 +360,19 @@ The job-list `project_pause` field stops new preparation and admission. An
 absent or null value allows work; every other value pauses it. A failed
 job-list read also keeps prepared journals waiting. Admitted runs keep
 settling and reporting. Resume applies each job's existing catch-up policy.
+
+When advertised, pending Kata run requests use `request:<uid>` occurrence
+keys and the same ownership, readiness, capacity and overlap checks as other
+work. New preparation must happen before expiry, checked after preparation
+reads; a durable preparation can recover after expiry. Definition revisions
+must match. A request is answered by normal admission, with no separate
+acknowledgment.
+
+Advertised cancel requests save intent before acting, even while paused or
+job reads fail. Prompts receive an interrupt and ten seconds of grace before
+a guarded kill; commands are killed directly. Cancellation completes only after
+a matching stopped terminal is observed. Unproven stops keep capacity held,
+and saved removal intent still recovers after a lost reply. Terminals remain
+inspectable.
+Lost or ambiguous execution still holds for the operator. No later step or
+retry starts after cancellation intent is saved.

@@ -693,3 +693,50 @@ func TestRecoverMissingIntentHolds(t *testing.T) {
 		t.Fatal(got.Attempts, f.runs)
 	}
 }
+
+func TestCancelLossEvidenceProperty(t *testing.T) {
+	hegel.Test(t, func(ht *hegel.T) {
+		kind := []string{"prompt", "command"}[hegel.Draw(ht, hegel.Integers(0, 1))]
+		reason := []string{"exited", "lost", "killed", "signal"}[hegel.Draw(ht, hegel.Integers(0, 3))]
+		intent := hegel.Draw(ht, hegel.Integers(0, 2))
+		st, h, r := setup(t, kind)
+		term := h.terms["t1"]
+		term.State, term.Reason = "finished", reason
+		h.terms["t1"] = term
+		if err := st.Update(r.Key, func(r *journal.Run) error {
+			if intent == 1 {
+				r.Attempts[0].ExpiringAt = new(now)
+			}
+			if intent == 2 {
+				r.Attempts[0].Cleanup = "remove"
+				r.Attempts[0].Status = "settling"
+			}
+			return nil
+		}); err != nil {
+			ht.Fatal(err)
+		}
+		out, err := Cancel(clock.WithNow(context.Background(), now), h, st, r.Key, 0, now)
+		if err != nil {
+			ht.Fatal(err)
+		}
+		lost := reason == "lost" || intent == 0 && reason != "exited"
+		saved, loadErr := st.Load(r.Key)
+		if loadErr != nil || len(h.terms) != 1 || len(h.calls) != 0 {
+			ht.Fatal("evidence changed", kind, reason, intent, out, h.calls, loadErr)
+		}
+		if lost {
+			want := "agent_lost"
+			if kind == "command" {
+				want = "command_outcome_unknown"
+			}
+			held, ok := out.(Held)
+			if !ok || held.Reason != want || saved.Attempts[0].Hold != want {
+				ht.Fatal("lost execution completed", kind, reason, intent, out)
+			}
+		} else {
+			if _, ok := out.(Done); !ok || saved.Attempts[0].Hold != "" {
+				ht.Fatal("confirmed cancellation held", kind, reason, intent, out)
+			}
+		}
+	}, hegel.WithTestCases(48))
+}

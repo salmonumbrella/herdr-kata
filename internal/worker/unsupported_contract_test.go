@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"github.com/salmonumbrella/herdr-kata/internal/config"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
@@ -174,7 +175,7 @@ func TestPreparedRunKeepsFrozenDefaultsAfterRestart(t *testing.T) {
 		t.Fatal(reasons)
 	}
 	key := journal.ManualKey("executor", "example-project", "prepared")
-	if err := w.prepare(k, w.Config.Projects[0], p, key, "manual:prepared", "prepared", at); err != nil {
+	if err := w.prepare(context.Background(), k, w.Config.Projects[0], p, key, "manual:prepared", "prepared", at); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := w.Store.Load(key)

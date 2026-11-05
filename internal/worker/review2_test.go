@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"os/exec"
 	"strings"
 	"testing"
@@ -24,7 +25,7 @@ func TestPublishedPreparationAcknowledgedAfterSyncError(t *testing.T) {
 		t.Fatal(reasons)
 	}
 	key := journal.ManualKey(w.Config.Executor, "example-project", req.ID)
-	if err := w.prepare(k, w.Config.Projects[0], plan, key, "manual:"+req.ID, req.ID, at); err != nil {
+	if err := w.prepare(context.Background(), k, w.Config.Projects[0], plan, key, "manual:"+req.ID, req.ID, at); err != nil {
 		t.Fatal(err)
 	}
 	saved, err := w.Store.Load(key)
@@ -65,7 +66,7 @@ func TestSkipSurvivesBriefUnavailableScan(t *testing.T) {
 			} else {
 				k.failures = map[string]error{failure: &kata.Error{Code: 7}}
 			}
-			_ = w.Tick(context.Background(), at.Add(-10*time.Second))
+			_ = w.Tick(clock.WithNow(context.Background(), at.Add(-10*time.Second)), at.Add(-10*time.Second))
 			k.failures = nil
 			k.ready["01J00000000000000000000020"] = true
 			tick(t, w, at.Add(25*time.Second))
@@ -85,8 +86,8 @@ func TestSkipDropsLongOutageWhileWorkerAlive(t *testing.T) {
 	k.jobs[0].Definition.GraceSeconds = new(int64(20))
 	tick(t, w, at.Add(-40*time.Second))
 	k.err = &kata.Error{Code: 7}
-	_ = w.Tick(context.Background(), at.Add(-10*time.Second))
-	_ = w.Tick(context.Background(), at.Add(9*time.Minute))
+	_ = w.Tick(clock.WithNow(context.Background(), at.Add(-10*time.Second)), at.Add(-10*time.Second))
+	_ = w.Tick(clock.WithNow(context.Background(), at.Add(9*time.Minute)), at.Add(9*time.Minute))
 	k.err = nil
 	tick(t, w, at.Add(10*time.Minute))
 	if h.runs != 0 {
@@ -146,7 +147,7 @@ func TestManualRequestsWaitForTransientReads(t *testing.T) {
 			}
 			request(t, w, journal.Request{ID: "waiting", Kind: "run", JobUID: k.jobs[0].UID})
 			k.failures = map[string]error{failure: &kata.Error{Code: 7}}
-			_ = w.Tick(context.Background(), at)
+			_ = w.Tick(clock.WithNow(context.Background(), at), at)
 			q := journal.Requests{Dir: w.Store.Layout.Requests()}
 			if done, _, err := q.Result("waiting"); err != nil || done {
 				t.Fatalf("transient read rejected request: %v %v", done, err)
@@ -167,7 +168,7 @@ func TestUnknownRequestNeedsAllProjectsRead(t *testing.T) {
 	w.Clients["other-project"] = &fakeKata{ready: map[string]bool{}}
 	k.err = &kata.Error{Code: 7}
 	request(t, w, journal.Request{ID: "unknown", Kind: "run", JobUID: "01J00000000000000000000099"})
-	_ = w.Tick(context.Background(), at)
+	_ = w.Tick(clock.WithNow(context.Background(), at), at)
 	q := journal.Requests{Dir: w.Store.Layout.Requests()}
 	if done, _, err := q.Result("unknown"); err != nil || done {
 		t.Fatalf("unknown rejected before all reads: %v %v", done, err)
@@ -190,7 +191,7 @@ func TestSkipRecoveryLatenessBoundary(t *testing.T) {
 			k.jobs[0].Definition.GraceSeconds = new(int64(20))
 			tick(t, w, at.Add(-40*time.Second))
 			k.err = &kata.Error{Code: 7}
-			_ = w.Tick(context.Background(), at.Add(-10*time.Second))
+			_ = w.Tick(clock.WithNow(context.Background(), at.Add(-10*time.Second)), at.Add(-10*time.Second))
 			k.err = nil
 			tick(t, w, at.Add(late))
 			want := 0
@@ -227,7 +228,7 @@ func TestPermanentReasonNotOverwrittenByOtherProjectFailure(t *testing.T) {
 	w.Clients["other-project"] = &fakeKata{jobs: []kata.CronJob{job}, ready: map[string]bool{}}
 	k.err = &kata.Error{Code: 7}
 	request(t, w, journal.Request{ID: "unsupported", Kind: "run", JobUID: job.UID})
-	_ = w.Tick(context.Background(), at)
+	_ = w.Tick(clock.WithNow(context.Background(), at), at)
 	done, reason, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Result("unsupported")
 	if err != nil || !done || !strings.Contains(reason, "unsupported") || strings.Contains(reason, "unavailable") {
 		t.Fatalf("wrong cross-project rejection: %v %q %v", done, reason, err)
@@ -242,9 +243,9 @@ func TestPendingReasonBelongsToMatchedProject(t *testing.T) {
 	w.Clients["other-project"] = &fakeKata{jobs: []kata.CronJob{job}, ready: map[string]bool{}}
 	k.err = &kata.Error{Code: 7}
 	request(t, w, journal.Request{ID: "first", Kind: "run", JobUID: job.UID})
-	_ = w.Tick(context.Background(), at)
+	_ = w.Tick(clock.WithNow(context.Background(), at), at)
 	request(t, w, journal.Request{ID: "waiting", Kind: "run", JobUID: job.UID})
-	_ = w.Tick(context.Background(), at.Add(time.Second))
+	_ = w.Tick(clock.WithNow(context.Background(), at.Add(time.Second)), at.Add(time.Second))
 	done, reason, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Result("waiting")
 	if err != nil || done || !strings.Contains(reason, "capacity") {
 		t.Fatalf("unrelated failure replaced pending reason: %v %q %v", done, reason, err)
