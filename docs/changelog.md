@@ -8,6 +8,9 @@ last_edited: 2026-11-05
 
 ## Unreleased
 
+## 0.5.0
+<small>2026-11-05</small>
+
 - Keep daily failure alerts replayable when the Kata client's default priority
   changes. Carriers use an explicit unset priority and require matching immutable
   creation evidence and an open, unchanged issue before notification. Numeric-only

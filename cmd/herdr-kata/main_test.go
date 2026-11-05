@@ -15,7 +15,7 @@ func TestUnknownCommandExit2(t *testing.T) {
 
 func TestVersion(t *testing.T) {
 	var out bytes.Buffer
-	if code := run([]string{"version"}, &out); code != 0 || out.String() != "herdr-kata 0.4.0\n" {
+	if code := run([]string{"version"}, &out); code != 0 || out.String() != "herdr-kata 0.5.0\n" {
 		t.Fatalf("code/output: %d %s", code, &out)
 	}
 }
