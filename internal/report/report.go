@@ -29,12 +29,10 @@ func clock(ctx context.Context) time.Time {
 	return runclock.Now(ctx)
 }
 
-type currentTimeKey struct{}
-
 // WithCurrentTime supplies an advancing clock for time-sensitive create calls.
 // Observation timestamps continue to use the frozen tick time from WithNow.
 func WithCurrentTime(ctx context.Context, now func() time.Time) context.Context {
-	return context.WithValue(ctx, currentTimeKey{}, now)
+	return runclock.WithSource(ctx, now)
 }
 func bounded(s string) string {
 	if len(s) > 4096 {
@@ -241,10 +239,7 @@ func carrier(ctx context.Context, k kata.Kata, r journal.Run) (string, error) {
 	// from the earliest possible create in the shared UTC start-date group.
 	start := r.StartedAt.UTC()
 	cutoff := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC).Add(6 * 24 * time.Hour)
-	now := clock(ctx)
-	if current, ok := ctx.Value(currentTimeKey{}).(func() time.Time); ok {
-		now = current()
-	}
+	now := runclock.Current(ctx, clock(ctx))
 	if !now.Before(cutoff) {
 		return "", &kata.Error{Code: 3, Message: "alert carrier create window expired"}
 	}

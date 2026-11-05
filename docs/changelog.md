@@ -1,7 +1,7 @@
 ---
 title: Changelog
 description: Changes to the headless Kata adapter.
-last_edited: 2026-11-04
+last_edited: 2026-11-05
 ---
 
 # Changelog
@@ -11,6 +11,12 @@ last_edited: 2026-11-04
 - Enrich advertised summary v2 reports with structured reasons and latest step
   outcomes. Preserve frozen evidence and save a legacy projection before retry
   after an exact unsupported-feature refusal.
+- Honor advertised Kata run and cancel requests through durable journals.
+  Preserve terminal evidence and identity guards when cancelling; free capacity
+  only after a confirmed stop, retaining known cleanup results after restart.
+
+- Advertise runtime presence and adapter version to supporting daemons, with
+  one bounded heartbeat attempt per minute per project.
 
 ## 0.4.0
 <small>2026-11-04</small>

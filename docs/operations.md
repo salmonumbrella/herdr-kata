@@ -1,7 +1,7 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-04
+last_edited: 2026-11-05
 ---
 
 # Operations
@@ -360,3 +360,25 @@ The job-list `project_pause` field stops new preparation and admission. An
 absent or null value allows work; every other value pauses it. A failed
 job-list read also keeps prepared journals waiting. Admitted runs keep
 settling and reporting. Resume applies each job's existing catch-up policy.
+
+When advertised, pending Kata run requests use `request:<uid>` occurrence
+keys and the same ownership, readiness, capacity and overlap checks as other
+work. New preparation must happen before expiry, checked after preparation
+reads; a durable preparation can recover after expiry. Definition revisions
+must match. A request is answered by normal admission, with no separate
+acknowledgment.
+
+Advertised cancel requests save intent before acting, even while paused or
+job reads fail. Prompts receive an interrupt and ten seconds of grace before
+a guarded kill; commands are killed directly. Cancellation completes only after
+a matching stopped terminal is observed. Unproven stops keep capacity held,
+and saved removal intent still recovers after a lost reply. Terminals remain
+inspectable.
+Lost or ambiguous execution still holds for the operator. No later step or
+retry starts after cancellation intent is saved.
+
+Workers advertise active runtime presence only when `cron_runtimes_v1` is
+advertised. Beats include the adapter version and compiled adoptions, at most
+once per minute per project, measured from each attempt. Failures use the same
+interval and a three-second call budget. The derived identity survives restart
+without another state file. Older daemons retain legacy behavior.

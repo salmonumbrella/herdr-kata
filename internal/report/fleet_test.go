@@ -7,9 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
@@ -272,4 +274,97 @@ func TestFleetFallbackPreservesFrozenValuesProperty(t *testing.T) {
 			ht.Fatal("projection changed frozen evidence")
 		}
 	}, hegel.WithTestCases(24))
+}
+
+// Contract: summary fallback and restart replay retain the first settlement
+// alert intent, frozen bytes and run identity, including existing-issue carriers.
+type fallbackAlertKata struct {
+	*fakeKata
+	t     *testing.T
+	store *journal.Store
+	key   string
+	uids  []string
+	revs  []int
+}
+
+func (k *fallbackAlertKata) Observe(uid string, b []byte, rev int) (int, bool, error) {
+	k.t.Helper()
+	saved, err := journal.New(k.store.Layout).Load(k.key)
+	if err != nil || !bytes.Equal(saved.ReportBody, b) || !slices.Contains(saved.Notified, "settled") || len(k.notifications) != 1 {
+		k.t.Fatalf("observation preceded durable body/one alert: %v sends=%+v", err, k.notifications)
+	}
+	k.events = append(k.events, "observe")
+	k.bodies = append(k.bodies, bytes.Clone(b))
+	k.uids = append(k.uids, uid)
+	k.revs = append(k.revs, rev)
+	switch len(k.bodies) {
+	case 1:
+		return 0, false, &kata.Error{Code: 5, Message: `{"error":{"kind":"conflict","code":"unsupported_event_features"}}`}
+	case 2:
+		return 0, false, &kata.Error{Code: 7}
+	default:
+		return rev + 1, false, nil
+	}
+}
+
+func TestFleetFallbackKeepsOneAlertAcrossRestart(t *testing.T) {
+	for _, policy := range []string{"per-run", "existing"} {
+		for _, outcome := range []string{"failed", "unknown"} {
+			t.Run(policy+"/"+outcome, func(t *testing.T) {
+				ctx, st, base, r := finalFixture(t, outcome)
+				if policy == "existing" {
+					ctx, st, base, r = existingFixture(t)
+				}
+				if err := st.Update(r.Key, func(r *journal.Run) error {
+					r.Outcome = outcome
+					r.Plan.Steps = []defs.Step{{Key: "main"}}
+					r.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: outcome, Summary: "private detail"}}
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
+				k := &fallbackAlertKata{fakeKata: base, t: t, store: st, key: r.Key}
+				if err := Final(WithSummaryV2(ctx, true), k, st, r.Key); err == nil {
+					t.Fatal("fallback retry unavailability hidden")
+				}
+				saved, err := st.Load(r.Key)
+				if err != nil || len(k.bodies) != 2 || saved.ReportDone || saved.ReportRefused {
+					t.Fatalf("fallback state: %+v %v bodies=%d", saved, err, len(k.bodies))
+				}
+				before, projected := body(t, k.bodies[0]), body(t, k.bodies[1])
+				if before.Summary.Reason == nil || *before.Summary.Reason != outcome || len(before.Summary.Steps) != 1 || projected.Summary.Reason != nil || len(projected.Summary.Steps) != 0 || projected.Summary.Message == nil || !bytes.Equal(saved.ReportBody, k.bodies[1]) {
+					t.Fatalf("enrichment/projection: %+v %+v", before.Summary, projected.Summary)
+				}
+				if err := st.Update(r.Key, func(r *journal.Run) error {
+					r.Outcome, r.Detail, r.Attempts = "succeeded", "changed after freeze", nil
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
+				ctx = WithSummaryV2(WithNow(ctx, at.Add(time.Hour)), true)
+				for range 2 {
+					if err := Final(ctx, k, journal.New(st.Layout), r.Key); err != nil {
+						t.Fatal(err)
+					}
+				}
+				want := notification{"abcd", "worker", "run " + outcome + ": reason: " + outcome + "; 01J00000000000000000000001"}
+				if !slices.Equal(k.notifications, []notification{want}) || !slices.Equal(k.events, []string{"notify", "observe", "observe", "observe"}) || len(k.bodies) != 3 || !bytes.Equal(k.bodies[1], k.bodies[2]) {
+					t.Fatalf("replay changed alert/order/bytes: %+v %v %q", k.notifications, k.events, k.bodies)
+				}
+				for i := range k.uids {
+					if k.uids[i] != r.RunUID || k.revs[i] != 1 {
+						t.Fatal("fallback changed run/revision", k.uids, k.revs)
+					}
+				}
+				creates := 1 // Per-run admission already created its issue.
+				if len(k.createRequests) != creates {
+					t.Fatal("duplicate issue/carrier create", k.createRequests)
+				}
+				final, err := st.Load(r.Key)
+				if err != nil || !final.ReportDone || final.Phase != "reported" || !bytes.Equal(final.ReportBody, saved.ReportBody) {
+					t.Fatalf("restart did not publish frozen projection: %+v %v", final, err)
+				}
+			})
+		}
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 type Caps struct {
@@ -45,4 +46,25 @@ type JobList struct {
 
 func (j JobList) Paused() bool {
 	return len(j.ProjectPause) > 0 && !bytes.Equal(bytes.TrimSpace(j.ProjectPause), []byte("null"))
+}
+
+type CronRequest struct {
+	UID                string    `json:"uid"`
+	Kind               string    `json:"kind"`
+	JobUID             string    `json:"job_uid"`
+	DefinitionEventUID string    `json:"definition_event_uid"`
+	RunUID             string    `json:"run_uid"`
+	ExpiresAt          time.Time `json:"expires_at"`
+}
+
+func (c *cli) Requests() ([]CronRequest, error) {
+	var v struct {
+		Requests []CronRequest `json:"requests"`
+	}
+	err := c.call(nil, &v, "cron", "request", "list", "--state", "pending")
+	return v.Requests, err
+}
+
+func (c *cli) Beat(uid string, body []byte) error {
+	return c.call(body, nil, "cron", "runtime", "beat", uid, "--json-input", "-")
 }
