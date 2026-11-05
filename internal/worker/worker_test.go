@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -75,9 +76,9 @@ func (k *fakeKata) Observe(_ string, b []byte, rev int) (int, bool, error) {
 type fakeHC struct {
 	specs []hc.RunSpec
 	hc.HC
-	core        string
-	terms       map[string]hc.Terminal
-	runs, kills int
+	core                    string
+	terms                   map[string]hc.Terminal
+	runs, kills, interrupts int
 }
 
 func (h *fakeHC) CoreID(context.Context) (string, error) { return h.core, nil }
@@ -107,7 +108,13 @@ func (h *fakeHC) List(_ context.Context, all bool, labels map[string]string) ([]
 	}
 	return out, nil
 }
-func (h *fakeHC) Interrupt(context.Context, string) error { return nil }
+func (h *fakeHC) Read(_ context.Context, id string, lines int) (string, bool, error) {
+	if _, ok := h.terms[id]; !ok || lines != 200 {
+		return "", false, fmt.Errorf("wrong screen request %s %d", id, lines)
+	}
+	return "Review hooks before starting", true, nil
+}
+func (h *fakeHC) Interrupt(context.Context, string) error { h.interrupts++; return nil }
 func (h *fakeHC) Kill(_ context.Context, id string) error {
 	h.kills++
 	v := h.terms[id]
@@ -147,7 +154,7 @@ func request(t *testing.T, w *Worker, r journal.Request) {
 }
 func tick(t *testing.T, w *Worker, now time.Time) {
 	t.Helper()
-	if err := w.Tick(context.Background(), now); err != nil {
+	if err := w.Tick(clock.WithNow(context.Background(), now), now); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -305,7 +312,7 @@ func TestCommandsDisabledUnsupported(t *testing.T) {
 	workflow(k)
 	w.Config.Projects[0].Commands = false
 	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
-	_ = w.Tick(context.Background(), at)
+	_ = w.Tick(clock.WithNow(context.Background(), at), at)
 	if h.runs != 0 || len(w.Unsupported[k.jobs[0].UID]) == 0 {
 		t.Fatal(h.runs, w.Unsupported)
 	}
@@ -357,7 +364,7 @@ func TestProjectOutageIsolated(t *testing.T) {
 	w.Config.Projects = append(w.Config.Projects, config.Project{Name: "other-project", Actor: "worker", MaxActiveRuns: 1})
 	w.Clients["other-project"] = other
 	request(t, w, journal.Request{ID: "request", Kind: "run", Project: "other-project", JobUID: otherJob.UID})
-	err := w.Tick(context.Background(), at)
+	err := w.Tick(clock.WithNow(context.Background(), at), at)
 	if err == nil || h.runs != 1 {
 		t.Fatal(err, h.runs)
 	}
@@ -437,7 +444,7 @@ func TestRunRequestRejectedOnFirstTick(t *testing.T) {
 				k.jobs[0].Definition.Issue = &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}
 			}
 			request(t, w, journal.Request{ID: "rejected", Kind: "run", JobUID: uid})
-			_ = w.Tick(context.Background(), at)
+			_ = w.Tick(clock.WithNow(context.Background(), at), at)
 			pending, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Pending()
 			if err != nil || len(pending) != 0 {
 				t.Fatalf("request still pending: %v %v", pending, err)
@@ -542,11 +549,11 @@ func TestRequestAcknowledgedWhenDefinitionUnavailable(t *testing.T) {
 	req := journal.Request{ID: "redelivery", Kind: "run", JobUID: k.jobs[0].UID}
 	request(t, w, req)
 	key := journal.ManualKey(w.Config.Executor, "example-project", req.ID)
-	if err := w.prepare(k, w.Config.Projects[0], p, key, "manual:redelivery", req.ID, at); err != nil {
+	if err := w.prepare(context.Background(), k, w.Config.Projects[0], p, key, "manual:redelivery", req.ID, at); err != nil {
 		t.Fatal(err)
 	}
 	k.err = &kata.Error{Code: 7}
-	_ = w.Tick(context.Background(), at.Add(time.Second))
+	_ = w.Tick(clock.WithNow(context.Background(), at.Add(time.Second)), at.Add(time.Second))
 	pending, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Pending()
 	if err != nil || len(pending) != 0 {
 		t.Fatalf("journal exists but request still pending: %v %v", pending, err)
@@ -557,7 +564,7 @@ func TestAdmissionRefusalObservedSameTick(t *testing.T) {
 	w, h, k := fixture(t)
 	k.createErr = &kata.Error{Code: 3}
 	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
-	_ = w.Tick(context.Background(), at)
+	_ = w.Tick(clock.WithNow(context.Background(), at), at)
 	if h.runs != 0 || len(k.bodies) != 1 {
 		t.Fatalf("refusal not observed: launches %d observations %d", h.runs, len(k.bodies))
 	}

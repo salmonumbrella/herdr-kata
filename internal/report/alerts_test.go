@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	runclock "github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
 	"hegel.dev/go/hegel"
@@ -411,7 +412,7 @@ func TestCarrierRejectsStaleTickBeforeDailyKeyExpires(t *testing.T) {
 	// midnight. Even a late-starting run must leave a full day's replay margin.
 	tickTime := time.Date(2026, 11, 7, 23, 59, 57, 0, time.UTC)
 	serviceTime := time.Date(2026, 11, 8, 0, 0, 2, 0, time.UTC)
-	ctx = WithCurrentTime(WithNow(ctx, tickTime), func() time.Time { return serviceTime })
+	ctx = runclock.WithSource(WithNow(ctx, tickTime), func() time.Time { return serviceTime })
 	k.notifyErr = nil
 	if err := Final(ctx, k, journal.New(st.Layout), r.Key); err == nil || !strings.Contains(err.Error(), "expired") {
 		t.Fatalf("stale tick reopened daily carrier: %v", err)

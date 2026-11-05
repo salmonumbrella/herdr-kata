@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
@@ -62,7 +63,7 @@ func TestAttemptDirectoryErrorRetriesWithoutInvalidPromptHold(t *testing.T) {
 	if err := os.WriteFile(dir, []byte("not a directory"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := w.Tick(context.Background(), at.Add(time.Second)); err == nil {
+	if err := w.Tick(clock.WithNow(context.Background(), at.Add(time.Second)), at.Add(time.Second)); err == nil {
 		t.Fatal("I/O error not returned")
 	}
 	got, _ := w.Store.Load(r.Key)

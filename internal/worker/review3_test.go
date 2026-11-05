@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +24,7 @@ func TestUnreadableExistingRunRejectsManualRequest(t *testing.T) {
 	if err := state.WriteFile(filepath.Join(w.Store.Layout.Run(key), "run.json"), []byte("{")); err != nil {
 		t.Fatal(err)
 	}
-	_ = w.Tick(context.Background(), at.Add(time.Second))
+	_ = w.Tick(clock.WithNow(context.Background(), at.Add(time.Second)), at.Add(time.Second))
 	done, reason, err := (journal.Requests{Dir: w.Store.Layout.Requests()}).Result(req.ID)
 	if err != nil || !done || reason != "existing run journal is unreadable" {
 		t.Fatalf("unreadable journal acknowledged as success: done=%v reason=%q err=%v", done, reason, err)
@@ -69,7 +70,7 @@ func TestMissingOrUnreadableReleaseTargetRejected(t *testing.T) {
 				want = "unexpected end of JSON input"
 			}
 			request(t, w, req)
-			_ = w.Tick(context.Background(), at.Add(time.Second))
+			_ = w.Tick(clock.WithNow(context.Background(), at.Add(time.Second)), at.Add(time.Second))
 			q := journal.Requests{Dir: w.Store.Layout.Requests()}
 			done, reason, err := q.Result(req.ID)
 			if err != nil || !done || !strings.Contains(reason, want) {

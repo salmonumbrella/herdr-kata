@@ -19,3 +19,6 @@ diagnostics, using neutral identifiers and the documented wire fields.
 `capabilities-fleet.json` is a hand-authored fixture for the in-flight Kata
 fleet contracts (execution opt-in, pause controls, runtime heartbeat and
 summary v2). Recheck these fields against merged upstream JSON before release.
+
+`requests-fleet.json` is a hand-authored pending request-list envelope for the
+in-flight pause-controls format, pending merged-upstream comparison.

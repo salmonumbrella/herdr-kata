@@ -450,3 +450,30 @@ func TestStopLegacyExpiryCapturesWithoutRestartingGrace(t *testing.T) {
 		})
 	}
 }
+
+// Capturing a slow screen must not consume the prompt's termination grace.
+func TestStopGraceStartsAfterScreenCapture(t *testing.T) {
+	st, h, r := freshPrompt(t)
+	current := now.Add(2 * time.Minute)
+	ctx := clock.WithSource(context.Background(), func() time.Time { return current })
+	h.onRead = func() { current = current.Add(20 * time.Second) }
+	if _, err := Settle(ctx, h, st, r.Key, 0, now.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := st.Load(r.Key)
+	if err != nil || saved.Attempts[0].ExpiringAt == nil || !saved.Attempts[0].ExpiringAt.Equal(current) {
+		t.Fatalf("grace started before capture: %+v %v", saved.Attempts[0], err)
+	}
+	h.onRead = nil
+	if _, err := Settle(ctx, h, st, r.Key, 0, current); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(h.calls, []string{"interrupt:t1"}) {
+		t.Fatal("grace consumed by capture", h.calls)
+	}
+	current = current.Add(10 * time.Second)
+	out, err := Settle(ctx, h, st, r.Key, 0, now.Add(2*time.Minute))
+	if done, ok := out.(Done); err != nil || !ok || done.Status != "failed" {
+		t.Fatalf("shared clock did not finish timeout: %#v %v", out, err)
+	}
+}

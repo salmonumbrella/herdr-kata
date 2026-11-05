@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"path/filepath"
 	"slices"
 	"time"
@@ -93,11 +94,78 @@ func accept(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	}
 	return cleanup(ctx, h, st, key, idx, a)
 }
+func cancelExpiry(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, a journal.Attempt, kind string, now time.Time) (Outcome, error) {
+	lost := "agent_lost"
+	if kind == "command" {
+		lost = "command_outcome_unknown"
+	}
+	check := func() (hc.Terminal, Outcome, error) {
+		term, err := guarded(ctx, h, a)
+		if errors.Is(err, hc.ErrNotFound) {
+			if a.Cleanup == "remove" && a.SettlementStatus != "" {
+				out, e := finish(st, key, idx, a)
+				return term, out, e
+			}
+			out, e := held(st, key, idx, lost)
+			return term, out, e
+		}
+		if errors.Is(err, ErrOccupantChanged) {
+			out, e := held(st, key, idx, "occupant_changed")
+			return term, out, e
+		}
+		if err != nil {
+			return term, Pending{}, err
+		}
+		return term, nil, nil
+	}
+	term, out, err := check()
+	if out != nil {
+		return out, err
+	}
+	if term.State != "finished" {
+		now = clock.Current(ctx, now)
+		if a.ExpiringAt == nil {
+			a.ExpiringAt = new(now)
+			if err = saveAttempt(st, key, idx, a); err != nil {
+				return Pending{}, err
+			}
+			if kind == "prompt" {
+				if term, out, err = check(); out != nil {
+					return out, err
+				}
+				if term.State == "live" {
+					return Pending{}, h.Interrupt(ctx, a.Address)
+				}
+			}
+		}
+		if term.State == "live" && kind == "prompt" && now.Before(a.ExpiringAt.Add(10*time.Second)) {
+			return Pending{}, nil
+		}
+		if term, out, err = check(); out != nil {
+			return out, err
+		}
+		if term.State == "live" {
+			// Resolve even a lost kill reply from a fresh, identity-matched row.
+			_ = h.Kill(ctx, a.Address)
+			if term, out, err = check(); out != nil {
+				return out, err
+			}
+		}
+	}
+	if term.State != "finished" {
+		return held(st, key, idx, "timeout")
+	}
+	if !slices.Contains([]string{"exited", "killed", "signal"}, term.Reason) || term.Reason != "exited" && a.ExpiringAt == nil && a.Cleanup == "" {
+		return held(st, key, idx, lost)
+	}
+	return Done{}, nil
+}
 func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, now time.Time) (Outcome, error) {
 	r, err := st.Load(key)
 	if err != nil {
 		return Pending{}, err
 	}
+	now = clock.Current(ctx, now)
 	a := r.Attempts[idx]
 	if a.Hold != "" {
 		return Held{a.Hold}, nil
@@ -265,4 +333,36 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		return Pending{}, saveAttempt(st, key, idx, a)
 	}
 	return Pending{}, nil
+}
+
+// Cancel bypasses normal cleanup so every retained terminal stays inspectable.
+func Cancel(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, now time.Time) (Outcome, error) {
+	r, err := st.Load(key)
+	if err != nil {
+		return Pending{}, err
+	}
+	now = clock.Current(ctx, now)
+	a := r.Attempts[idx]
+	if a.Hold != "" {
+		return Held{a.Hold}, nil
+	}
+	if a.Cleanup == "" && slices.Contains([]string{"succeeded", "failed", "skipped"}, a.Status) {
+		return Done{a.Status, a.Note}, nil
+	}
+	if a.Address == "" {
+		if a.Nonce == "" {
+			return Done{}, nil
+		}
+		if err = Recover(ctx, h, st, key, idx); err != nil {
+			return Pending{}, err
+		}
+		return Cancel(ctx, h, st, key, idx, now)
+	}
+	kind := "prompt"
+	for _, s := range r.Plan.Steps {
+		if s.Key == a.Step {
+			kind = s.Kind
+		}
+	}
+	return cancelExpiry(ctx, h, st, key, idx, a, kind, now)
 }

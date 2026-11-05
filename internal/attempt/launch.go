@@ -146,7 +146,7 @@ func Recover(ctx context.Context, h hc.HC, st *journal.Store, key string, idx in
 		return err
 	}
 	if len(found) == 0 {
-		if core != a.CoreID {
+		if core != a.CoreID || strings.HasPrefix(r.Detail, "cancel requested: request:") {
 			return hold(st, key, idx, "launch_unproven")
 		}
 		if !r.ExpiresAt.IsZero() && !clock.Now(ctx).Before(r.ExpiresAt) {
