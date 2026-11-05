@@ -1,12 +1,15 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/config"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +21,9 @@ import (
 )
 
 type fleetKata struct {
+	beats    [][]byte
+	beatUIDs []string
+	beatErr  error
 	*fakeKata
 	remote       []kata.CronRequest
 	requestCalls int
@@ -570,5 +576,171 @@ func TestFleetCancelCommandAndGrace(t *testing.T) {
 				t.Fatal(saved.Outcome, err)
 			}
 		})
+	}
+}
+
+func (k *fleetKata) Beat(uid string, body []byte) error {
+	k.beatUIDs = append(k.beatUIDs, uid)
+	k.beats = append(k.beats, bytes.Clone(body))
+	return k.beatErr
+}
+func TestFleetBeats(t *testing.T) {
+	w, _, k := fleetFixture(t)
+	tick(t, w, at)
+	if len(k.beats) != 0 {
+		t.Fatal("unadvertised beat")
+	}
+	k.caps.Features = []string{"cron_runtimes_v1"}
+	tick(t, w, at.Add(5*time.Minute))
+	if len(k.beats) != 1 {
+		t.Fatal("first beat missing", len(k.beats))
+	}
+	var body map[string]any
+	if err := json.Unmarshal(k.beats[0], &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["adapter"] != "herdr-kata" || body["adapter_version"] != "0.4.0" || body["interval_seconds"] != float64(60) || body["state"] != "active" || body["label"] != "executor" || len(body) != 6 {
+		t.Fatal(body)
+	}
+	if features, ok := body["features"].([]any); !ok || len(features) != 5 {
+		t.Fatal("compiled adoptions missing", body["features"])
+	}
+	for _, feature := range []string{"cron_v1", "execution_optin", "project_pause", "run_request", "cancel_request"} {
+		if !bytes.Contains(k.beats[0], []byte(`"`+feature+`"`)) {
+			t.Fatal("missing adoption", feature)
+		}
+	}
+	k.beatErr = errors.New("beat unavailable")
+	if err := w.Tick(clock.WithNow(context.Background(), at.Add(6*time.Minute)), at.Add(6*time.Minute)); err == nil {
+		t.Fatal("beat error dropped")
+	}
+	_ = w.Tick(clock.WithNow(context.Background(), at.Add(6*time.Minute+59*time.Second)), at.Add(6*time.Minute+59*time.Second))
+	if len(k.beats) != 2 {
+		t.Fatal("failed beat busy loop", len(k.beats))
+	}
+	_ = w.Tick(clock.WithNow(context.Background(), at.Add(7*time.Minute)), at.Add(7*time.Minute))
+	if len(k.beats) != 3 {
+		t.Fatal("exact cadence", len(k.beats))
+	}
+	k.beatErr = nil
+	first := k.beatUIDs[0]
+	if len(first) != 26 {
+		t.Fatal(first)
+	}
+	w = New(w.Config, w.Store, w.HC, w.Clients, w.Bin)
+	tick(t, w, at.Add(8*time.Minute))
+	if k.beatUIDs[3] != first {
+		t.Fatal("restart changed identity")
+	}
+	w.Config.Executor = "other-executor"
+	w = New(w.Config, w.Store, w.HC, w.Clients, w.Bin)
+	tick(t, w, at.Add(9*time.Minute))
+	if k.beatUIDs[4] == first {
+		t.Fatal("executor identity collision")
+	}
+	other, _, otherK := fleetFixture(t)
+	otherK.caps.Features = []string{"cron_runtimes_v1"}
+	tick(t, other, at)
+	if otherK.beatUIDs[0] == first {
+		t.Fatal("state root identity collision")
+	}
+}
+func TestFleetBeatsPerProject(t *testing.T) {
+	w, _, k := fleetFixture(t)
+	other := &fleetKata{fakeKata: &fakeKata{}}
+	w.Clients["other-project"] = other
+	w.Config.Projects = append(w.Config.Projects, config.Project{Name: "other-project", Actor: "worker"})
+	k.caps.Features = []string{"cron_runtimes_v1"}
+	tick(t, w, at)
+	if len(k.beats) != 1 || len(other.beats) != 0 {
+		t.Fatal("feature leaked")
+	}
+}
+
+func TestFleetBeatAttemptClock(t *testing.T) {
+	w, _, k := fleetFixture(t)
+	k.caps.Features = []string{"cron_runtimes_v1"}
+	k.beatErr = errors.New("offline")
+	current := at
+	ctx := clock.WithSource(context.Background(), func() time.Time { return current })
+	w.Clients["example-project"] = delayedFleet{k, "jobs", func() { current = at.Add(70 * time.Second) }}
+	_ = w.Tick(ctx, at)
+	w.Clients["example-project"] = k
+	current = at.Add(129 * time.Second)
+	_ = w.Tick(ctx, current)
+	if len(k.beats) != 1 {
+		t.Fatal("attempts too close", len(k.beats))
+	}
+	current = at.Add(130 * time.Second)
+	_ = w.Tick(ctx, current)
+	if len(k.beats) != 2 {
+		t.Fatal("boundary missed", len(k.beats))
+	}
+}
+
+func TestFleetHungBeatCannotGateRunAdvancement(t *testing.T) {
+	w, h, k := fleetFixture(t)
+	request(t, w, journal.Request{ID: "manual", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	finishAgent(t, w, h, r)
+	script := `#!/bin/sh
+case "$*" in
+ *"cron capabilities"*) printf '{"features":["cron_runtimes_v1"]}' ;;
+ *"cron job list"*) printf '{"jobs":[]}' ;;
+ *"cron workflow list"*) printf '{"workflows":[]}' ;;
+ *"cron runtime beat"*) exec /bin/sleep 30 ;;
+ *"cron run observe"*) printf '{"run":{"revision":2}}' ;;
+ *) exit 2 ;;
+esac
+`
+	bin := filepath.Join(t.TempDir(), "kata-fixture")
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	w.Clients["example-project"] = kata.New(bin, "fixture", map[string]string{"KATA_HOME": t.TempDir()}, "example-project", "worker")
+	w = New(w.Config, w.Store, h, w.Clients, w.Bin)
+	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Second)
+	defer cancel()
+	started := time.Now()
+	err := w.Tick(clock.WithNow(ctx, at.Add(time.Second)), at.Add(time.Second))
+	elapsed := time.Since(started)
+	saved, loadErr := w.Store.Load(r.Key)
+	if err == nil || elapsed >= 8*time.Second || loadErr != nil || saved.Attempts[0].Status != "succeeded" || !saved.ReportDone || saved.Outcome != "succeeded" || h.runs != 1 {
+		t.Fatal("beat blocked settlement or exceeded budget", err, elapsed, saved.Attempts[0].Status, loadErr, h.runs)
+	}
+}
+
+type settledBeatKata struct {
+	*fleetKata
+	t     *testing.T
+	store *journal.Store
+	key   string
+}
+
+func (k settledBeatKata) Beat(uid string, body []byte) error {
+	k.t.Helper()
+	r, err := k.store.Load(k.key)
+	if err != nil {
+		k.t.Fatal(err)
+	}
+	if !r.ReportDone || r.Outcome != "succeeded" || r.Attempts[0].Status != "succeeded" {
+		k.t.Fatalf("heartbeat started before settlement: phase=%s outcome=%s reported=%v", r.Phase, r.Outcome, r.ReportDone)
+	}
+	return k.fleetKata.Beat(uid, body)
+}
+
+func TestFleetBeatStartsAfterSettlement(t *testing.T) {
+	w, h, k := fleetFixture(t)
+	request(t, w, journal.Request{ID: "manual", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	finishAgent(t, w, h, r)
+	k.caps.Features = []string{"cron_runtimes_v1"}
+	w.Clients["example-project"] = settledBeatKata{k, t, w.Store, r.Key}
+	w = New(w.Config, w.Store, h, w.Clients, w.Bin)
+	tick(t, w, at.Add(time.Second))
+	if len(k.beats) != 1 || h.runs != 1 {
+		t.Fatal("settlement or heartbeat missing", len(k.beats), h.runs)
 	}
 }

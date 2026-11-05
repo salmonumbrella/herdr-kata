@@ -64,3 +64,7 @@ func (c *cli) Requests() ([]CronRequest, error) {
 	err := c.call(nil, &v, "cron", "request", "list", "--state", "pending")
 	return v.Requests, err
 }
+
+func (c *cli) Beat(uid string, body []byte) error {
+	return c.call(body, nil, "cron", "runtime", "beat", uid, "--json-input", "-")
+}

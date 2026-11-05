@@ -609,6 +609,11 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	clients := make(map[string]kata.Kata)
 	for _, project := range w.Config.Projects {
 		clients[project.Name] = w.Clients[project.Name]
+		if k := clients[project.Name]; k != nil {
+			if err := w.beat(ctx, k, project.Name, now); err != nil {
+				errs = append(errs, err)
+			}
+		}
 	}
 	if err := (report.Outbox{Layout: w.Store.Layout}).Deliver(clients, now); err != nil {
 		errs = append(errs, err)
