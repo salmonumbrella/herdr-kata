@@ -1,6 +1,7 @@
 package kata
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -57,5 +58,18 @@ func TestFleetMalformedReadTransport(t *testing.T) {
 				t.Fatal("malformed discovery treated as success")
 			}
 		})
+	}
+}
+
+func TestFleetBeatTransport(t *testing.T) {
+	k, args := stub(t, "capabilities-fleet", "0")
+	body := []byte(`{"label":"executor","adapter":"herdr-kata","interval_seconds":60,"state":"active"}`)
+	if err := k.Beat("01J00000000000000000000030", body); err != nil {
+		t.Fatal(err)
+	}
+	assertArgs(t, args(), "cron", "runtime", "beat", "01J00000000000000000000030", "--json-input", "-")
+	got, err := os.ReadFile(os.Getenv("HK_TEST_INPUT"))
+	if err != nil || !bytes.Equal(got, body) {
+		t.Fatal(string(got), err)
 	}
 }

@@ -601,7 +601,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			continue
 		}
 		if k := w.Clients[r.Project]; k != nil {
-			if err = w.advance(ctx, k, r, now, protected(r)); err != nil {
+			if err = w.advance(report.WithSummaryV2(ctx, slices.Contains(w.caps[r.Project].caps.EventFeatures, "cron_run_summary_v2")), k, r, now, protected(r)); err != nil {
 				errs = append(errs, fmt.Errorf("run %s: %w", r.RunUID, err))
 			}
 		}
@@ -609,6 +609,11 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	clients := make(map[string]kata.Kata)
 	for _, project := range w.Config.Projects {
 		clients[project.Name] = w.Clients[project.Name]
+		if k := clients[project.Name]; k != nil {
+			if err := w.beat(ctx, k, project.Name, now); err != nil {
+				errs = append(errs, err)
+			}
+		}
 	}
 	if err := (report.Outbox{Layout: w.Store.Layout}).Deliver(clients, now); err != nil {
 		errs = append(errs, err)

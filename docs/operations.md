@@ -110,6 +110,19 @@ preparation can reach Kata's admission backstop and hold as `report_refused`;
 a per-run issue may already have been created. No terminal launches before
 admission is confirmed.
 
+When `cron_run_summary_v2` is advertised, newly frozen final and hold reports
+include a reason and the latest attempt for each attempted step, in plan
+order. Zero command exit codes are preserved. Step messages are bounded to
+4 KiB; deterministic shortening keeps the fully encoded summary within
+64 KiB. Usage and log links are omitted because the worker has no shared
+usage or log evidence.
+
+A structured `unsupported_event_features` conflict saves a v1 projection of
+the frozen report before retrying once with the same run identity and
+revision. Other conflicts and uncertain writes retain the original bytes.
+Capability changes do not enrich already frozen reports or projected retries.
+Older daemons retain legacy behavior.
+
 ## Unsupported report delivery
 
 The `unsupported/` directory under the state root holds frozen observation
@@ -381,3 +394,9 @@ and saved removal intent still recovers after a lost reply. Terminals remain
 inspectable.
 Lost or ambiguous execution still holds for the operator. No later step or
 retry starts after cancellation intent is saved.
+
+Workers advertise active runtime presence only when `cron_runtimes_v1` is
+advertised. Beats include the adapter version and compiled adoptions, at most
+once per minute per project, measured from each attempt. Failures use the same
+interval and a three-second call budget. The derived identity survives restart
+without another state file. Older daemons retain legacy behavior.

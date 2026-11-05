@@ -56,6 +56,13 @@ this list and the runtime invariants mirrored in `.roborev.toml`.
 - Non-test Go must remain at or below 6,000 lines. Stop before exceeding
   the budget; do not remove specified behavior to fit.
 
+Fleet adoption: known capabilities and a fresh successful unpaused job-list
+read gate prepared admission. Request TTL ends at durable preparation.
+Persist cancellation before cleanup or workflow completion; retain cancelled
+terminals and preserve loss/ambiguity holds. Only a structured unsupported
+feature conflict may replace frozen v2 bytes with a saved v1 projection before
+keyed retry. Runtime beats are keyed, per-project and rate-limited.
+
 ## Checks and isolation
 
 Read `.claude/skills/verify/SKILL.md` before real runtime checks. Never
