@@ -406,6 +406,10 @@ func enrich(v *kata.Summary, r journal.Run) error {
 		}
 		if a.Receipt != nil {
 			s.ExitCode = new(a.Receipt.ExitCode)
+			start, end := a.Receipt.StartedAt.UTC(), a.Receipt.EndedAt.UTC()
+			if !start.IsZero() && !end.IsZero() && !end.Before(start) && start.Year() >= 1 && start.Year() <= 9999 && end.Year() >= 1 && end.Year() <= 9999 {
+				s.StartedAt, s.EndedAt = start.Format(time.RFC3339Nano), end.Format(time.RFC3339Nano)
+			}
 		}
 		s.Message = bounded(strings.ToValidUTF8(a.Summary, "�"))
 		v.Steps = append(v.Steps, s)

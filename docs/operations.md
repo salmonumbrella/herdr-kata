@@ -1,7 +1,7 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-05
+last_edited: 2026-11-06
 ---
 
 # Operations
@@ -117,10 +117,20 @@ order. Zero command exit codes are preserved. Step messages are bounded to
 64 KiB. Usage and log links are omitted because the worker has no shared
 usage or log evidence.
 
+When the latest attempt has a command receipt with nonzero, ordered start
+and end times, its step includes both timestamps in UTC RFC3339Nano. Both
+UTC years must be within 1–9999; otherwise both timestamps are omitted while
+the remaining step evidence is preserved. These times describe only that
+command attempt's receipt interval. They do not include earlier retries or
+cleanup, and prompt attempts have no receipt timing. A latest attempt without
+a receipt never borrows times from an earlier attempt. Unattempted steps
+remain omitted, so step coverage may be partial.
+
 A structured `unsupported_event_features` conflict saves a v1 projection of
 the frozen report before retrying once with the same run identity and
 revision. Other conflicts and uncertain writes retain the original bytes.
 Capability changes do not enrich already frozen reports or projected retries.
+The v1 projection drops the complete steps array, including receipt timing.
 Older daemons retain legacy behavior.
 
 ## Unsupported report delivery

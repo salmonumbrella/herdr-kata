@@ -109,12 +109,14 @@ type ObserveCronRunBody struct {
 	WorkflowUID                *string    `json:"workflow_uid,omitempty"`
 }
 type SummaryStep struct {
-	Key      string  `json:"key"`
-	Status   string  `json:"status"`
-	Attempts int     `json:"attempts"`
-	ExitCode *int    `json:"exit_code,omitempty"`
-	Reason   *string `json:"reason,omitempty"`
-	Message  string  `json:"message,omitempty"`
+	Key       string  `json:"key"`
+	Status    string  `json:"status"`
+	Attempts  int     `json:"attempts"`
+	ExitCode  *int    `json:"exit_code,omitempty"`
+	Reason    *string `json:"reason,omitempty"`
+	Message   string  `json:"message,omitempty"`
+	StartedAt string  `json:"started_at,omitempty"`
+	EndedAt   string  `json:"ended_at,omitempty"`
 }
 type Summary struct {
 	InputTokens  *int64  `json:"input_tokens,omitempty"`
