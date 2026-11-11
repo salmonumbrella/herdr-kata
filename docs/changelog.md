@@ -1,12 +1,18 @@
 ---
 title: Changelog
 description: Changes to the headless Kata adapter.
-last_edited: 2026-11-05
+last_edited: 2026-11-06
 ---
 
 # Changelog
 
 ## Unreleased
+
+- Report the latest command attempt's recorded receipt timestamps when
+  `cron_run_summary_v2` is advertised. Keep retry and cleanup time separate;
+  prompt attempts and already frozen reports gain no timing. Invalid receipt
+  pairs omit both timestamps, preserving the remaining evidence and legacy
+  projection behavior.
 
 ## 0.5.0
 <small>2026-11-05</small>
