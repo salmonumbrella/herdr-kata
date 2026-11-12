@@ -44,11 +44,15 @@ values are data and are not expanded as prompt placeholders. The hc core's
 inherited environment remains under the operator's control.
 
 Input resolution needs daemon API 0.48.0 or newer; requests carrying input
-values need 0.49.0. An older daemon produces a cancelled run with reason
+values need 0.49.0. The configured Kata CLI must support `cron job inputs`
+for bare reads and `cron job inputs --request-uid` for request-aware reads.
+An older daemon produces a cancelled run with reason
 `inputs_unavailable`; invalid values produce `invalid_inputs`. Transient reads,
 expired requests and changing definitions remain pending under the normal tick
 rules. A request must still be live at durable preparation; after preparation,
-the frozen values survive a restart. Jobs without input keys and requests
+the frozen values survive a restart. Before rolling back to a worker that cannot
+read frozen input values, drain prepared, running and held input-bearing runs;
+otherwise later attempts may omit their values. Jobs without input keys and requests
 without input values make no extra input-resolution or health calls. Existing
 free-text `options.input` and manual input continue to work.
 

@@ -12,7 +12,9 @@ and check it against `checksums.txt`, or build `bin/herdr-kata` with
 `mise exec -- make build`. Copy the binary to an operator-owned directory on
 PATH. The module remains
 `github.com/salmonumbrella/herdr-kata`. Use hc 0.1.15 or newer and Kata
-0.20.0 or newer. The live suite exercises the installed hc and checksum-verified 0.1.15 and 0.1.16. Linux and
+0.20.0 or newer. Declared inputs also require a Kata CLI with `cron job inputs`;
+request input values require its `--request-uid` flag. See [declared inputs](jobs.md#declared-inputs)
+for daemon floors and rollback guidance. The live suite exercises the installed hc and checksum-verified 0.1.15 and 0.1.16. Linux and
 macOS are supported; Windows is not.
 
 v2 replaces the old plugin. Its configuration and state are incompatible
