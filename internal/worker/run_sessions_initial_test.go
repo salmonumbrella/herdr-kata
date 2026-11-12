@@ -1,0 +1,66 @@
+package worker
+
+import (
+	"encoding/json"
+	"path/filepath"
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/salmonumbrella/herdr-kata/internal/journal"
+	"github.com/salmonumbrella/herdr-kata/internal/kata"
+	"github.com/salmonumbrella/herdr-kata/internal/prompt"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
+)
+
+type sessionsCapabilityKata struct{ *fleetKata }
+
+func (k sessionsCapabilityKata) Capabilities() (kata.Caps, error) {
+	var caps kata.Caps
+	err := json.Unmarshal([]byte(`{"cli_features":["cron_run_sessions_v1"],"event_features":["cron_run_sessions_v1"]}`), &caps)
+	return caps, err
+}
+
+// A settled prompt's recorded identity reaches Kata when both peers advertise sessions.
+func TestFleetFinalObservationIncludesRecordedSession(t *testing.T) {
+	w, h, k := fleetFixture(t)
+	// The fixture uses fake HC and Kata; no provider process is launched.
+	w.Clients["example-project"] = sessionsCapabilityKata{k}
+	request(t, w, journal.Request{ID: "manual", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	a := r.Attempts[0]
+	path := filepath.Join(w.Store.Layout.Attempt(r.Key, a.Step, a.N), "result.json")
+	result := prompt.Result{RunUID: r.RunUID, Step: a.Step, Attempt: a.N, Status: "succeeded", Summary: "Complete", Note: "Done", Session: &session.Session{Agent: "codex", SessionID: "00000000-0000-4000-8000-000000000002"}}
+	if err := prompt.WriteResult(path, result); err != nil {
+		t.Fatal(err)
+	}
+	term := h.terms[a.Address]
+	term.State, term.Reason = "finished", "exited"
+	h.terms[a.Address] = term
+	tick(t, w, at.Add(time.Second))
+	saved, err := w.Store.Load(r.Key)
+	if err != nil || saved.Phase != "reported" || !saved.ReportDone || saved.Outcome != "succeeded" || len(saved.Attempts) != 1 || saved.Attempts[0].Session == nil || *saved.Attempts[0].Session != *result.Session {
+		t.Fatalf("fixture did not settle recorded session: %+v, %v", saved, err)
+	}
+	if len(k.bodies) != 2 {
+		t.Fatalf("expected admission and final observations, got %d", len(k.bodies))
+	}
+	var wire struct {
+		Status  string                     `json:"status"`
+		Summary map[string]json.RawMessage `json:"summary"`
+	}
+	if err := json.Unmarshal(k.bodies[1], &wire); err != nil || wire.Status != "succeeded" {
+		t.Fatalf("invalid final observation: %s: %v", k.bodies[1], err)
+	}
+	var got []map[string]string
+	if raw := wire.Summary["sessions"]; len(raw) > 0 {
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatalf("invalid sessions: %s: %v", raw, err)
+		}
+	}
+	want := []map[string]string{{"agent": "codex", "session_id": "00000000-0000-4000-8000-000000000002", "step": "main"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("final observation sessions = %v, want %v", got, want)
+	}
+}
