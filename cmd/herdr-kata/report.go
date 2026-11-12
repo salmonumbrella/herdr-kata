@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 )
 
 func report(args []string, out io.Writer) int {
@@ -26,7 +27,7 @@ func report(args []string, out io.Writer) int {
 		fmt.Fprintln(out, "report requires an absolute --result path")
 		return 2
 	}
-	r := prompt.Result{RunUID: os.Getenv("KATA_CRON_RUN"), Step: os.Getenv("KATA_CRON_STEP"), Attempt: n, Status: *status, Summary: *summary, Note: *note}
+	r := prompt.Result{Session: session.DiscoverSession(), RunUID: os.Getenv("KATA_CRON_RUN"), Step: os.Getenv("KATA_CRON_STEP"), Attempt: n, Status: *status, Summary: *summary, Note: *note}
 	if err := prompt.WriteResult(*path, r); err != nil {
 		fmt.Fprintln(out, err)
 		return 2

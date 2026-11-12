@@ -8,6 +8,7 @@ import (
 
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"hegel.dev/go/hegel"
 )
@@ -124,5 +125,57 @@ func TestWakePromptLeavesIssueOpen(t *testing.T) {
 	}
 	if strings.Contains(got, " close ") {
 		t.Fatalf("wake asked to close issue: %s", got)
+	}
+}
+
+// Optional identity cannot turn a baseline-valid result into a failure.
+func TestResultSessionSizeBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		session bool
+		size    int
+		ok      bool
+	}{
+		{"near limit without session", false, 65400, true},
+		{"near limit with session", true, 65400, true},
+		{"baseline too large", true, 65536, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "result.json")
+			result := Result{RunUID: "01J00000000000000000000001", Step: "main", Attempt: 1, Status: "succeeded", Summary: strings.Repeat("a", tc.size)}
+			if tc.session {
+				result.Session = &session.Session{Agent: "claude", SessionID: "00000000-0000-4000-8000-000000000001"}
+			}
+			err := WriteResult(path, result)
+			if !tc.ok {
+				if err == nil {
+					t.Fatal("oversized baseline accepted")
+				}
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatalf("result exists: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := ReadResult(path, result.RunUID, result.Step, result.Attempt)
+			if err != nil || got.Summary != result.Summary || got.Session != nil {
+				t.Fatalf("result: %+v %v", got, err)
+			}
+		})
+	}
+}
+
+func TestInvalidSessionDoesNotChangeResult(t *testing.T) {
+	for _, value := range []string{`{"agent":"claude","session_id":"invalid"}`, `42`, `null`} {
+		b := []byte(`{"run_uid":"run","step":"main","attempt":1,"status":"succeeded","summary":"done","session":` + value + `}`)
+		got, err := ParseResult(b, "run", "main", 1)
+		if err != nil || got.Status != "succeeded" || got.Summary != "done" || got.Session != nil {
+			t.Fatalf("result %+v: %v", got, err)
+		}
+		if _, err = ParseResult(b, "other", "main", 1); err == nil {
+			t.Fatal("accepted stale result")
+		}
 	}
 }

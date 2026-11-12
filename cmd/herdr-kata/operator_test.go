@@ -3,14 +3,19 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/salmonumbrella/herdr-kata/internal/attempt"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
+	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
+	"github.com/salmonumbrella/herdr-kata/internal/prompt"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
@@ -151,18 +156,96 @@ func TestReleaseOnlyPostsLocalRequest(t *testing.T) {
 		t.Fatal("control command mutated worker state")
 	}
 }
+
+type settledHC struct {
+	hc.HC
+	removed bool
+	getErr  error
+}
+
+func (h *settledHC) CoreID(context.Context) (string, error) { return "fixture-core", nil }
+func (h *settledHC) Get(context.Context, string) (hc.Terminal, error) {
+	if h.getErr != nil {
+		return hc.Terminal{}, h.getErr
+	}
+	if h.removed {
+		return hc.Terminal{}, hc.ErrNotFound
+	}
+	return hc.Terminal{Address: "t1", State: "finished", Reason: "exited", CreatedMs: 10, PID: 20, Labels: map[string]string{"kata.nonce": "fixture-nonce"}}, nil
+}
+func (h *settledHC) Remove(context.Context, string) error { h.removed = true; return nil }
+func (h *settledHC) Read(context.Context, string, int) (string, bool, error) {
+	return "", false, fmt.Errorf("screen permission denied")
+}
+
+func TestLogsAfterPromptSettlement(t *testing.T) {
+	_, l := operatorFixture(t)
+	r := localRun(t, l, "running")
+	st := journal.New(l)
+	if err := st.Update(r.Key, func(r *journal.Run) error {
+		r.Plan = defs.Plan{Steps: []defs.Step{{Key: "main", Kind: "prompt"}}}
+		r.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "running", Address: "t1", CoreID: "fixture-core", CreatedMs: 10, PID: 20, Nonce: "fixture-nonce"}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := prompt.WriteResult(filepath.Join(l.Attempt(r.Key, "main", 1), "result.json"), prompt.Result{RunUID: r.RunUID, Step: "main", Attempt: 1, Status: "succeeded", Summary: "done"}); err != nil {
+		t.Fatal(err)
+	}
+	h := &settledHC{HC: hc.New("/bin/false", "fixture")}
+	if _, err := attempt.Settle(context.Background(), h, st, r.Key, 0, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if !h.removed {
+		t.Fatal("settlement did not remove terminal")
+	}
+	var out bytes.Buffer
+	if code := logs(context.Background(), []string{"logs", r.RunUID}, st, h, &out); code != 0 || out.String() != "[terminal output unavailable after cleanup]\n" {
+		t.Fatalf("logs exit=%d output=%q", code, out.String())
+	}
+	if err := st.Update(r.Key, func(r *journal.Run) error {
+		r.Attempts[0].SettlementStatus = ""
+		r.Attempts[0].Status = "held"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := logs(context.Background(), []string{"logs", r.RunUID}, st, h, &out); code != 1 || !strings.Contains(out.String(), "terminal not found") {
+		t.Fatalf("unproven cleanup exit=%d output=%q", code, out.String())
+	}
+	if err := st.Update(r.Key, func(r *journal.Run) error {
+		r.Attempts[0].SettlementStatus = "succeeded"
+		r.Attempts[0].Status = "succeeded"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	h.getErr = fmt.Errorf("permission denied")
+	out.Reset()
+	if code := logs(context.Background(), []string{"logs", r.RunUID}, st, h, &out); code != 1 || !strings.Contains(out.String(), "permission denied") {
+		t.Fatalf("logs exit=%d output=%q", code, out.String())
+	}
+	h.getErr = nil
+	h.removed = false
+	out.Reset()
+	if code := logs(context.Background(), []string{"logs", r.RunUID}, st, h, &out); code != 1 || !strings.Contains(out.String(), "screen permission denied") {
+		t.Fatalf("live logs exit=%d output=%q", code, out.String())
+	}
+}
+
 func TestLogsReadsReportedRun(t *testing.T) {
 	config, l := operatorFixture(t)
 	r := localRun(t, l, "reported")
-	r.Attempts = []journal.Attempt{{Step: "main", N: 1}}
+	r.Attempts = []journal.Attempt{{Step: "main", N: 1, Session: &session.Session{Agent: "pi", SessionID: "ses_1"}}, {Step: "main", N: 2}}
 	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error { saved.Attempts = r.Attempts; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if err := state.WriteFile(filepath.Join(l.Attempt(r.Key, "main", 1), "output.log"), []byte("fixture output\n")); err != nil {
+	if err := state.WriteFile(filepath.Join(l.Attempt(r.Key, "main", 2), "output.log"), []byte("fixture output\n")); err != nil {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "fixture output\n" {
+	if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "attempt main/1 session pi ses_1\nfixture output\n" {
 		t.Fatalf("logs %d: %s", code, &out)
 	}
 }
@@ -198,14 +281,14 @@ func TestWakeLogsState(t *testing.T) {
 	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
 		saved.Plan.Agent = "worker"
 		saved.Plan.Steps = []defs.Step{{Key: "main", Kind: "prompt"}}
-		saved.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "succeeded", SettlementStatus: "succeeded", Address: "t1"}}
+		saved.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "succeeded", SettlementStatus: "succeeded", Address: "t1", Session: &session.Session{Agent: "pi", SessionID: "ses_1"}}}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
 	run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out)
-	if !strings.HasPrefix(out.String(), "agent worker: completed\n") {
+	if !strings.HasPrefix(out.String(), "agent worker: completed\nattempt main/1 session pi ses_1\n") {
 		t.Fatalf("logs: %s", &out)
 	}
 	for _, tc := range []struct{ status, reason, hold, want string }{

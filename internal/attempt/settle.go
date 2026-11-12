@@ -258,6 +258,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		if term.Reason != "exited" || resultErr != nil {
 			return held(st, key, idx, lost)
 		}
+		a.Session = result.Session
 		return accept(ctx, h, st, key, idx, a, result.Status, result.Note, result.Summary, "remove")
 	}
 	if out, err := blocked(st, key, idx, r, &a, term); out != nil || err != nil {
@@ -280,6 +281,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 			return Pending{}, saveAttempt(st, key, idx, a)
 		}
 		if now.Sub(*a.ResultStableSince) >= 30*time.Second {
+			a.Session = result.Session
 			return accept(ctx, h, st, key, idx, a, result.Status, result.Note, result.Summary, "interrupt")
 		}
 		return Pending{}, nil
@@ -302,6 +304,7 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	}
 	if term.Turn >= 1 && (term.Status == "idle" || term.Status == "done") {
 		if resultErr == nil {
+			a.Session = result.Session
 			return accept(ctx, h, st, key, idx, a, result.Status, result.Note, result.Summary, "kill")
 		}
 		if a.TurnEndedAt == nil {

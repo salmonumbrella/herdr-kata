@@ -10,6 +10,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 )
 
 type wakeHC struct {
@@ -58,12 +59,19 @@ func TestWakeDeliveryAndResult(t *testing.T) {
 	if out, err := Wake(context.Background(), f, st, r.Key, 0, now); err != nil || out != (Pending{}) {
 		t.Fatalf("delivery: %v %v", out, err)
 	}
-	saveResult(t, st, r, "succeeded")
+	saveResult(t, st, r, "succeeded", &session.Session{Agent: "pi", SessionID: "ses_1"})
 	term := f.terms["t1"]
 	term.Turn = 5
 	f.terms["t1"] = term
 	if out, err := Wake(context.Background(), f, st, r.Key, 0, now.Add(time.Second)); err != nil || out != (Done{"succeeded", "Result note"}) {
 		t.Fatalf("result: %v %v", out, err)
+	}
+	saved, err := st.Load(r.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Attempts[0].Session == nil || saved.Attempts[0].Session.Agent != "pi" || saved.Attempts[0].Session.SessionID != "ses_1" {
+		t.Fatalf("saved session: %+v", saved.Attempts[0].Session)
 	}
 	if want := "Read " + filepath.Join(st.Layout.Attempt(r.Key, "main", 1), "prompt.md") + " and do exactly what it says."; f.sends != 1 || f.sendStatus != "idle" || f.sendText != want || len(f.calls) != 0 {
 		t.Fatalf("send: %d status %q text %q calls %v", f.sends, f.sendStatus, f.sendText, f.calls)

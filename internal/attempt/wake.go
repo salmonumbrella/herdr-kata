@@ -136,6 +136,7 @@ func Wake(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, 
 			var result prompt.Result
 			result, e = prompt.ParseResult(b, r.RunUID, a.Step, a.N)
 			if e == nil {
+				a.Session = result.Session
 				a.SettlementStatus, a.SettlementNote, a.Summary = result.Status, result.Note, result.Summary
 				return finish(st, key, idx, a)
 			}

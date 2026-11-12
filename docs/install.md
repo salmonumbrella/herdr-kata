@@ -1,7 +1,7 @@
 ---
 title: Install
 description: Build and configure the headless worker.
-last_edited: 2026-11-03
+last_edited: 2026-11-12
 ---
 
 # Install
@@ -154,3 +154,30 @@ Doctor's optional `service` line reports file presence, or an informational
 `unknown` for an inaccessible path. It does not probe loaded/enabled state.
 If activation fails, the file stays in place and the command reports failure;
 correct the error and rerun install, or uninstall it.
+
+## Session capture
+
+`report` records the invoking agent's session on its attempt when available;
+`herdr-kata logs <run-uid>` shows recorded attempt identities. After normal
+prompt cleanup it reports when terminal output is unavailable. If a result is
+near the 64 KiB limit, optional session metadata is omitted to preserve it.
+Prompt launches unset the built-in, override and mapped session variables and
+inherit the rest of the core environment. Claude Code uses
+`CLAUDE_CODE_SESSION_ID`; Codex uses `CODEX_THREAD_ID` then `CODEX_SESSION_ID`.
+For other agents, map an agent name to its shell variable in `[sessions.env]`,
+for example `pi = "PI_SESSION_ID"`. Names are lowercase letters, digits and
+hyphens, starting with a letter or digit, up to 32 bytes. Variable names use
+letters, digits and underscores and cannot start with a digit. Targets must be
+unique and cannot be `PATH`, `HOME`, a built-in or override session variable,
+or begin with `XDG_`, `KATA_`, `HC_` or `HERDR_`. Only mapping names are
+passed to the prompt; inherited session values are cleared.
+
+Set both `KATA_TRANSCRIPT_AGENT` and `KATA_TRANSCRIPT_SESSION_ID` in the
+agent shell to override discovery. An incomplete or invalid override records
+nothing. Different agents or conflicting IDs for one agent are ambiguous;
+IDs for the same agent are compared case-insensitively. Claude and Codex IDs
+must be UUIDs; other IDs are up to 128 ASCII letters, digits, dots, underscores
+or hyphens, starting with a letter or digit. Missing, invalid and ambiguous
+identities never change the report outcome. No transcript files are scanned.
+Session IDs are local journal evidence and can identify a transcript to someone
+with access to it; they are not yet sent to Kata.

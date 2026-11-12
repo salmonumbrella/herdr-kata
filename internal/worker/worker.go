@@ -26,6 +26,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
 	"github.com/salmonumbrella/herdr-kata/internal/report"
 	"github.com/salmonumbrella/herdr-kata/internal/sched"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
@@ -831,6 +832,13 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 	if extra == nil {
 		extra = make(map[string]string)
 	}
+	if s.Kind == "prompt" && len(w.Config.Sessions.Env) > 0 {
+		mapping, err := json.Marshal(w.Config.Sessions.Env)
+		if err != nil {
+			return hc.RunSpec{}, err
+		}
+		extra[session.MappingEnv] = string(mapping)
+	}
 	extra["KATA_PROJECT"] = r.Project
 	extra["KATA_CRON_RUN"] = r.RunUID
 	extra["KATA_CRON_RUN_DIR"] = w.Store.Layout.Run(r.Key)
@@ -854,5 +862,10 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 		}
 		argv = append(argv, prompt.Line(path))
 	}
-	return hc.RunSpec{Cwd: r.Plan.CheckoutPath, Labels: map[string]string{"kata.executor": r.Executor}, Prefix: attempt.LaunchEnv(w.Config.Limits.UnsetEnv, extra), Argv: argv}, nil
+	unset := w.Config.Limits.UnsetEnv
+	if s.Kind == "prompt" {
+		unset = append(slices.Clone(unset), session.EnvNames(w.Config.Sessions.Env)...)
+	}
+	prefix := attempt.LaunchEnv(unset, extra)
+	return hc.RunSpec{Cwd: r.Plan.CheckoutPath, Labels: map[string]string{"kata.executor": r.Executor}, Prefix: prefix, Argv: argv}, nil
 }

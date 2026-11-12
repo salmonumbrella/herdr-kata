@@ -23,6 +23,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
 	"github.com/salmonumbrella/herdr-kata/internal/sched"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"hegel.dev/go/hegel"
 )
@@ -217,15 +218,16 @@ func TestPromptJobEndToEnd(t *testing.T) {
 
 func TestStepEnvironmentNamesProject(t *testing.T) {
 	w, h, k := fixture(t)
+	w.Config.Sessions.Env = map[string]string{"pi": "PI_SESSION_ID"}
 	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
 	tick(t, w, at)
 	r := active(t, w)
 	if h.runs != 1 {
 		t.Fatal(h.runs)
 	}
-	term := h.terms["t1"]
-	if !slices.Contains(term.Argv, "KATA_PROJECT="+r.Project) || !slices.Contains(term.Argv, "KATA_CRON_RUN="+r.RunUID) {
-		t.Fatalf("argv %q", term.Argv)
+	argv := h.terms["t1"].Argv
+	if !slices.Contains(argv, "KATA_PROJECT="+r.Project) || !slices.Contains(argv, "KATA_CRON_RUN="+r.RunUID) {
+		t.Fatalf("argv %q", argv)
 	}
 }
 func TestAgentSummaryReachesKataAfterCleanup(t *testing.T) {
@@ -670,6 +672,122 @@ func TestWakePausedOrUnreadableDoesNotSend(t *testing.T) {
 			saved, err := w.Store.Load(r.Key)
 			if err != nil || h.sends != 0 || saved.Phase != "running" || saved.Attempts[0].Address != "" {
 				t.Fatalf("run %+v sends %d err %v", saved, h.sends, err)
+			}
+		})
+	}
+}
+
+// The prefix runs against a synthetic core environment, then the test child
+// observes the environment and discovers the session just as report does.
+func TestSessionEnvironmentChild(t *testing.T) {
+	if os.Getenv("TEST_SESSION_CHILD") != "1" {
+		return
+	}
+	before := os.Getenv("PI_SESSION_ID")
+	if os.Getenv("TEST_FRESH_SESSION") == "1" {
+		_ = os.Setenv("PI_SESSION_ID", "fresh_session")
+	}
+	result := struct {
+		Env     map[string]string
+		Session *session.Session
+		Before  string
+	}{Env: map[string]string{}, Session: session.DiscoverSession(), Before: before}
+	for _, entry := range os.Environ() {
+		key, value, _ := strings.Cut(entry, "=")
+		result.Env[key] = value
+	}
+	_ = json.NewEncoder(os.Stdout).Encode(result)
+	os.Exit(0)
+}
+
+func TestPromptEffectiveSessionEnvironment(t *testing.T) {
+	for _, entry := range os.Environ() {
+		key, _, _ := strings.Cut(entry, "=")
+		if strings.HasPrefix(key, "XDG_") {
+			t.Setenv(key, "/synthetic/xdg")
+		}
+	}
+	w, _, k := fixture(t)
+	t.Setenv("PATH", "/usr/bin:/bin")
+	t.Setenv("HOME", "/synthetic/home")
+	t.Setenv("XDG_CONFIG_HOME", "/synthetic/config")
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := []string{"PATH=/usr/bin:/bin", "HOME=/synthetic/core", "XDG_CONFIG_HOME=/synthetic/core-config", "TERM=synthetic-term", "HC_SESSION=synthetic-route", "HC_SOCKET=synthetic-socket", "SYNTHETIC_CREDENTIAL=secret-fixture", "HERDR_KATA_SESSIONS_ENV={\"old\":\"OLD_SESSION_ID\"}", "OLD_SESSION_ID=stale_old", "PI_SESSION_ID=stale_pi", "CLAUDE_CODE_SESSION_ID=00000000-0000-4000-8000-000000000001", "CODEX_THREAD_ID=00000000-0000-4000-8000-000000000002", "CODEX_SESSION_ID=00000000-0000-4000-8000-000000000002", "KATA_TRANSCRIPT_AGENT=old", "KATA_TRANSCRIPT_SESSION_ID=stale_override", "TEST_SESSION_CHILD=1"}
+	for _, tc := range []struct {
+		name    string
+		mapping map[string]string
+		kind    string
+		fresh   bool
+	}{
+		{"empty", nil, "prompt", false}, {"configured", map[string]string{"pi": "PI_SESSION_ID"}, "prompt", true}, {"command", map[string]string{"pi": "PI_SESSION_ID"}, "command", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w.Config.Sessions.Env = tc.mapping
+			spec, err := w.spec(r, defs.Step{Key: "main", Kind: tc.kind, Text: "true", Argv: []string{"/bin/sh"}}, 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoded, err := json.Marshal(spec)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, secret := range []string{"secret-fixture", "stale_pi", "stale_old", "stale_override"} {
+				if bytes.Contains(encoded, []byte(secret)) {
+					t.Fatalf("frozen spec contains %q", secret)
+				}
+			}
+			args := append(slices.Clone(spec.Prefix[1:]), binary, "-test.run=^TestSessionEnvironmentChild$")
+			cmd := exec.Command("/usr/bin/env", args...)
+			cmd.Env = slices.Clone(parent)
+			if tc.fresh {
+				cmd.Env = append(cmd.Env, "TEST_FRESH_SESSION=1")
+			}
+			output, err := cmd.Output()
+			if err != nil {
+				t.Fatalf("child: %v", err)
+			}
+			var got struct {
+				Env     map[string]string
+				Session *session.Session
+				Before  string
+			}
+			if err := json.Unmarshal(output, &got); err != nil {
+				t.Fatalf("child output %q: %v", output, err)
+			}
+			for key, value := range map[string]string{"PATH": "/usr/bin:/bin", "HOME": "/synthetic/home", "XDG_CONFIG_HOME": "/synthetic/config", "TERM": "synthetic-term", "HC_SESSION": "synthetic-route", "SYNTHETIC_CREDENTIAL": "secret-fixture", "KATA_PROJECT": r.Project, "KATA_CRON_RUN": r.RunUID} {
+				if got.Env[key] != value {
+					t.Errorf("%s = %q, want %q", key, got.Env[key], value)
+				}
+			}
+			if _, ok := got.Env["HC_SOCKET"]; ok {
+				t.Error("HC_SOCKET inherited")
+			}
+			if tc.kind == "command" {
+				if got.Env["CLAUDE_CODE_SESSION_ID"] == "" || got.Env["HERDR_KATA_SESSIONS_ENV"] != `{"old":"OLD_SESSION_ID"}` {
+					t.Fatal("command session environment changed")
+				}
+				return
+			}
+			for _, name := range []string{"CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "CODEX_SESSION_ID", "KATA_TRANSCRIPT_AGENT", "KATA_TRANSCRIPT_SESSION_ID"} {
+				if _, ok := got.Env[name]; ok {
+					t.Errorf("%s inherited", name)
+				}
+			}
+			if tc.fresh {
+				if got.Before != "" {
+					t.Errorf("mapped target inherited: %q", got.Before)
+				}
+				if got.Env["HERDR_KATA_SESSIONS_ENV"] != `{"pi":"PI_SESSION_ID"}` || got.Session == nil || got.Session.Agent != "pi" || got.Session.SessionID != "fresh_session" {
+					t.Fatalf("configured: %+v", got)
+				}
+			} else if _, ok := got.Env["HERDR_KATA_SESSIONS_ENV"]; ok {
+				t.Fatalf("empty: %+v", got)
 			}
 		})
 	}

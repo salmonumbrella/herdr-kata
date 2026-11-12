@@ -8,16 +8,18 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
 type Result struct {
-	RunUID  string `json:"run_uid"`
-	Step    string `json:"step"`
-	Attempt int    `json:"attempt"`
-	Status  string `json:"status"`
-	Summary string `json:"summary"`
-	Note    string `json:"note,omitempty"`
+	Session *session.Session `json:"session,omitempty"`
+	RunUID  string           `json:"run_uid"`
+	Step    string           `json:"step"`
+	Attempt int              `json:"attempt"`
+	Status  string           `json:"status"`
+	Summary string           `json:"summary"`
+	Note    string           `json:"note,omitempty"`
 }
 
 func ValidNote(note string) bool {
@@ -68,8 +70,17 @@ func ReadResult(path, runUID, step string, n int) (Result, error) {
 }
 func ParseResult(b []byte, runUID, step string, n int) (Result, error) {
 	var r Result
-	if err := json.Unmarshal(b, &r); err != nil {
+	type resultAlias Result
+	wire := struct {
+		*resultAlias
+		Session json.RawMessage `json:"session"`
+	}{resultAlias: (*resultAlias)(&r)}
+	if err := json.Unmarshal(b, &wire); err != nil {
 		return r, err
+	}
+	var captured session.Session
+	if json.Unmarshal(wire.Session, &captured) == nil && captured.Valid() {
+		r.Session = &captured
 	}
 	if r.RunUID != runUID || r.Step != step || r.Attempt != n {
 		return r, fmt.Errorf("stale result identity")
@@ -86,7 +97,17 @@ func WriteResult(path string, r Result) error {
 		return err
 	}
 	if len(b)+1 > 64*1024 {
-		return fmt.Errorf("result exceeds 64 KiB")
+		if r.Session == nil {
+			return fmt.Errorf("result exceeds 64 KiB")
+		}
+		r.Session = nil
+		b, err = json.Marshal(r)
+		if err != nil {
+			return err
+		}
+		if len(b)+1 > 64*1024 {
+			return fmt.Errorf("result exceeds 64 KiB")
+		}
 	}
 	return state.WriteJSON(path, r)
 }
