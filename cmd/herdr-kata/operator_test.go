@@ -311,4 +311,16 @@ func TestWakeLogsState(t *testing.T) {
 			t.Fatalf("%s: logs: %s", tc.want, &out)
 		}
 	}
+	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
+		saved.Phase, saved.Outcome, saved.Hold = "settled", "cancelled", "timeout"
+		saved.Attempts[0] = journal.Attempt{Step: "main", N: 1, Status: "running", Address: "t1"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out)
+	if !strings.HasPrefix(out.String(), "agent worker: cancelled\n") {
+		t.Fatalf("cancelled: logs: %s", &out)
+	}
 }

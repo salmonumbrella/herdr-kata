@@ -51,6 +51,9 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 				state = "uncertain (wake_uncertain)"
 			}
 		}
+		if r.Outcome == "cancelled" {
+			state = "cancelled"
+		}
 		fmt.Fprintf(out, "agent %s: %s\n", r.Plan.Agent, state)
 	}
 	if len(r.Attempts) == 0 {

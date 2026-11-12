@@ -81,17 +81,15 @@ func (c *cli) call(ctx context.Context, args ...string) ([]byte, error) {
 		return out, nil
 	}
 	var body struct{ Error struct{ Kind string } }
-	if json.Unmarshal(stderr.Bytes(), &body) == nil {
-		if body.Error.Kind == "live" {
-			return nil, ErrLive
-		}
-		if args[0] == "send" && slices.Contains([]string{"status_mismatch", "blocked", "not_found", "finished"}, body.Error.Kind) {
-			return nil, ErrNotSent
-		}
+	if args[0] == "send" && json.Unmarshal(stderr.Bytes(), &body) == nil && slices.Contains([]string{"status_mismatch", "blocked", "not_found", "finished"}, body.Error.Kind) {
+		return nil, ErrNotSent
 	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() == 3 {
 		return nil, ErrNotFound
+	}
+	if json.Unmarshal(stderr.Bytes(), &body) == nil && body.Error.Kind == "live" {
+		return nil, ErrLive
 	}
 	return nil, fmt.Errorf("hc %s: %w: %s", args[0], err, strings.TrimSpace(stderr.String()))
 }
