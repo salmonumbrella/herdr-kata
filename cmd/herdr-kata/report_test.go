@@ -82,3 +82,34 @@ func TestReportCapturesSession(t *testing.T) {
 		t.Fatalf("result: %s", b)
 	}
 }
+
+func TestReportSessionDiscoveryFailuresAreNonfatal(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  map[string]string
+	}{
+		{"absent", nil},
+		{"malformed mapping", map[string]string{"HERDR_KATA_SESSIONS_ENV": "{"}},
+		{"invalid", map[string]string{"CLAUDE_CODE_SESSION_ID": "invalid"}},
+		{"ambiguous", map[string]string{"CODEX_THREAD_ID": "00000000-0000-4000-8000-000000000001", "CODEX_SESSION_ID": "00000000-0000-4000-8000-000000000002"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			clearSessionEnv(t)
+			t.Setenv("KATA_CRON_RUN", "01J00000000000000000000001")
+			t.Setenv("KATA_CRON_STEP", "main")
+			t.Setenv("KATA_CRON_ATTEMPT", "1")
+			for k, v := range tc.env {
+				t.Setenv(k, v)
+			}
+			path := filepath.Join(t.TempDir(), "result.json")
+			var out bytes.Buffer
+			if code := report([]string{"--result", path, "--status", "succeeded"}, &out); code != 0 {
+				t.Fatalf("report %d: %s", code, &out)
+			}
+			got, err := prompt.ReadResult(path, "01J00000000000000000000001", "main", 1)
+			if err != nil || got.Status != "succeeded" || got.Session != nil {
+				t.Fatalf("result %+v: %v", got, err)
+			}
+		})
+	}
+}

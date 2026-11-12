@@ -214,3 +214,17 @@ func TestSessionMappings(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionMappingsRejectReservedAndDuplicateTargets(t *testing.T) {
+	for _, name := range []string{"PATH", "HOME", "XDG_SESSION_ID", "KATA_HOME", "HC_SESSION", "HERDR_VALUE", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "CODEX_SESSION_ID", "KATA_TRANSCRIPT_AGENT", "KATA_TRANSCRIPT_SESSION_ID"} {
+		t.Run(name, func(t *testing.T) {
+			_, err := loadText(t, example+"\n[sessions.env]\npi = \""+name+"\"\n")
+			if err == nil || !strings.Contains(err.Error(), "sessions.env") {
+				t.Fatalf("accepted reserved target %s: %v", name, err)
+			}
+		})
+	}
+	if _, err := loadText(t, example+"\n[sessions.env]\npi = \"PI_SESSION_ID\"\nother = \"PI_SESSION_ID\"\n"); err == nil || !strings.Contains(err.Error(), "sessions.env") {
+		t.Fatalf("duplicate target: %v", err)
+	}
+}

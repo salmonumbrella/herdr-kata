@@ -1,7 +1,7 @@
 ---
 title: Changelog
 description: Changes to the headless Kata adapter.
-last_edited: 2026-11-06
+last_edited: 2026-11-11
 ---
 
 # Changelog
@@ -10,7 +10,8 @@ last_edited: 2026-11-06
 
 - Record agent session identities on prompt attempts when available, and show
   them in run logs, while prompt launches unset inherited session variables.
-  Optional `[sessions.env]` mappings support other agents.
+  Optional `[sessions.env]` mappings support other agents using unique private
+  variable names; reserved launch and session variables are rejected.
 
 - Report the latest command attempt's recorded receipt timestamps when
   `cron_run_summary_v2` is advertised. Keep retry and cleanup time separate;

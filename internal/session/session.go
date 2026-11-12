@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+const MappingEnv = "HERDR_KATA_SESSIONS_ENV"
+
 type Session struct {
 	Agent     string `json:"agent"`
 	SessionID string `json:"session_id"`
@@ -35,7 +37,7 @@ var BuiltinEnvNames = []string{"CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "COD
 
 // EnvNames returns session variables that must not be inherited by a prompt.
 func EnvNames(mapped map[string]string) []string {
-	names := slices.Clone(BuiltinEnvNames)
+	names := append(slices.Clone(BuiltinEnvNames), MappingEnv)
 	for _, name := range mapped {
 		names = append(names, name)
 	}
@@ -54,7 +56,7 @@ func DiscoverSession() *Session {
 	}
 	vars := []struct{ agent, name string }{{"claude", BuiltinEnvNames[0]}, {"codex", BuiltinEnvNames[1]}, {"codex", BuiltinEnvNames[2]}}
 	var extra map[string]string
-	if json.Unmarshal([]byte(os.Getenv("HERDR_KATA_SESSIONS_ENV")), &extra) != nil && os.Getenv("HERDR_KATA_SESSIONS_ENV") != "" {
+	if json.Unmarshal([]byte(os.Getenv(MappingEnv)), &extra) != nil && os.Getenv(MappingEnv) != "" {
 		return nil
 	}
 	for a, name := range extra {

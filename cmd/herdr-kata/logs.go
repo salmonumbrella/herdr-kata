@@ -25,9 +25,9 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 		fmt.Fprintf(out, "no attempts; phase %s; reason %s\n", r.Phase, r.Hold)
 		return 1
 	}
-	for _, attempt := range r.Attempts {
-		if attempt.Session != nil {
-			fmt.Fprintf(out, "attempt %s/%d session %s %s\n", attempt.Step, attempt.N, attempt.Session.Agent, attempt.Session.SessionID)
+	for _, item := range r.Attempts {
+		if item.Session != nil {
+			fmt.Fprintf(out, "attempt %s/%d session %s %s\n", item.Step, item.N, item.Session.Agent, item.Session.SessionID)
 		}
 	}
 	a := r.Attempts[len(r.Attempts)-1]

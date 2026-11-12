@@ -1,7 +1,7 @@
 ---
 title: Install
 description: Build and configure the headless worker.
-last_edited: 2026-11-03
+last_edited: 2026-11-11
 ---
 
 # Install
@@ -165,7 +165,10 @@ inherit the rest of the core environment. Claude Code uses
 For other agents, map an agent name to its shell variable in `[sessions.env]`,
 for example `pi = "PI_SESSION_ID"`. Names are lowercase letters, digits and
 hyphens, starting with a letter or digit, up to 32 bytes. Variable names use
-letters, digits and underscores and cannot start with a digit.
+letters, digits and underscores and cannot start with a digit. Targets must be
+unique and cannot be `PATH`, `HOME`, a built-in or override session variable,
+or begin with `XDG_`, `KATA_`, `HC_` or `HERDR_`. Only mapping names are
+passed to the prompt; inherited session values are cleared.
 
 Set both `KATA_TRANSCRIPT_AGENT` and `KATA_TRANSCRIPT_SESSION_ID` in the
 agent shell to override discovery. An incomplete or invalid override records

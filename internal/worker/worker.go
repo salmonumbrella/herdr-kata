@@ -809,7 +809,7 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 		if err != nil {
 			return hc.RunSpec{}, err
 		}
-		extra["HERDR_KATA_SESSIONS_ENV"] = string(mapping)
+		extra[session.MappingEnv] = string(mapping)
 	}
 	extra["KATA_PROJECT"] = r.Project
 	extra["KATA_CRON_RUN"] = r.RunUID
