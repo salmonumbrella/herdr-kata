@@ -132,6 +132,7 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 	if !ok {
 		return refuse("inputs_unavailable", "daemon API "+version)
 	}
+	firstMismatch := ""
 	for attempt := 0; attempt < 2; attempt++ {
 		result, err := k.JobInputs(job.UID, remoteUID)
 		if err != nil {
@@ -151,9 +152,11 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 			}
 			return w.prepare(ctx, k, project, p, key, occurrence, requestID, now, deadline...)
 		}
+		mismatch := fmt.Sprintf("plan %s/%s, resolution %s/%s", p.JobEventUID, p.WorkflowEventUID, result.DefinitionEventUID, result.WorkflowDefinitionEventUID)
 		if attempt == 1 {
-			return fmt.Errorf("input definition mismatch: plan %s/%s, resolution %s/%s", p.JobEventUID, p.WorkflowEventUID, result.DefinitionEventUID, result.WorkflowDefinitionEventUID)
+			return fmt.Errorf("input definition mismatch: first %s; second %s", firstMismatch, mismatch)
 		}
+		firstMismatch = mismatch
 		jobs, err := k.Jobs()
 		if err != nil {
 			return err
