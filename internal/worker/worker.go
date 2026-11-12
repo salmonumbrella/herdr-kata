@@ -602,7 +602,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			continue
 		}
 		if k := w.Clients[r.Project]; k != nil {
-			if err = w.advance(report.WithSummaryV2(ctx, slices.Contains(w.caps[r.Project].caps.EventFeatures, "cron_run_summary_v2")), k, r, now, protected(r)); err != nil {
+			caps := w.caps[r.Project].caps
+			ctx := report.WithRunSessions(report.WithSummaryV2(ctx, slices.Contains(caps.EventFeatures, "cron_run_summary_v2")), caps.SupportsRunSessions())
+			if err = w.advance(ctx, k, r, now, protected(r)); err != nil {
 				errs = append(errs, fmt.Errorf("run %s: %w", r.RunUID, err))
 			}
 		}
