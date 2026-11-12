@@ -2,6 +2,7 @@ package worker
 
 import (
  "context"
+ "crypto/sha256"
  "encoding/json"
  "fmt"
  "os"
@@ -92,5 +93,7 @@ func TestInputConformanceKit(t *testing.T) {
  var scenarios []conformance.Scenario
  for _,s:=range suite.Scenarios { if strings.HasPrefix(s.Name,"inputs/") { scenarios=append(scenarios,s) } }
  if len(scenarios)==0 { t.Fatal("no input scenarios") }; suite.Scenarios=scenarios
+ exported,err:=json.Marshal(suite); if err!=nil { t.Fatal(err) }
+ fmt.Printf("input suite sha256: %x\n",sha256.Sum256(exported))
  conformance.RunSuite(t,bridge,suite)
 }
