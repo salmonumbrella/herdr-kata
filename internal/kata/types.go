@@ -7,7 +7,8 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/session"
 )
 
-// These wire types follow go.kenn.io/kata v0.20.0's generated models.
+// These wire types follow go.kenn.io/kata v0.20.0's generated models, with
+// additive run-session fields from the cron sessions protocol.
 // The generated package also imports a validator beyond the oapi runtime;
 // local copies keep this CLI adapter independent of that dependency graph.
 type CronJob struct {

@@ -80,7 +80,6 @@ func TestFleetRunSessionsCapabilitiesTransport(t *testing.T) {
 		name, reply string
 		want        bool
 	}{
-		{"old-cli", `{"event_features":["cron_run_sessions_v1"]}`, false},
 		{"neither", `{}`, false},
 		{"cli-only", `{"cli_features":["cron_run_sessions_v1"]}`, false},
 		{"event-only", `{"event_features":["cron_run_sessions_v1"]}`, false},

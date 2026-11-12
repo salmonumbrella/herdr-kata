@@ -144,6 +144,9 @@ retrying with the same run identity and revision. A structured
 `federated_read_only` conflict projects only session-bearing reports, removing
 sessions and the incomplete marker. Other conflicts and uncertain writes retain
 the original bytes. Removing steps also removes their receipt timing.
+If the CLI is downgraded after a session-bearing report is frozen and rejects
+the body, the report can be held as `report_refused`; it is not projected on
+an unstructured CLI rejection.
 
 ## Unsupported report delivery
 
