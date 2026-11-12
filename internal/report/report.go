@@ -49,7 +49,10 @@ func bounded(s string) string {
 	}
 	return s
 }
-func freeze(r journal.Run, status, message string, expected int, ended *time.Time, v2 ...bool) ([]byte, error) {
+
+type freezeOptions struct{ summaryV2, runSessions bool }
+
+func freeze(r journal.Run, status, message string, expected int, ended *time.Time, opts freezeOptions) ([]byte, error) {
 	b := kata.ObserveCronRunBody{ExpectedRevision: int64(expected), Actor: new(r.Actor), ExecutorLabel: new(r.Executor), Teammate: new("herdr-kata"), Status: status, Summary: kata.Summary{Version: 1, Message: new(message)}, StartedAt: r.StartedAt, EndedAt: ended}
 	if r.Plan.JobUID != "" {
 		b.JobUID = new(r.Plan.JobUID)
@@ -65,10 +68,10 @@ func freeze(r journal.Run, status, message string, expected int, ended *time.Tim
 	if r.IssueUID != "" {
 		b.IssueUID = new(r.IssueUID)
 	}
-	if len(v2) > 1 && v2[1] {
+	if opts.runSessions {
 		collectSessions(&b.Summary, r)
 	}
-	if len(v2) > 0 && v2[0] {
+	if opts.summaryV2 {
 		if err := enrich(&b.Summary, r); err != nil {
 			return nil, err
 		}
@@ -174,7 +177,7 @@ func Admit(ctx context.Context, k kata.Kata, st *journal.Store, key string) erro
 		}
 	}
 	if len(r.AdmissionBody) == 0 {
-		r.AdmissionBody, err = freeze(r, "running", "running", 0, nil)
+		r.AdmissionBody, err = freeze(r, "running", "running", 0, nil, freezeOptions{})
 		if err != nil {
 			return err
 		}
@@ -322,7 +325,7 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 		}
 		v2, _ := ctx.Value(summaryV2Key{}).(bool)
 		sessions, _ := ctx.Value(runSessionsKey{}).(bool)
-		r.ReportBody, err = freeze(r, status, bounded(message), r.ObsRev, r.EndedAt, v2, sessions)
+		r.ReportBody, err = freeze(r, status, bounded(message), r.ObsRev, r.EndedAt, freezeOptions{summaryV2: v2, runSessions: sessions})
 		if err != nil {
 			return err
 		}
@@ -412,8 +415,8 @@ func collectSessions(v *kata.Summary, r journal.Run) {
 		if !prompt[a.Step] {
 			return
 		}
-		if a.Session == nil || !a.Session.Valid() {
-			if a.Nonce != "" || a.TaskStarted != nil || !a.LaunchedAt.IsZero() {
+		if a.Session == nil {
+			if !a.LaunchedAt.IsZero() {
 				v.SessionsIncomplete = true
 			}
 			return
