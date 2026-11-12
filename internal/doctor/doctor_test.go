@@ -314,51 +314,32 @@ func TestModelWorkflowWarnings(t *testing.T) {
 	}
 }
 
-type fleetHC struct{ *fakeHC }
-
-func (h fleetHC) Exec(ctx context.Context, argv []string) (string, error) {
-	if argv[len(argv)-1] == "capabilities" {
-		return `{"event_features":["cron_v1"],"execution":{"mode":"none"},"controls":["project_pause","run_request"],"features":["cron_runtimes_v1"]}`, nil
-	}
-	return h.fakeHC.Exec(ctx, argv)
-}
-func TestDoctorFleetCapabilities(t *testing.T) {
-	c, l, h := fixture(t)
-	reads := 0
-	k := fakeKata{readyCalls: &reads, jobs: []kata.CronJob{{UID: "job", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "execute"}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("issue")}}}}}
-	var out bytes.Buffer
-	if err := Check(context.Background(), c, l, fleetHC{h}, map[string]kata.Kata{"example-project": k}, &out); err != nil {
-		t.Fatal(err)
-	}
-	if reads != 0 || !strings.Contains(out.String(), "excluded job: replica execution is not enabled") || !strings.Contains(out.String(), "execution=none() pause=true requests=true runtimes=true summary_v2=false") {
-		t.Fatal(reads, out.String())
-	}
-}
-
-type sessionCapsHC struct {
+type fleetHC struct {
 	*fakeHC
 	raw string
 }
 
-func (h sessionCapsHC) Exec(ctx context.Context, argv []string) (string, error) {
+func (h fleetHC) Exec(ctx context.Context, argv []string) (string, error) {
 	if argv[len(argv)-1] == "capabilities" {
 		return h.raw, nil
 	}
 	return h.fakeHC.Exec(ctx, argv)
 }
-func TestDoctorRunSessionsCapability(t *testing.T) {
-	for _, tt := range []struct{ name, raw, want string }{
-		{"old", `{"event_features":["cron_v1","cron_run_sessions_v1"]}`, "sessions=false"},
-		{"both", `{"cli_features":["cron_run_sessions_v1"],"event_features":["cron_v1","cron_run_sessions_v1"]}`, "sessions=true"},
+func TestDoctorFleetCapabilities(t *testing.T) {
+	for _, tt := range []struct{ name, raw, sessions string }{
+		{"old", `{"event_features":["cron_v1","cron_run_sessions_v1"],"execution":{"mode":"none"},"controls":["project_pause","run_request"],"features":["cron_runtimes_v1"]}`, "false"},
+		{"both", `{"cli_features":["cron_run_sessions_v1"],"event_features":["cron_v1","cron_run_sessions_v1"],"execution":{"mode":"none"},"controls":["project_pause","run_request"],"features":["cron_runtimes_v1"]}`, "true"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			c, l, h := fixture(t)
+			reads := 0
+			k := fakeKata{readyCalls: &reads, jobs: []kata.CronJob{{UID: "job", Definition: kata.JobDefinition{Enabled: true, Action: kata.Action{Kind: "execute"}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("issue")}}}}}
 			var out bytes.Buffer
-			if err := Check(context.Background(), c, l, sessionCapsHC{h, tt.raw}, map[string]kata.Kata{"example-project": fakeKata{}}, &out); err != nil {
+			if err := Check(context.Background(), c, l, fleetHC{h, tt.raw}, map[string]kata.Kata{"example-project": k}, &out); err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(out.String(), "project example-project capabilities:") || !strings.Contains(out.String(), tt.want) {
-				t.Fatal(out.String())
+			if reads != 0 || !strings.Contains(out.String(), "excluded job: replica execution is not enabled") || !strings.Contains(out.String(), "project example-project capabilities: execution=none() pause=true requests=true runtimes=true summary_v2=false sessions="+tt.sessions) {
+				t.Fatal(reads, out.String())
 			}
 		})
 	}

@@ -300,23 +300,28 @@ func TestFleetSummaryEncodedBoundAndRetry(t *testing.T) {
 	if err := st.Update(r.Key, func(r *journal.Run) error {
 		for n := range 64 {
 			key := fmt.Sprintf("step-%03d", n)
-			r.Plan.Steps = append(r.Plan.Steps, defs.Step{Key: key, Kind: "command"})
-			r.Attempts = append(r.Attempts, journal.Attempt{Step: key, N: 1, Status: "failed", Summary: strings.Repeat("\x01界", 1600), Receipt: fleetReceipt(t, "2026-05-01T10:00:00+01:00", "2026-05-01T10:00:02+01:00")})
+			step := defs.Step{Key: key, Kind: "command"}
+			a := journal.Attempt{Step: key, N: 1, Status: "failed", Summary: strings.Repeat("\x01界", 1600), Receipt: fleetReceipt(t, "2026-05-01T10:00:00+01:00", "2026-05-01T10:00:02+01:00")}
+			if n >= 32 {
+				step.Kind, a.Receipt, a.Session = "prompt", nil, recorded("pi", fmt.Sprintf("session-%03d", n))
+			}
+			r.Plan.Steps = append(r.Plan.Steps, step)
+			r.Attempts = append(r.Attempts, a)
 		}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
 	k.observeErr = &kata.Error{Code: 7}
-	_ = Final(WithSummaryV2(ctx, true), k, st, r.Key)
+	_ = Final(WithSummaryV2(WithRunSessions(ctx, true), true), k, st, r.Key)
 	first := bytes.Clone(k.bodies[0])
 	summary := body(t, first).Summary
 	encoded, err := json.Marshal(summary)
-	if err != nil || len(encoded) > 64*1024 || len(summary.Steps) != 64 {
+	if err != nil || len(encoded) > 64*1024 || len(summary.Steps) != 64 || len(summary.Sessions) != 32 {
 		t.Fatal("unbounded", len(encoded), len(summary.Steps), err)
 	}
-	for _, step := range summary.Steps {
-		if !utf8.ValidString(step.Message) || len(step.Message) > 4096 || step.StartedAt != "2026-05-01T09:00:00Z" || step.EndedAt != "2026-05-01T09:00:02Z" {
+	for i, step := range summary.Steps {
+		if !utf8.ValidString(step.Message) || len(step.Message) > 4096 || i < 32 && (step.StartedAt != "2026-05-01T09:00:00Z" || step.EndedAt != "2026-05-01T09:00:02Z") || i >= 32 && (step.StartedAt != "" || step.EndedAt != "") {
 			t.Fatal("invalid step message/timing", step)
 		}
 	}
@@ -400,6 +405,7 @@ func TestFleetSummaryFallback(t *testing.T) {
 		{"plain", &kata.Error{Code: 5, Message: "unsupported_event_features"}, false},
 		{"uncertain", &kata.Error{Code: 7, Message: `{"error":{"kind":"conflict","code":"unsupported_event_features"}}`}, false},
 		{"conflict", &kata.Error{Code: 5, Message: `{"error":{"kind":"conflict","code":"revision_conflict"}}`}, false},
+		{"read-only-without-sessions", &kata.Error{Code: 5, Message: `{"error":{"kind":"conflict","code":"federated_read_only"}}`}, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, st, base, r := setup(t)
