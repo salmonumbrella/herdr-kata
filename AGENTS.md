@@ -53,9 +53,10 @@ this list and the runtime invariants mirrored in `.roborev.toml`.
   child gets an explicit environment prefix, with credentials out of argv.
 - A command succeeds only with its receipt and ordinary `exited` reason.
   A termination signal forbids a receipt even when the child traps it.
-- Non-test Go must remain at or below 6,700 lines. The additional budget
-  retains immutable alert identity checks alongside fleet support. Stop before
-  exceeding the budget; do not remove specified behavior to fit.
+- Non-test Go must remain at or below 6,700 lines. The budget covers
+  immutable alert identity checks, fleet support, approved cron run sessions
+  and persistent-agent work. Stop before exceeding the budget; do not remove
+  specified behavior to fit.
 
 Fleet adoption: known capabilities and a fresh successful unpaused job-list
 read gate prepared admission. Request TTL ends at durable preparation.
