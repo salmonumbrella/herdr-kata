@@ -1,7 +1,7 @@
 ---
 title: Jobs
 description: Supported Kata definitions and execution behavior.
-last_edited: 2026-11-04
+last_edited: 2026-11-12
 ---
 
 # Jobs
@@ -126,6 +126,32 @@ at job or step scope overrides a project default. A present non-string agent
 is unsupported with `agent must be a string`. Resolution freezes the checkout
 path and argv when work is prepared; config edits do not change prepared runs.
 
+### Wake an existing session
+
+A prompt job can set `options.persistent_agent` to a name of 1–64 ASCII
+letters, digits, dots, underscores or hyphens. Claim one live status-reporting
+session with `hc label <t> herdr-kata.agent=<name>`; release the claim with
+`hc label <t> herdr-kata.agent=`. The worker waits for exactly one claimed,
+reported terminal that is idle or has finished its turn, and sends the prompt
+once. The session reports the result for that run and leaves the existing
+issue open. A missing or busy session fails with `reason: not_delivered` at the
+deadline. Uncertain sends hold for inspection and are never repeated. The worker
+never stops or removes the borrowed terminal. Only one active run may use a given target across
+projects; paused projects and unreadable job lists cannot send queued wakes.
+Two jobs naming the same target take turns; a tick arriving while another job
+holds the target stays pending until it is free.
+
+The option belongs on the job, requires a single prompt action, `overlap:
+forbid`, catchup other than `all`, an `existing` issue and a checkout (which
+freezing resolves for every job). An existing issue avoids leaving hundreds of
+per-run issues open as ticks accumulate. The option cannot be combined with
+`agent` or `model`. `agent_mode` retains its usual rules. Target jobs do not
+resolve a profile or warn about a default model.
+`herdr-kata logs` shows queued, delivered, acknowledged, completed, not
+delivered or a hold reason. On a wake run, it also shows the borrowed
+terminal's last screen like any other run. A completed turn must supply its
+matching result within 10 seconds; otherwise the run holds `no_result`.
+
 ### Models
 
 A prompt step uses step `options.model`, then job `options.model`. Empty strings
@@ -166,9 +192,9 @@ Pins provide local filtering; see the [runtime operating condition](operations.m
 `options.input` supplies input; manual `--input` overrides it,
 including an explicit empty string. Prompt text and workflow `about` expand
 `{{input}}` and `{{previous}}` once. Inserted text is not expanded again.
-`previous` is the preceding settled attempt's note. Every step's environment
+`previous` is the preceding settled attempt's note. Each launched step's environment
 carries `KATA_PROJECT` (the job's project) and `KATA_CRON_RUN`,
-`KATA_CRON_RUN_DIR`, `KATA_CRON_STEP` and `KATA_CRON_ATTEMPT`. Unknown placeholders or
+`KATA_CRON_RUN_DIR`, `KATA_CRON_STEP` and `KATA_CRON_ATTEMPT`. A wake's report command supplies its run, step and attempt explicitly. Unknown placeholders or
 a prompt over 256 KiB hold `invalid_prompt`.
 
 `per-run` creates one issue with a stable keyed `--force-new` request,
@@ -258,6 +284,14 @@ Doctor lists these owned-definition reasons:
 | Model value is not a string | `model must be a string` | A model name string |
 | Model on a profile without model support | `model unsupported by profile: <p>` | A profile declaring `model_flag` |
 | Malformed executor pin | `options.executor must be a non-empty string` | A stable executor label or no pin |
+| Invalid persistent agent name | `persistent_agent must be a name of 1–64 letters, digits, dots, underscores or hyphens` | A valid name |
+| Persistent agent on a workflow or non-prompt | `persistent_agent requires a prompt action` | A single prompt |
+| Persistent agent without forbid | `persistent_agent requires overlap: forbid` | Set overlap to forbid |
+| Persistent agent with catchup all | `persistent_agent does not support catchup: all` | Latest or skip |
+| Persistent agent without an existing issue | `persistent_agent requires an existing issue` | An existing issue |
+| Persistent agent with agent | `persistent_agent cannot be combined with agent` | Remove agent |
+| Persistent agent with model | `persistent_agent cannot be combined with model` | Remove model |
+| Persistent agent on a workflow or step | `persistent_agent belongs on the job` | Put it on the job |
 | Once time at or before job creation | `once_in_past` | A future instant |
 
 Missing profiles, checkouts or workflows and disabled commands also appear
@@ -296,4 +330,5 @@ A replica may exclude the job through its advertised execution policy.
 and the admission race.
 
 A project pause holds local run requests pending. Prepared journals wait for
-an unpaused job-list read before admission; admitted runs keep advancing.
+an unpaused job-list read before admission; admitted runs keep advancing, except
+queued wakes wait for an unpaused read before sending.

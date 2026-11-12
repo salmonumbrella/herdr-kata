@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,6 +16,8 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/sched"
 )
 
+var agentName = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+
 type Plan struct {
 	JobUID, JobEventUID, WorkflowUID, WorkflowEventUID string
 	Name, WorkflowName, About                          string
@@ -23,6 +26,7 @@ type Plan struct {
 	Overlap, Catchup                                   string
 	Grace, Timeout                                     time.Duration
 	CheckoutPath, Input                                string
+	Agent                                              string `json:",omitempty"`
 }
 type IssuePolicy struct {
 	Kind, UID, Title, Body string
@@ -75,6 +79,32 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 		}
 	}
 	reasons := unsupported(d.Options)
+	if raw, ok := d.Options["persistent_agent"]; ok {
+		name, valid := raw.(string)
+		if !valid || !agentName.MatchString(name) {
+			reasons = append(reasons, "persistent_agent must be a name of 1–64 letters, digits, dots, underscores or hyphens")
+		} else {
+			p.Agent = name
+		}
+		if d.Action.Kind != "execute" || d.Action.Prompt == nil || d.Action.WorkflowUID != nil {
+			reasons = append(reasons, "persistent_agent requires a prompt action")
+		}
+		if d.Overlap != "forbid" {
+			reasons = append(reasons, "persistent_agent requires overlap: forbid")
+		}
+		if d.Catchup == "all" {
+			reasons = append(reasons, "persistent_agent does not support catchup: all")
+		}
+		if d.Issue == nil || d.Issue.Kind != "existing" {
+			reasons = append(reasons, "persistent_agent requires an existing issue")
+		}
+		if _, ok := d.Options["agent"]; ok {
+			reasons = append(reasons, "persistent_agent cannot be combined with agent")
+		}
+		if _, ok := d.Options["model"]; ok {
+			reasons = append(reasons, "persistent_agent cannot be combined with model")
+		}
+	}
 	if raw, present := d.Options["executor"]; present {
 		if pin, ok := raw.(string); !ok || pin == "" {
 			reasons = append(reasons, "options.executor must be a non-empty string")
@@ -159,6 +189,9 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 			p.WorkflowName = wf.Name
 			p.About = text(wf.Definition.About)
 			reasons = append(reasons, unsupported(wf.Definition.Options)...)
+			if _, ok := wf.Definition.Options["persistent_agent"]; ok {
+				reasons = append(reasons, "persistent_agent belongs on the job")
+			}
 			if _, ok := wf.Definition.Options["run_parent"]; ok {
 				reasons = append(reasons, "run_parent belongs on the job")
 			}
@@ -174,6 +207,9 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 	}
 	for _, s := range steps {
 		reasons = append(reasons, unsupported(s.Options)...)
+		if _, ok := s.Options["persistent_agent"]; ok {
+			reasons = append(reasons, "persistent_agent belongs on the job")
+		}
 		if raw, present := s.Options["agent"]; present {
 			if _, ok := raw.(string); !ok {
 				reasons = append(reasons, "agent must be a string")
@@ -189,6 +225,9 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 		switch s.Kind {
 		case "prompt":
 			frozen.Text = text(s.Prompt)
+			if _, target := d.Options["persistent_agent"]; target {
+				break
+			}
 			profile, model, valid := promptOptions(s, d.Options, projectCfg.DefaultAgent)
 			if !valid {
 				reasons = append(reasons, "model must be a string")
@@ -293,6 +332,9 @@ func promptOptions(s kata.WorkflowStep, job map[string]any, agent string) (strin
 
 // DefaultModelSteps reports prompt steps without an explicit model selection.
 func DefaultModelSteps(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Config, project string) []string {
+	if _, ok := job.Definition.Options["persistent_agent"]; ok {
+		return nil
+	}
 	agent := ""
 	for _, p := range cfg.Projects {
 		if p.Name == project {

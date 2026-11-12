@@ -358,6 +358,7 @@ func TestLive(t *testing.T) {
 			}
 			t.Run("zero-config", func(t *testing.T) { zeroConfigJobs(t, bin, coreBin, script) })
 			t.Run("startup-timeout", func(t *testing.T) { startupTimeout(t, bin, coreBin) })
+			t.Run("wake", func(t *testing.T) { liveWake(t, bin, coreBin, filepath.Join(cwd, "testdata", "wake-agent.py")) })
 			t.Run("scripted", func(t *testing.T) {
 				f := newFixture(t, bin, coreBin, "")
 				f.configure([]string{"/bin/sh", script})

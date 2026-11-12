@@ -8,6 +8,11 @@ last_edited: 2026-11-12
 
 ## Unreleased
 
+- Wake a claimed idle or finished-turn session with `options.persistent_agent`,
+  preserving the session and holding uncertain deliveries for operator inspection.
+  Wake cancellation retains the session; logs distinguish undelivered work and holds.
+  A borrowed session that finishes during a wake holds the run immediately.
+
 - Record agent session identities on prompt attempts when available, and show
   them in run logs, while prompt launches unset inherited session variables.
   Optional `[sessions.env]` mappings support other agents using unique private

@@ -111,6 +111,23 @@ func TestResultRoundTrip(t *testing.T) {
 	})
 }
 
+func TestWakePromptLeavesIssueOpen(t *testing.T) {
+	r := runFixture()
+	r.Plan.Agent = "worker"
+	got, err := build(r, defs.Step{Key: "main", Text: "Task"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"KATA_CRON_RUN=01J00000000000000000000001 KATA_CRON_STEP=main KATA_CRON_ATTEMPT=1", "leave the issue open"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %q: %s", want, got)
+		}
+	}
+	if strings.Contains(got, " close ") {
+		t.Fatalf("wake asked to close issue: %s", got)
+	}
+}
+
 // Optional identity cannot turn a baseline-valid result into a failure.
 func TestResultSessionSizeBoundary(t *testing.T) {
 	for _, tc := range []struct {
