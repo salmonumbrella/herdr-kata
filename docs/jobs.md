@@ -133,20 +133,24 @@ letters, digits, dots, underscores or hyphens. Claim one live status-reporting
 session with `hc label <t> herdr-kata.agent=<name>`; release the claim with
 `hc label <t> herdr-kata.agent=`. The worker waits for exactly one claimed,
 reported terminal that is idle or has finished its turn, and sends the prompt
-once. The session reports the result for that run and leaves the existing issue open. A missing or busy
-session fails with `reason: not_delivered` at the deadline. Uncertain sends
-hold for inspection and are never repeated. The worker never stops or removes
-the borrowed terminal. Only one active run may use a given target across
+once. The session reports the result for that run and leaves the existing
+issue open. A missing or busy session fails with `reason: not_delivered` at the
+deadline. Uncertain sends hold for inspection and are never repeated. The worker
+never stops or removes the borrowed terminal. Only one active run may use a given target across
 projects; paused projects and unreadable job lists cannot send queued wakes.
+Two jobs naming the same target take turns; a tick arriving while another job
+holds the target stays pending until it is free.
 
 The option belongs on the job, requires a single prompt action, `overlap:
 forbid`, catchup other than `all`, an `existing` issue and a checkout (which
 freezing resolves for every job). An existing issue avoids leaving hundreds of
-per-run issues open as ticks accumulate. The option cannot be combined with `agent` or `model`. `agent_mode` retains its usual
-rules. Target jobs do not resolve a profile or warn about a default model.
-`herdr-kata logs` shows queued, delivered, acknowledged, completed, not delivered
-or a hold reason. A completed turn must supply its matching result within
-10 seconds; otherwise the run holds `no_result`.
+per-run issues open as ticks accumulate. The option cannot be combined with
+`agent` or `model`. `agent_mode` retains its usual rules. Target jobs do not
+resolve a profile or warn about a default model.
+`herdr-kata logs` shows queued, delivered, acknowledged, completed, not
+delivered or a hold reason. On a wake run, it also shows the borrowed
+terminal's last screen like any other run. A completed turn must supply its
+matching result within 10 seconds; otherwise the run holds `no_result`.
 
 ### Models
 

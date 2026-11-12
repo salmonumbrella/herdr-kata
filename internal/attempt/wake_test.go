@@ -161,7 +161,7 @@ func TestWakeUnavailableAndRefused(t *testing.T) {
 	}
 }
 func TestWakeIdentityAndDeadline(t *testing.T) {
-	for _, mode := range []string{"created", "pid", "foreground", "lost", "core", "timeout", "no_result", "stale_turn", "cancel"} {
+	for _, mode := range []string{"created", "pid", "foreground", "lost", "finished", "core", "timeout", "no_result", "stale_turn", "cancel"} {
 		t.Run(mode, func(t *testing.T) {
 			st, f, r := wakeSetup(t)
 			_, err := Wake(context.Background(), f, st, r.Key, 0, now)
@@ -180,6 +180,9 @@ func TestWakeIdentityAndDeadline(t *testing.T) {
 				term.ForegroundPID++
 			case "lost":
 				delete(f.terms, "t1")
+				want = "agent_lost"
+			case "finished":
+				term.State = "finished"
 				want = "agent_lost"
 			case "core":
 				f.core = "other"

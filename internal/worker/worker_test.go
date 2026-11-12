@@ -652,6 +652,39 @@ func TestWakeAttemptHasRollbackMarkerBeforeDelivery(t *testing.T) {
 	}
 }
 
+func TestOlderWorkerRejectsFrozenWakeLaunch(t *testing.T) {
+	w, h, _ := fixture(t)
+	job := kata.CronJob{Definition: kata.JobDefinition{Version: 1, Kind: "job", Enabled: true, Trigger: kata.Trigger{Kind: "manual"}, Action: kata.Action{Kind: "execute", Prompt: new("Example task")}, Issue: &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}, Overlap: "forbid", Catchup: "latest", CheckoutKey: new("example-project"), Options: map[string]any{"persistent_agent": "worker"}}}
+	cfg := config.Config{Projects: []config.Project{{Name: "example-project"}}, Checkouts: map[string]string{"example-project": "/srv/projects/example"}, Limits: config.Limits{DefaultTimeout: time.Hour, MaxTimeout: 24 * time.Hour}}
+	plan, reasons := defs.Freeze(job, nil, cfg, "example-project", func(string) (string, error) { t.Fatal("resolved a profile"); return "", nil })
+	if len(reasons) != 0 || plan.Agent != "worker" || len(plan.Steps) != 1 || len(plan.Steps[0].Argv) != 0 {
+		t.Fatalf("plan: %+v reasons: %v", plan, reasons)
+	}
+	r := journal.Run{Version: 1, Key: journal.ManualKey("executor", "example-project", "wake"), RunUID: "01J00000000000000000000001", Project: "example-project", Actor: "worker", Executor: "executor", Phase: "running", Plan: plan}
+	if err := w.Store.Create(r); err != nil {
+		t.Fatal(err)
+	}
+	// The older worker's spec appends the prompt line to the frozen argv.
+	spec, err := w.spec(r, plan.Steps[0], 1)
+	if err != nil || len(spec.Argv) != 1 || !strings.HasPrefix(spec.Argv[0], "Read ") {
+		t.Fatalf("spec: %+v err: %v", spec, err)
+	}
+	if err := w.Store.Update(r.Key, func(saved *journal.Run) error {
+		saved.Attempts = []journal.Attempt{{Step: plan.Steps[0].Key, N: 1, Status: "launching", Spec: spec}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err = attempt.Launch(context.Background(), h, w.Store, r.Key, 0, spec)
+	if err == nil || err.Error() != "launch requires absolute argv[0]" {
+		t.Fatalf("launch error: %v", err)
+	}
+	saved, err := w.Store.Load(r.Key)
+	if err != nil || saved.Attempts[0].Nonce != "" || h.runs != 0 || h.sends != 0 {
+		t.Fatalf("attempt: %+v runs: %d sends: %d err: %v", saved.Attempts, h.runs, h.sends, err)
+	}
+}
+
 func TestWakePausedOrUnreadableDoesNotSend(t *testing.T) {
 	for _, phase := range []string{"prepared", "running"} {
 		for _, gate := range []string{"paused", "unreadable"} {

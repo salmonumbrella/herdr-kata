@@ -282,9 +282,8 @@ bound holds `wake_uncertain`, because the text may still go in.
 Cancelling a delivered wake records a cancelled run and retains the borrowed
 terminal without interrupting or signalling it. An uncertain send remains held.
 
-A saved wake attempt carries a marker that makes an older worker hold it instead
-of launching or cleaning up its terminal. Runs without an attempt do not yet
-have that protection. Settle or release active wake runs before downgrading.
+An older worker cannot launch or deliver a wake run in any phase: it errors or
+holds instead. Settle or release active wake runs before downgrading.
 
 For a held wake, inspect the session and its result before using `herdr-kata release`
 to release the run. Release does not resend or stop the borrowed session.

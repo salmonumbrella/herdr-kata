@@ -65,34 +65,25 @@ func Wake(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, 
 			latest, e = h.Get(ctx, a.Address)
 			if errors.Is(e, hc.ErrNotFound) {
 				e = hc.ErrNotSent
-			} else if e == nil && (latest.State != "live" || !latest.Reported || latest.Status != "done" || latest.Address != a.Address || latest.CreatedMs != a.CreatedMs || latest.PID != a.PID || latest.ForegroundPID != a.ForegroundPID || latest.Labels["herdr-kata.agent"] != r.Plan.Agent) {
+			} else if e == nil && (latest.State != "live" || !latest.Reported || latest.Status != "done" || latest.Address != a.Address || !sameWakeOccupant(latest, a) || latest.Labels["herdr-kata.agent"] != r.Plan.Agent) {
 				e = hc.ErrNotSent
 			}
 		}
-		if e == nil {
+		sendAttempted := e == nil
+		if sendAttempted {
 			turn, e = h.Send(ctx, a.Address, prompt.Line(filepath.Join(st.Layout.Attempt(key, a.Step, a.N), "prompt.md")), t.Status)
-		} else {
-			// No send was attempted, so a failed recheck can safely return to queue.
+		}
+		if !sendAttempted || errors.Is(e, hc.ErrNotSent) {
 			recheckErr := e
 			a.Address, a.CoreID, a.Status = "", "", "queued"
 			a.CreatedMs, a.PID, a.ForegroundPID, a.Turn = 0, 0, 0, 0
 			if e = saveAttempt(st, key, idx, a); e != nil {
 				return Pending{}, e
 			}
-			if errors.Is(recheckErr, hc.ErrNotSent) {
-				return Pending{}, nil
+			if !errors.Is(recheckErr, hc.ErrNotSent) {
+				return Pending{}, recheckErr
 			}
-			return Pending{}, recheckErr
-		}
-		if errors.Is(e, hc.ErrNotSent) {
-			a.Address = ""
-			a.CoreID = ""
-			a.CreatedMs = 0
-			a.PID = 0
-			a.ForegroundPID = 0
-			a.Turn = 0
-			a.Status = "queued"
-			return Pending{}, saveAttempt(st, key, idx, a)
+			return Pending{}, nil
 		}
 		if e != nil {
 			return held(st, key, idx, "wake_uncertain")
@@ -118,8 +109,11 @@ func Wake(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, 
 	if err != nil {
 		return Pending{}, err
 	}
-	if t.CreatedMs != a.CreatedMs || t.PID != a.PID || ((t.Status == "idle" || t.Status == "done") && t.ForegroundPID != a.ForegroundPID) {
+	if !sameWakeOccupant(t, a) {
 		return held(st, key, idx, "occupant_changed")
+	}
+	if t.State != "live" {
+		return held(st, key, idx, "agent_lost")
 	}
 	if !r.ExpiresAt.IsZero() && !now.Before(r.ExpiresAt) {
 		return held(st, key, idx, "timeout")
@@ -173,8 +167,12 @@ func GuardWake(ctx context.Context, h hc.HC, a journal.Attempt) error {
 	if err != nil {
 		return err
 	}
-	if t.CreatedMs != a.CreatedMs || t.PID != a.PID || ((t.Status == "idle" || t.Status == "done") && t.ForegroundPID != a.ForegroundPID) {
+	if !sameWakeOccupant(t, a) {
 		return ErrOccupantChanged
 	}
 	return nil
+}
+
+func sameWakeOccupant(t hc.Terminal, a journal.Attempt) bool {
+	return t.CreatedMs == a.CreatedMs && t.PID == a.PID && ((t.Status != "idle" && t.Status != "done") || t.ForegroundPID == a.ForegroundPID)
 }
