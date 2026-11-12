@@ -202,3 +202,15 @@ func TestModelFlagEscapedDEL(t *testing.T) {
 		t.Fatalf("error %v", err)
 	}
 }
+
+func TestSessionMappings(t *testing.T) {
+	c, err := loadText(t, example+"\n[sessions.env]\npi = \"PI_SESSION_ID\"\n")
+	if err != nil || c.Sessions.Env["pi"] != "PI_SESSION_ID" {
+		t.Fatalf("config %+v: %v", c, err)
+	}
+	for _, mapping := range []string{"Bad = \"PI_SESSION_ID\"", "pi = \"BAD-NAME\""} {
+		if _, err := loadText(t, example+"\n[sessions.env]\n"+mapping+"\n"); err == nil {
+			t.Fatalf("accepted %s", mapping)
+		}
+	}
+}

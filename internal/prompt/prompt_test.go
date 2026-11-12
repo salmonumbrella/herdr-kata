@@ -109,3 +109,16 @@ func TestResultRoundTrip(t *testing.T) {
 		}
 	})
 }
+
+func TestInvalidSessionDoesNotChangeResult(t *testing.T) {
+	for _, value := range []string{`{"agent":"claude","session_id":"invalid"}`, `42`, `null`} {
+		b := []byte(`{"run_uid":"run","step":"main","attempt":1,"status":"succeeded","summary":"done","session":` + value + `}`)
+		got, err := ParseResult(b, "run", "main", 1)
+		if err != nil || got.Status != "succeeded" || got.Summary != "done" || got.Session != nil {
+			t.Fatalf("result %+v: %v", got, err)
+		}
+		if _, err = ParseResult(b, "other", "main", 1); err == nil {
+			t.Fatal("accepted stale result")
+		}
+	}
+}

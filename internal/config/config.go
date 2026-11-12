@@ -14,6 +14,7 @@ import (
 	"unicode"
 
 	"github.com/BurntSushi/toml"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 )
 
 // Quarantine describes a project entry excluded from the loaded configuration.
@@ -31,7 +32,12 @@ func (q Quarantine) String() string {
 	return fmt.Sprintf("project entry %d%s: %s", q.Entry, name, q.Reason)
 }
 
+type Sessions struct {
+	Env map[string]string `toml:"env"`
+}
+
 type Config struct {
+	Sessions    Sessions     `toml:"sessions"`
 	Quarantined []Quarantine `toml:"-"`
 
 	Executor  string             `toml:"executor"`
@@ -120,6 +126,11 @@ func Load(path string) (*Config, error) {
 		}
 		if !filepath.IsAbs(*b.p) {
 			return nil, fmt.Errorf("binary path must be absolute: %s", *b.p)
+		}
+	}
+	for agent, name := range c.Sessions.Env {
+		if !session.ValidAgent(agent) || !session.ValidSessionEnv(name) {
+			return nil, fmt.Errorf("invalid sessions.env mapping: %s", agent)
 		}
 	}
 	for k, v := range c.Kata.Env {

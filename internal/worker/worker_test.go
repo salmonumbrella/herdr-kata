@@ -23,6 +23,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
 	"github.com/salmonumbrella/herdr-kata/internal/sched"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"hegel.dev/go/hegel"
 )
@@ -191,6 +192,11 @@ func TestPromptJobEndToEnd(t *testing.T) {
 		t.Fatal(r, h.runs)
 	}
 	finishAgent(t, w, h, r)
+	a := r.Attempts[0]
+	path := filepath.Join(w.Store.Layout.Attempt(r.Key, a.Step, a.N), "result.json")
+	if err := prompt.WriteResult(path, prompt.Result{RunUID: r.RunUID, Step: a.Step, Attempt: a.N, Status: "succeeded", Session: &session.Session{Agent: "claude", SessionID: "00000000-0000-4000-8000-000000000001"}}); err != nil {
+		t.Fatal(err)
+	}
 	tick(t, w, at.Add(time.Second))
 	for n := 2; n < 12; n++ {
 		tick(t, w, at.Add(time.Duration(n)*time.Second))
@@ -199,10 +205,15 @@ func TestPromptJobEndToEnd(t *testing.T) {
 	if err != nil || got.Phase != "reported" || got.Outcome != "succeeded" || h.runs != 1 || len(k.bodies) != 2 {
 		t.Fatal(got, err, h.runs, len(k.bodies))
 	}
+	if got.Attempts[0].Session == nil || got.Attempts[0].Session.Agent != "claude" || got.Attempts[0].Session.SessionID != "00000000-0000-4000-8000-000000000001" {
+		t.Fatalf("journal session: %+v", got.Attempts[0].Session)
+	}
 }
 
 func TestStepEnvironmentNamesProject(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "00000000-0000-4000-8000-000000000001")
 	w, h, k := fixture(t)
+	w.Config.Sessions.Env = map[string]string{"pi": "PI_SESSION_ID"}
 	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
 	tick(t, w, at)
 	r := active(t, w)
@@ -210,6 +221,9 @@ func TestStepEnvironmentNamesProject(t *testing.T) {
 		t.Fatal(h.runs)
 	}
 	term := h.terms["t1"]
+	if !slices.Contains(term.Argv, "-i") || !slices.Contains(term.Argv, `HERDR_KATA_SESSIONS_ENV={"pi":"PI_SESSION_ID"}`) || slices.Contains(term.Argv, "CLAUDE_CODE_SESSION_ID=00000000-0000-4000-8000-000000000001") {
+		t.Fatalf("session environment: %q", term.Argv)
+	}
 	if !slices.Contains(term.Argv, "KATA_PROJECT="+r.Project) || !slices.Contains(term.Argv, "KATA_CRON_RUN="+r.RunUID) {
 		t.Fatalf("argv %q", term.Argv)
 	}

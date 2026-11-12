@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"os"
 	"path/filepath"
@@ -152,7 +153,7 @@ func TestReleaseOnlyPostsLocalRequest(t *testing.T) {
 func TestLogsReadsReportedRun(t *testing.T) {
 	config, l := operatorFixture(t)
 	r := localRun(t, l, "reported")
-	r.Attempts = []journal.Attempt{{Step: "main", N: 1}}
+	r.Attempts = []journal.Attempt{{Step: "main", N: 1, Session: &session.Session{Agent: "pi", SessionID: "ses_1"}}}
 	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error { saved.Attempts = r.Attempts; return nil }); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +161,7 @@ func TestLogsReadsReportedRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "fixture output\n" {
+	if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "attempt main/1 session pi ses_1\nfixture output\n" {
 		t.Fatalf("logs %d: %s", code, &out)
 	}
 }

@@ -72,6 +72,9 @@ example-project = "/srv/projects/example"
 argv = ["codex", "--no-daemon"]
 model_flag = "--model"
 
+[sessions.env]
+pi = "PI_SESSION_ID" # optional additional agent
+
 [limits]
 default_timeout = "2h"
 max_timeout = "24h"
@@ -117,6 +120,7 @@ Start the worker with `herdr-kata up` and check its execution environment with
 `herdr-kata doctor`. `herdr-kata run <job-uid> --input <text>` queues a local
 request and waits for the worker's decision. Use `herdr-kata logs <run-uid>` to read output and
 `herdr-kata release <run-uid>` to free a held run's slot and overlap gate.
+`herdr-kata logs` also shows recorded attempt sessions. See [Install](docs/install.md#session-capture) for discovery and configuration.
 `herdr-kata stop` stops the worker; job terminals continue for recovery.
 
 ## Starting at login
