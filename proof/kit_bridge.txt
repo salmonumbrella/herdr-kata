@@ -1,0 +1,96 @@
+package worker
+
+import (
+ "context"
+ "encoding/json"
+ "fmt"
+ "os"
+ "path/filepath"
+ "strings"
+ "testing"
+
+ "github.com/salmonumbrella/herdr-kata/internal/defs"
+ "github.com/salmonumbrella/herdr-kata/internal/journal"
+ "github.com/salmonumbrella/herdr-kata/internal/kata"
+ "github.com/salmonumbrella/herdr-kata/internal/report"
+ "go.kenn.io/kata/pkg/cron/conformance"
+)
+
+type kitClient struct {
+ *fakeKata
+ version string
+ observations []conformance.InputObservation
+ calls, refreshes int
+ flow string
+}
+func (k *kitClient) HealthVersion() (string,error) { return k.version,nil }
+func (k *kitClient) Jobs() (kata.JobList,error) { k.refreshes++; return k.fakeKata.Jobs() }
+func (k *kitClient) JobInputs(job, request string) (kata.InputResolution,error) {
+ if k.calls >= len(k.observations) { return kata.InputResolution{},fmt.Errorf("missing input observation") }
+ o:=k.observations[k.calls]; k.calls++
+ var r kata.InputResolution
+ if err:=json.Unmarshal(o.Resolution,&r); err!=nil { return r,err }
+ r.JobUID=job; r.DefinitionEventUID=o.DefinitionEventUID
+ if k.flow!="" { r.WorkflowUID=k.flow; r.WorkflowDefinitionEventUID=o.WorkflowDefinitionEventUID }
+ return r,nil
+}
+type kitBridge struct { conformance.Reference; t *testing.T }
+func (b kitBridge) DeliverInputs(ctx context.Context, in conformance.InputDelivery) (conformance.InputDeliveryOutput,error) {
+ out:=conformance.InputDeliveryOutput{Env:map[string]string{},Argv:[]string{}}
+ w,_,base:=fixture(b.t)
+ k:=&kitClient{fakeKata:base,version:in.APIVersion,observations:in.Observations}
+ job:=base.jobs[0]; job.DefinitionEventUID=in.DefinitionEventUID
+ if err:=json.Unmarshal(in.JobOptions,&job.Definition.Options); err!=nil { return out,err }
+ wfs:=map[string]kata.CronWorkflow{}
+ p:=defs.Plan{JobUID:job.UID,JobEventUID:job.DefinitionEventUID,Name:job.Name,CheckoutPath:w.Config.Checkouts["example-project"],Timeout:w.Config.Limits.DefaultTimeout,Issue:defs.IssuePolicy{Kind:"per-run"}}
+ if in.HasWorkflow {
+  k.flow="fixture-flow"; job.Definition.Action.WorkflowUID=&k.flow
+  wf:=kata.CronWorkflow{UID:k.flow,DefinitionEventUID:in.WorkflowDefinitionEventUID}
+  if err:=json.Unmarshal(in.WorkflowOptions,&wf.Definition.Options); err!=nil { return out,err }
+  base.workflows=[]kata.CronWorkflow{wf}; wfs[k.flow]=wf
+  p.WorkflowUID=k.flow; p.WorkflowEventUID=wf.DefinitionEventUID
+ }
+ base.jobs=[]kata.CronJob{job}
+ step:=defs.Step{Key:"main",Kind:in.Step.Kind,Text:in.Step.Prompt,Argv:[]string{"fixture-agent"}}
+ if step.Kind=="command" { step.Text=in.Step.Command }
+ p.Steps=[]defs.Step{step}
+ project:=w.Config.Projects[0]; key:=journal.ManualKey(w.Config.Executor,project.Name,"kit")
+ request:=""; if in.RequestInputs { request="request-one" }
+ err:=w.prepareInputs(ctx,k,project,job,wfs,p,key,"manual:kit","kit",request,at)
+ out.Calls=k.calls; out.Refreshes=k.refreshes
+ if err!=nil { return out,err }
+ r,err:=w.Store.Load(key); if err!=nil { return out,err }
+ if r.Phase=="settled" {
+  if err:=report.Final(ctx,k,w.Store,key); err!=nil { return out,err }
+  var obs kata.ObserveCronRunBody
+  if err:=json.Unmarshal(k.bodies[len(k.bodies)-1],&obs); err!=nil { return out,err }
+  out.Status=obs.Status
+  if obs.Summary.Message!=nil { out.Message,_,_=strings.Cut(*obs.Summary.Message,"\n") }
+  return out,nil
+ }
+ spec,err:=w.spec(r,step,1); if err!=nil { return out,err }
+ out.Status="launch"
+ for _,arg:=range spec.Prefix { if strings.HasPrefix(arg,"KATA_INPUT_") { name,value,_:=strings.Cut(arg,"="); out.Env[name]=value } }
+ if step.Kind=="command" {
+  if len(spec.Argv)<2 || spec.Argv[len(spec.Argv)-2]!="-c" { return out,fmt.Errorf("unexpected shell argv: %q",spec.Argv) }
+  out.Command=spec.Argv[len(spec.Argv)-1]
+  // This adapter has no argv definition kind. The kit's separate argv is metadata.
+  out.Argv=append(out.Argv,in.Step.Argv...)
+ } else {
+  body,err:=osReadPrompt(w,r); if err!=nil { return out,err }; out.Prompt=body
+ }
+ return out,nil
+}
+func osReadPrompt(w *Worker,r journal.Run)(string,error) {
+ body,err:=os.ReadFile(filepath.Join(w.Store.Layout.Attempt(r.Key,"main",1),"prompt.md")); if err!=nil { return "",err }
+ _,task,ok:=strings.Cut(string(body),"\nTask:\n"); if !ok { return "",fmt.Errorf("missing task") }
+ task,_,ok=strings.Cut(task,"\n\nWrite your result with:"); if !ok { return "",fmt.Errorf("missing instructions") }; return task,nil
+}
+func TestInputConformanceKit(t *testing.T) {
+ bridge:=kitBridge{t:t}
+ suite,err:=conformance.NewSuite(t.Context(),conformance.SchemaV3,bridge.Declare()); if err!=nil { t.Fatal(err) }
+ var scenarios []conformance.Scenario
+ for _,s:=range suite.Scenarios { if strings.HasPrefix(s.Name,"inputs/") { scenarios=append(scenarios,s) } }
+ if len(scenarios)==0 { t.Fatal("no input scenarios") }; suite.Scenarios=scenarios
+ conformance.RunSuite(t,bridge,suite)
+}

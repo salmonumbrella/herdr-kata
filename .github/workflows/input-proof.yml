@@ -32,3 +32,21 @@ jobs:
           GOMAXPROCS: '2'
           GOFLAGS: '-p=2'
       - run: make docs-check
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: kenn-io/kata
+          ref: 8e16b5e1411d47018341216de3516f1f5cdb056e
+          path: _kata
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.4'
+      - name: Check input conformance bridge
+        run: |
+          git -C _kata rev-parse HEAD
+          sha256sum _kata/pkg/cron/conformance/testdata/adapter-v3/inputs.json
+          cp proof/kit_bridge.txt internal/worker/kit_bridge_test.go
+          go mod edit -go=1.27.4 -require=go.kenn.io/kata@v0.0.0 -replace=go.kenn.io/kata=./_kata
+          go test -mod=mod -count=1 ./internal/worker -run '^TestInputConformanceKit$' -v
+        env:
+          GOMAXPROCS: '2'
+          GOFLAGS: '-p=2'
