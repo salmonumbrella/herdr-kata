@@ -161,7 +161,7 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 		if caps.Execution != nil {
 			execution = caps.Execution.Mode + "(" + caps.Execution.MemberActor + ")"
 		}
-		fmt.Fprintf(out, "project %s capabilities: execution=%s pause=%t requests=%t runtimes=%t summary_v2=%t\n", p.Name, execution, slices.Contains(caps.Controls, "project_pause"), slices.Contains(caps.Controls, "run_request") || slices.Contains(caps.Controls, "cancel_request"), slices.Contains(caps.Features, "cron_runtimes_v1"), slices.Contains(caps.EventFeatures, "cron_run_summary_v2"))
+		fmt.Fprintf(out, "project %s capabilities: execution=%s pause=%t requests=%t runtimes=%t summary_v2=%t sessions=%t\n", p.Name, execution, slices.Contains(caps.Controls, "project_pause"), slices.Contains(caps.Controls, "run_request") || slices.Contains(caps.Controls, "cancel_request"), slices.Contains(caps.Features, "cron_runtimes_v1"), slices.Contains(caps.EventFeatures, "cron_run_summary_v2"), caps.SupportsRunSessions())
 		k := clients[p.Name]
 		if k == nil {
 			check("project "+p.Name, errors.New("client missing"))

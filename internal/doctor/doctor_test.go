@@ -334,3 +334,32 @@ func TestDoctorFleetCapabilities(t *testing.T) {
 		t.Fatal(reads, out.String())
 	}
 }
+
+type sessionCapsHC struct {
+	*fakeHC
+	raw string
+}
+
+func (h sessionCapsHC) Exec(ctx context.Context, argv []string) (string, error) {
+	if argv[len(argv)-1] == "capabilities" {
+		return h.raw, nil
+	}
+	return h.fakeHC.Exec(ctx, argv)
+}
+func TestDoctorRunSessionsCapability(t *testing.T) {
+	for _, tt := range []struct{ name, raw, want string }{
+		{"old", `{"event_features":["cron_v1","cron_run_sessions_v1"]}`, "sessions=false"},
+		{"both", `{"cli_features":["cron_run_sessions_v1"],"event_features":["cron_v1","cron_run_sessions_v1"]}`, "sessions=true"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, l, h := fixture(t)
+			var out bytes.Buffer
+			if err := Check(context.Background(), c, l, sessionCapsHC{h, tt.raw}, map[string]kata.Kata{"example-project": fakeKata{}}, &out); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out.String(), "project example-project capabilities:") || !strings.Contains(out.String(), tt.want) {
+				t.Fatal(out.String())
+			}
+		})
+	}
+}

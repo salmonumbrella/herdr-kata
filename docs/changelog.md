@@ -8,6 +8,8 @@ last_edited: 2026-11-12
 
 ## Unreleased
 
+- Report recorded prompt sessions to compatible Kata installations, preserving
+  incomplete launch evidence and frozen retry behavior.
 - Record agent session identities on prompt attempts when available, and show
   them in run logs, while prompt launches unset inherited session variables.
   Optional `[sessions.env]` mappings support other agents using unique private

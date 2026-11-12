@@ -3,6 +3,8 @@ package kata
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 )
 
 // These wire types follow go.kenn.io/kata v0.20.0's generated models.
@@ -124,8 +126,14 @@ type Summary struct {
 	OutputTokens *int64  `json:"output_tokens,omitempty"`
 	Version      int64   `json:"version"`
 
-	Reason *string       `json:"reason,omitempty"`
-	Steps  []SummaryStep `json:"steps,omitempty"`
+	Reason             *string          `json:"reason,omitempty"`
+	Steps              []SummaryStep    `json:"steps,omitempty"`
+	Sessions           []SummarySession `json:"sessions,omitempty"`
+	SessionsIncomplete bool             `json:"sessions_incomplete,omitempty"`
+}
+type SummarySession struct {
+	session.Session
+	Step string `json:"step,omitempty"`
 }
 type DateValue struct {
 	Field    string    `json:"field"`
