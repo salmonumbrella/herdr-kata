@@ -22,6 +22,11 @@ import (
 
 var ErrExists = errors.New("journal already exists")
 
+const (
+	HoldInvalidInputs = "invalid_inputs"
+	HoldInputsUnavailable = "inputs_unavailable"
+)
+
 type Receipt struct {
 	ExitCode           int
 	StartedAt, EndedAt time.Time

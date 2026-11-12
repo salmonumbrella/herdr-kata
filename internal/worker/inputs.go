@@ -33,6 +33,9 @@ func hasInputs(job kata.CronJob, wfs map[string]kata.CronWorkflow) bool {
 
 func supportedVersion(version string, minor int) (bool, error) {
 	version = strings.TrimSpace(version)
+	if version == "" {
+		return false, nil
+	}
 	if suffix := strings.IndexAny(version, "-+"); suffix >= 0 {
 		version = version[:suffix]
 	}
@@ -90,9 +93,6 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 	if !hasInputs(job, wfs) && remoteUID == "" {
 		return w.prepare(ctx, k, project, p, key, occurrence, requestID, now, deadline...)
 	}
-	if len(deadline) > 0 && !clock.Current(ctx, now).Before(deadline[0]) {
-		return nil
-	}
 	refuse := func(reason, detail string) error {
 		if len(deadline) > 0 && !clock.Current(ctx, now).Before(deadline[0]) {
 			return nil
@@ -117,7 +117,11 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 		return err
 	}
 	if !ok {
-		return refuse("inputs_unavailable", "daemon API "+version)
+		version = strings.TrimSpace(version)
+		if version == "" {
+			version = "absent"
+		}
+		return refuse(journal.HoldInputsUnavailable, "daemon API "+version)
 	}
 	firstMismatch := ""
 	for attempt := 0; attempt < 2; attempt++ {
@@ -128,7 +132,7 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 		if result.JobUID == p.JobUID && result.DefinitionEventUID == p.JobEventUID && result.WorkflowUID == p.WorkflowUID && result.WorkflowDefinitionEventUID == p.WorkflowEventUID {
 			if len(result.Errors) > 0 {
 				b, _ := json.Marshal(result.Errors)
-				return refuse("invalid_inputs", string(b))
+				return refuse(journal.HoldInvalidInputs, string(b))
 			}
 			p.InputValues, err = inputValues(result)
 			if err != nil {

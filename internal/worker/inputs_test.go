@@ -144,6 +144,31 @@ func TestOldDaemonCancelsBeforeLaunch(t *testing.T) {
 	}
 }
 
+func TestAbsentDaemonVersionRefusesInputs(t *testing.T) {
+	for _, tc := range []struct {
+		name, version string
+		refused bool
+	}{
+		{"absent", "", true},
+		{"whitespace", "  \t", true},
+		{"malformed", "dev", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w, h, k := inputFixture(t, `{}`)
+			k.version = tc.version
+			k.failObserve = true
+			k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+			request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+			err := w.Tick(clock.WithNow(context.Background(), at), at)
+			runs, loadErr := w.Store.All()
+			if loadErr != nil || h.runs != 0 || k.inputCalls != 0 { t.Fatalf("runs=%v launches=%d calls=%d err=%v", runs, h.runs, k.inputCalls, loadErr) }
+			if tc.refused {
+				if len(runs) != 1 || runs[0].Phase != "settled" || runs[0].Hold != "inputs_unavailable" || runs[0].Detail != "daemon API absent" { t.Fatalf("refusal: %v, tick: %v", runs, err) }
+			} else if err == nil || len(runs) != 0 { t.Fatalf("malformed version: runs=%v err=%v", runs, err) }
+		})
+	}
+}
+
 func TestSuffixedDaemonVersionAllowsResolution(t *testing.T) {
 	for _, version := range []string{" 0.48.0-rc.1 ", "0.48.0+build"} {
 		t.Run(version, func(t *testing.T) {

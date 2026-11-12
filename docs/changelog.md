@@ -12,7 +12,9 @@ last_edited: 2026-11-12
   command environments or labelled prompt data, with cancelled observations
   for unsupported daemon versions and invalid inputs. Ordinary unlaunched fleet
   cancellations retain their cancelled reason; input diagnostics retain Kata's
-  field names. See the jobs guide for CLI requirements and rollback guidance.
+  field names. Daemons that omit the API version refuse input-bearing runs;
+  malformed nonempty versions remain pending. See the jobs guide for CLI
+  requirements, mixed-version replicas and rollback guidance.
 
 - Record agent session identities on prompt attempts when available, and show
   them in run logs, while prompt launches unset inherited session variables.

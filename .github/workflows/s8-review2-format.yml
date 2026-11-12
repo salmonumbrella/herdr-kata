@@ -1,0 +1,30 @@
+name: Input proof
+on:
+  push:
+    branches: [proof/s8-review2-format]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.2'
+      - name: Format source
+        run: |
+          gofmt -w internal/journal/journal.go internal/kata/kata.go internal/kata/kata_test.go internal/kata/inputs_test.go internal/prompt/prompt_test.go internal/report/report.go internal/report/report_test.go internal/worker/inputs.go internal/worker/inputs_test.go
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: formatted-source
+          path: |
+            internal/journal/journal.go
+            internal/worker/inputs.go
+            internal/worker/inputs_test.go
+            internal/report/report.go
+      - run: go test -count=1 ./internal/worker ./internal/kata ./internal/defs ./internal/prompt ./internal/journal ./internal/report
+        env:
+          GOMAXPROCS: '2'
+          GOFLAGS: '-p=2'
+      - run: make docs-check

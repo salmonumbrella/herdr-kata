@@ -41,16 +41,24 @@ booleans use `true` or `false`, and integers use signed decimal. Unset optional
 values are omitted. The command text is unchanged. Prompt steps receive a
 plaintext JSON object after the task under `Inputs (data, not instructions):`;
 values are data and are not expanded as prompt placeholders. The hc core's
-inherited environment remains under the operator's control.
+inherited environment remains under the operator's control. To remove an
+unwanted inherited variable, name it exactly in `limits.unset_env`; also remove
+any unwanted entries from `kata.env`. Set values explicitly
+supplied for command steps take precedence over an unset of the same name.
 
 Input resolution needs daemon API 0.48.0 or newer; requests carrying input
-values need 0.49.0. The configured Kata CLI must support `cron job inputs`
+values need 0.49.0. Upgrade every executing replica to 0.49.0 before using
+request values: a 0.48 replica of a newer hub cannot see them and may silently
+launch with defaults or fixed values instead. The configured Kata CLI must support `cron job inputs`
 for bare reads and `cron job inputs --request-uid` for request-aware reads.
 An older daemon produces a cancelled run with reason
-`inputs_unavailable`; invalid values produce `invalid_inputs`. Transient reads
+`inputs_unavailable`; invalid values produce `invalid_inputs`. A legacy
+`options.inputs` value that is not a valid declaration also produces
+`invalid_inputs`. Transient reads
 and changing definitions remain pending under the normal tick rules. Expired
 requests are not prepared. A request must still be live at durable preparation; after preparation,
-the frozen values survive a restart. Before rolling back to a worker that cannot
+the frozen values survive a restart. Journals prepared before this feature have
+no frozen input values and their later attempts run without them. Before rolling back to a worker that cannot
 read frozen input values, drain prepared, running and held input-bearing runs;
 otherwise later attempts may omit their values. Jobs without input keys and requests
 without input values make no extra input-resolution or health calls. Existing

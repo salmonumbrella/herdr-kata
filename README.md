@@ -33,7 +33,9 @@ fresh and are not compatible with v1.
 - A [release binary](https://github.com/salmonumbrella/herdr-kata/releases/latest)
   for macOS or Linux, or Go 1.27 to build: `make build` writes `bin/herdr-kata`.
 - hc 0.1.15 or newer.
-- Kata 0.20.0 or newer and an authenticated daemon catalog entry.
+- Kata 0.20.0 or newer and an authenticated daemon catalog entry. Declared
+  inputs need daemon API 0.48.0; request values need 0.49.0 on executing
+  replicas. See [declared inputs](docs/jobs.md#declared-inputs).
 - Linux or macOS, an executable agent profile and a local checkout.
 
 ## Configuration
@@ -53,9 +55,6 @@ hc_bin = "/usr/local/bin/hc"
 [kata]
 bin = "/usr/local/bin/kata"
 daemon = "hub"
-
-[kata.env]
-KATA_HOME = "/srv/kata-home"
 
 [[projects]]
 name = "example-project"
