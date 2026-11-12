@@ -53,6 +53,8 @@ func Classify(err error) Class {
 }
 
 type Kata interface {
+	HealthVersion() (string, error)
+	JobInputs(string, string) (InputResolution, error)
 	Jobs() (JobList, error)
 	Workflows() ([]CronWorkflow, error)
 	Runs(jobUID string, limit int) ([]CronRun, error)
@@ -69,6 +71,28 @@ type Kata interface {
 	Whoami() error
 	Requests() ([]CronRequest, error)
 	Capabilities() (Caps, error)
+}
+
+type InputResolution struct {
+	JobUID string `json:"job_uid"`
+	DefinitionEventUID string `json:"definition_event_uid"`
+	WorkflowUID string `json:"workflow_uid"`
+	WorkflowDefinitionEventUID string `json:"workflow_definition_event_uid"`
+	Inputs []struct { Name, Type, Source string; Value json.RawMessage }
+	Errors []struct { Name, Code, Message string }
+}
+
+func (c *cli) HealthVersion() (string, error) {
+	var v struct { APISchemaVersion string `json:"api_schema_version"` }
+	err := c.call(nil, &v, "health")
+	return v.APISchemaVersion, err
+}
+func (c *cli) JobInputs(job, request string) (InputResolution, error) {
+	var v InputResolution
+	args := []string{"cron", "job", "inputs", job}
+	if request != "" { args = append(args, "--request-uid", request) }
+	err := c.call(nil, &v, args...)
+	return v, err
 }
 
 const CallTimeout = 15 * time.Second

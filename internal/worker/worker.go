@@ -422,6 +422,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		}
 		for _, job := range jobs {
 			p, reasons := defs.Freeze(job, wfs, w.Config, project.Name, exec.LookPath)
+			prepare := func(plan defs.Plan, key, occurrence, requestID, remoteUID string, now time.Time, deadline ...time.Time) error {
+				return w.prepareInputs(ctx, k, project, job, wfs, plan, key, occurrence, requestID, remoteUID, now, deadline...)
+			}
 			if len(reasons) > 0 {
 				protectJob(job)
 				w.Unsupported[job.UID] = reasons
@@ -450,7 +453,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					continue
 				}
 				if can {
-					if err = w.prepare(ctx, k, project, p, key, "request:"+req.UID, "", now, req.ExpiresAt); err != nil {
+					remoteUID := ""
+					if len(req.Inputs) > 0 { remoteUID = req.UID }
+					if err = prepare(p, key, "request:"+req.UID, "", remoteUID, now, req.ExpiresAt); err != nil {
 						errs = append(errs, err)
 					}
 				}
@@ -482,7 +487,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				if req.InputSet || req.Input != "" {
 					manual.Input = req.Input
 				}
-				prepared, e := w.acknowledgePreparation(q, req, key, w.prepare(ctx, k, project, manual, key, "manual:"+req.ID, req.ID, now))
+				prepared, e := w.acknowledgePreparation(q, req, key, prepare(manual, key, "manual:"+req.ID, req.ID, "", now))
 				if e != nil {
 					pendingReason(project.Name, job.UID, "could not prepare run: "+e.Error())
 					errs = append(errs, e)
@@ -519,7 +524,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					continue
 				}
 				if can {
-					if e = w.prepare(ctx, k, project, p, key, o.Key, "", now); e != nil {
+					if e = prepare(p, key, o.Key, "", "", now); e != nil {
 						errs = append(errs, e)
 					}
 				}
@@ -554,7 +559,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					if !can {
 						break
 					}
-					if e = w.prepare(ctx, k, project, p, key, o.Key, "", now); e != nil {
+					if e = prepare(p, key, o.Key, "", "", now); e != nil {
 						errs = append(errs, e)
 						break
 					}
@@ -818,6 +823,13 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 	extra["KATA_CRON_ATTEMPT"] = fmt.Sprint(n)
 	argv := slices.Clone(s.Argv)
 	if s.Kind == "command" {
+		if r.Plan.InputValues != nil {
+			var values map[string]any
+			decoder := json.NewDecoder(strings.NewReader(string(r.Plan.InputValues)))
+			decoder.UseNumber()
+			if err := decoder.Decode(&values); err != nil { return hc.RunSpec{}, err }
+			for name, value := range values { extra["KATA_INPUT_"+strings.ToUpper(name)] = fmt.Sprint(value) }
+		}
 		extra["KATA_CRON_INPUT"] = r.Plan.Input
 		extra["KATA_CRON_PREVIOUS"] = previous
 		extra["KATA_CRON_NOTE_FILE"] = filepath.Join(dir, "note.txt")

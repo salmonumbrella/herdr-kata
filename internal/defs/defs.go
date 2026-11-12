@@ -16,6 +16,7 @@ import (
 )
 
 type Plan struct {
+	InputValues                                        json.RawMessage `json:",omitempty"`
 	JobUID, JobEventUID, WorkflowUID, WorkflowEventUID string
 	Name, WorkflowName, About                          string
 	Steps                                              []Step

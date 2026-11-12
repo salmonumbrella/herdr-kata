@@ -49,6 +49,7 @@ func (j JobList) Paused() bool {
 }
 
 type CronRequest struct {
+	Inputs             map[string]json.RawMessage `json:"inputs,omitempty"`
 	UID                string    `json:"uid"`
 	Kind               string    `json:"kind"`
 	JobUID             string    `json:"job_uid"`
