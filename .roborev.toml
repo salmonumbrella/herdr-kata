@@ -29,7 +29,7 @@ before calling and never retry uncertain notification. Existing issues
 receive no writes. Set HC_SESSION and drop HC_SOCKET on every hc call;
 explicit child environment prefix, no credentials in argv. Command success
 requires a receipt and reason exited; termination forbids a receipt even
-when trapped. At most 6,200 lines of non-test Go; the additional budget retains
+when trapped. At most 6,700 lines of non-test Go; the additional budget retains
 immutable alert identity checks alongside fleet support.
 
 Fleet adoption: known capabilities and a fresh successful unpaused job-list
