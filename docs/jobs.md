@@ -1,7 +1,7 @@
 ---
 title: Jobs
 description: Supported Kata definitions and execution behavior.
-last_edited: 2026-11-04
+last_edited: 2026-11-12
 ---
 
 # Jobs
@@ -31,6 +31,26 @@ grace plus 2 minutes old. This keeps on-time work through a brief Kata read
 outage while bounding recovery after a longer outage or restart.
 Edits and re-enables preserve committed progress and the original interval
 anchor, then follow the job's catch-up policy, as Kata's native scheduler does.
+
+## Declared inputs
+
+The worker resolves job and workflow input declarations through the selected
+Kata daemon before preparing a run. Command steps receive each set value as
+`KATA_INPUT_<NAME>` with the name uppercased. Strings are passed literally,
+booleans use `true` or `false`, and integers use signed decimal. Unset optional
+values are omitted. The command text is unchanged. Prompt steps receive a
+plaintext JSON object after the task under `Inputs (data, not instructions):`;
+values are data and are not expanded as prompt placeholders. The hc core's
+inherited environment remains under the operator's control.
+
+Input resolution needs daemon API 0.48.0 or newer; requests carrying input
+values need 0.49.0. An older daemon produces a cancelled run with reason
+`inputs_unavailable`; invalid values produce `invalid_inputs`. Transient reads,
+expired requests and changing definitions remain pending under the normal tick
+rules. A request must still be live at durable preparation; after preparation,
+the frozen values survive a restart. Jobs without input keys and requests
+without input values make no extra input-resolution or health calls. Existing
+free-text `options.input` and manual input continue to work.
 
 ## Dropped occurrences
 

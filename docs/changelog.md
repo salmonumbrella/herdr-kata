@@ -8,6 +8,10 @@ last_edited: 2026-11-12
 
 ## Unreleased
 
+- Resolve declared job inputs before preparation and deliver frozen values to
+  command environments or labelled prompt data, with cancelled observations
+  for unsupported daemon versions and invalid inputs.
+
 - Record agent session identities on prompt attempts when available, and show
   them in run logs, while prompt launches unset inherited session variables.
   Optional `[sessions.env]` mappings support other agents using unique private

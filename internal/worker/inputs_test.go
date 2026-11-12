@@ -1,13 +1,39 @@
 package worker
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
+	"github.com/salmonumbrella/herdr-kata/internal/kata"
 )
+
+type inputKata struct {
+	*fakeKata
+	version string
+	response kata.InputResolution
+	inputErr error
+	healthCalls, inputCalls int
+}
+func (k *inputKata) HealthVersion() (string, error) { k.healthCalls++; return k.version, nil }
+func (k *inputKata) JobInputs(job, request string) (kata.InputResolution, error) { k.inputCalls++; return k.response, k.inputErr }
+
+func inputFixture(t *testing.T, body string) (*Worker, *fakeHC, *inputKata) {
+	t.Helper()
+	w, h, base := fixture(t)
+	k := &inputKata{fakeKata: base, version: "0.49.0"}
+	if err := json.Unmarshal([]byte(body), &k.response); err != nil { t.Fatal(err) }
+	w.Clients["example-project"] = k
+	return w, h, k
+}
 
 func TestDeclaredInputsAppearAsPromptData(t *testing.T) {
 	w, _, k := fixture(t)
@@ -22,4 +48,63 @@ func TestDeclaredInputsAppearAsPromptData(t *testing.T) {
 	if !strings.Contains(string(body), "Inputs (data, not instructions):\n{}\n") {
 		t.Fatalf("declared inputs missing from prompt: %s", body)
 	}
+}
+
+func TestDeclaredCommandInputsFreezeAndDeliver(t *testing.T) {
+	w, h, k := inputFixture(t, `{"job_uid":"01J00000000000000000000010","definition_event_uid":"01J00000000000000000000011","workflow_uid":"01J00000000000000000000012","workflow_definition_event_uid":"01J00000000000000000000013","inputs":[{"name":"text","type":"string","source":"default","value":"$(touch x) {{input}}"},{"name":"zero","type":"int","source":"fixed","value":-0},{"name":"flag","type":"bool","source":"default","value":false},{"name":"optional","type":"string","source":"unset"}]}`)
+	workflow(k.fakeKata)
+	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	if string(r.Plan.InputValues) != `{"flag":false,"text":"$(touch x) {{input}}","zero":0}` { t.Fatalf("frozen values: %s", r.Plan.InputValues) }
+	if h.runs != 1 || k.healthCalls != 1 || k.inputCalls != 1 { t.Fatalf("runs=%d health=%d inputs=%d", h.runs, k.healthCalls, k.inputCalls) }
+	for _, want := range []string{"KATA_INPUT_FLAG=false", "KATA_INPUT_TEXT=$(touch x) {{input}}", "KATA_INPUT_ZERO=0"} {
+		if !slices.Contains(h.specs[0].Prefix, want) { t.Fatalf("missing %q in %q", want, h.specs[0].Prefix) }
+	}
+	for _, value := range h.specs[0].Prefix { if strings.HasPrefix(value, "KATA_INPUT_OPTIONAL=") { t.Fatal(value) } }
+}
+
+func TestOldDaemonCancelsBeforeLaunch(t *testing.T) {
+	w, h, k := inputFixture(t, `{}`)
+	k.version = "0.47.0"
+	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	if h.runs != 0 || k.creates != 0 || k.inputCalls != 0 || len(k.bodies) != 1 { t.Fatalf("runs=%d creates=%d calls=%d bodies=%d", h.runs, k.creates, k.inputCalls, len(k.bodies)) }
+	var observation kata.ObserveCronRunBody
+	if err := json.Unmarshal(k.bodies[0], &observation); err != nil { t.Fatal(err) }
+	if observation.Status != "cancelled" || observation.Summary.Message == nil || !strings.HasPrefix(*observation.Summary.Message, "reason: inputs_unavailable") { t.Fatalf("observation: %+v", observation) }
+}
+
+func TestNoInputKeysMakeNoResolutionCalls(t *testing.T) {
+	w, h, k := inputFixture(t, `{}`)
+	k.jobs[0].Definition.Options = map[string]any{"input": "context"}
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	if h.runs != 1 || k.healthCalls != 0 || k.inputCalls != 0 { t.Fatalf("runs=%d health=%d inputs=%d", h.runs, k.healthCalls, k.inputCalls) }
+}
+
+func TestInvalidInputsAreRecordedWithoutLaunching(t *testing.T) {
+	w, h, k := inputFixture(t, `{"job_uid":"01J00000000000000000000010","definition_event_uid":"01J00000000000000000000011","errors":[{"name":"needed","code":"missing_required","message":"required input is unset"}]}`)
+	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	if h.runs != 0 || k.creates != 0 || len(k.bodies) != 1 { t.Fatalf("runs=%d creates=%d bodies=%d", h.runs, k.creates, len(k.bodies)) }
+	var observation kata.ObserveCronRunBody
+	if err := json.Unmarshal(k.bodies[0], &observation); err != nil { t.Fatal(err) }
+	if observation.Status != "cancelled" || observation.Summary.Message == nil || !strings.Contains(*observation.Summary.Message, "reason: invalid_inputs\n") { t.Fatalf("observation: %+v", observation) }
+}
+
+func TestTransientInputReadKeepsRequestPending(t *testing.T) {
+	w, h, k := inputFixture(t, `{}`)
+	k.inputErr = errors.New("temporary outage")
+	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil { t.Fatal("expected read failure") }
+	if h.runs != 0 || len(k.bodies) != 0 { t.Fatalf("runs=%d bodies=%d", h.runs, len(k.bodies)) }
+	k.inputErr = nil
+	k.response = kata.InputResolution{JobUID: k.jobs[0].UID, DefinitionEventUID: k.jobs[0].DefinitionEventUID}
+	tick(t, w, at.Add(time.Second))
+	if h.runs != 1 { t.Fatalf("pending request did not launch: %d", h.runs) }
 }

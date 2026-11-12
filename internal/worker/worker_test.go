@@ -48,7 +48,11 @@ func (k *fakeKata) Capabilities() (kata.Caps, error) { return kata.Caps{}, nil }
 
 func (k *fakeKata) HealthVersion() (string, error) { return "0.49.0", nil }
 func (k *fakeKata) JobInputs(job, request string) (kata.InputResolution, error) {
-	for _, j := range k.jobs { if j.UID == job { return kata.InputResolution{JobUID: j.UID, DefinitionEventUID: j.DefinitionEventUID}, nil } }
+	for _, j := range k.jobs {
+		if j.UID == job {
+			return kata.InputResolution{JobUID: j.UID, DefinitionEventUID: j.DefinitionEventUID}, nil
+		}
+	}
 	return kata.InputResolution{}, errors.New("job not found")
 }
 

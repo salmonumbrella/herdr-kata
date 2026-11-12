@@ -454,7 +454,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				}
 				if can {
 					remoteUID := ""
-					if len(req.Inputs) > 0 { remoteUID = req.UID }
+					if len(req.Inputs) > 0 {
+						remoteUID = req.UID
+					}
 					if err = prepare(p, key, "request:"+req.UID, "", remoteUID, now, req.ExpiresAt); err != nil {
 						errs = append(errs, err)
 					}
@@ -827,8 +829,12 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 			var values map[string]any
 			decoder := json.NewDecoder(strings.NewReader(string(r.Plan.InputValues)))
 			decoder.UseNumber()
-			if err := decoder.Decode(&values); err != nil { return hc.RunSpec{}, err }
-			for name, value := range values { extra["KATA_INPUT_"+strings.ToUpper(name)] = fmt.Sprint(value) }
+			if err := decoder.Decode(&values); err != nil {
+				return hc.RunSpec{}, err
+			}
+			for name, value := range values {
+				extra["KATA_INPUT_"+strings.ToUpper(name)] = fmt.Sprint(value)
+			}
 		}
 		extra["KATA_CRON_INPUT"] = r.Plan.Input
 		extra["KATA_CRON_PREVIOUS"] = previous
