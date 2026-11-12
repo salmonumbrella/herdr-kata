@@ -1,7 +1,7 @@
 ---
 title: Install
 description: Build and configure the headless worker.
-last_edited: 2026-11-11
+last_edited: 2026-11-12
 ---
 
 # Install

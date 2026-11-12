@@ -5,9 +5,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
