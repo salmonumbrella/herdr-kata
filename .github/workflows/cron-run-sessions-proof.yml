@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: '1.27.2'
-      - name: Run initial session assertion
+      - name: Run affected package tests
         env:
           GOMAXPROCS: '2'
           GOFLAGS: '-p=1'
@@ -21,4 +21,4 @@ jobs:
           export XDG_CONFIG_HOME="$HOME/config" XDG_STATE_HOME="$HOME/state" XDG_RUNTIME_DIR="$HOME/runtime"
           unset CODEX_HOME CLAUDE_CONFIG_DIR PI_CODING_AGENT_DIR
           mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
-          go test ./internal/worker -run '^TestFleetFinalObservationIncludesRecordedSession$' -count=1
+          go test ./internal/kata ./internal/report ./internal/worker ./internal/doctor -count=1
