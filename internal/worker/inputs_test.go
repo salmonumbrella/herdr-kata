@@ -235,3 +235,36 @@ func TestPromptInputsAreLiteralAndFollowTask(t *testing.T) {
 		}
 	}
 }
+
+func TestPreparedInputValuesSurviveRestart(t *testing.T) {
+	w, h, k := inputFixture(t, `{"job_uid":"01J00000000000000000000010","definition_event_uid":"01J00000000000000000000011","inputs":[{"name":"text","type":"string","source":"default","value":"original"}]}`)
+	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	tick(t, w, at)
+	r := active(t, w)
+	k.inputErr = errors.New("resolution should not be repeated")
+	w = New(w.Config, w.Store, h, w.Clients, w.Bin)
+	tick(t, w, at.Add(time.Second))
+	saved, err := w.Store.Load(r.Key)
+	if err != nil || string(saved.Plan.InputValues) != `{"text":"original"}` || h.runs != 1 || k.inputCalls != 1 { t.Fatalf("recovery: values=%s runs=%d calls=%d err=%v", saved.Plan.InputValues, h.runs, k.inputCalls, err) }
+}
+
+func TestRepeatedInputDriftRemainsPending(t *testing.T) {
+	w, h, k := inputFixture(t, `{}`)
+	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+	k.responses = []kata.InputResolution{{JobUID: k.jobs[0].UID, DefinitionEventUID: "other-one"}, {JobUID: k.jobs[0].UID, DefinitionEventUID: "other-two"}}
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil { t.Fatal("expected definition drift") }
+	runs, err := w.Store.All()
+	if err != nil || len(runs) != 0 || h.runs != 0 || len(k.bodies) != 0 || k.inputCalls != 2 { t.Fatalf("runs=%v launches=%d bodies=%d calls=%d err=%v", runs, h.runs, len(k.bodies), k.inputCalls, err) }
+}
+
+func TestMissingInputReadDoesNotCancel(t *testing.T) {
+	w, h, k := inputFixture(t, `{}`)
+	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+	k.inputErr = &kata.Error{Code: 4, Message: `{"error":{"code":"request_not_found"}}`}
+	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil { t.Fatal("expected missing read") }
+	runs, err := w.Store.All()
+	if err != nil || len(runs) != 0 || h.runs != 0 || len(k.bodies) != 0 { t.Fatalf("runs=%v launches=%d bodies=%d err=%v", runs, h.runs, len(k.bodies), err) }
+}
