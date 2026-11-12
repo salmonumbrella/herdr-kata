@@ -254,7 +254,7 @@ func TestRepeatedInputDriftRemainsPending(t *testing.T) {
 	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
 	k.responses = []kata.InputResolution{{JobUID: k.jobs[0].UID, DefinitionEventUID: "other-one"}, {JobUID: k.jobs[0].UID, DefinitionEventUID: "other-two"}}
 	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
-	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil { t.Fatal("expected definition drift") }
+	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil || !strings.Contains(err.Error(), "other-one") || !strings.Contains(err.Error(), "other-two") { t.Fatalf("expected both definition mismatches: %v", err) }
 	runs, err := w.Store.All()
 	if err != nil || len(runs) != 0 || h.runs != 0 || len(k.bodies) != 0 || k.inputCalls != 2 { t.Fatalf("runs=%v launches=%d bodies=%d calls=%d err=%v", runs, h.runs, len(k.bodies), k.inputCalls, err) }
 }
