@@ -1,0 +1,41 @@
+name: Input proof
+on:
+  push:
+    branches: [proof/s8-review1-final]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.2'
+      - name: Check source formatting
+        run: |
+          gofmt -w internal/kata/kata.go internal/kata/kata_test.go internal/kata/inputs_test.go internal/prompt/prompt_test.go internal/report/report.go internal/report/report_test.go internal/worker/inputs.go internal/worker/inputs_test.go
+          git diff --exit-code
+      - run: go test -count=1 ./internal/worker ./internal/kata ./internal/defs ./internal/prompt ./internal/journal ./internal/report
+        env:
+          GOMAXPROCS: '2'
+          GOFLAGS: '-p=2'
+      - run: make docs-check
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          repository: salmonumbrella/kata
+          ref: 00540d830afdc4d7517dbe47b1480a89ac4e30ba
+          path: _kata
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.4'
+      - name: Check input conformance bridge
+        run: |
+          git -C _kata rev-parse HEAD
+          printf '%s  %s\n' da1c3916cfdd35289097007ad19f4622794e2284cd7b182177002cc4b76d2a20 _kata/pkg/cron/conformance/testdata/adapter-v3/inputs.json | sha256sum -c
+          cp proof/kit_bridge.txt internal/worker/kit_bridge_test.go
+          go mod edit -go=1.27.4 -require=go.kenn.io/kata@v0.0.0 -replace=go.kenn.io/kata=./_kata
+          go test -mod=mod -count=1 ./internal/worker -run '^TestInputConformanceKit$' -v
+        env:
+          GOMAXPROCS: '2'
+          GOFLAGS: '-p=2'
