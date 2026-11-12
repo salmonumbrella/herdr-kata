@@ -246,7 +246,9 @@ func TestPreparedInputValuesSurviveRestart(t *testing.T) {
 	w = New(w.Config, w.Store, h, w.Clients, w.Bin)
 	tick(t, w, at.Add(time.Second))
 	saved, err := w.Store.Load(r.Key)
-	if err != nil || string(saved.Plan.InputValues) != `{"text":"original"}` || h.runs != 1 || k.inputCalls != 1 { t.Fatalf("recovery: values=%s runs=%d calls=%d err=%v", saved.Plan.InputValues, h.runs, k.inputCalls, err) }
+	if err != nil || string(saved.Plan.InputValues) != `{"text":"original"}` || h.runs != 1 || k.inputCalls != 1 {
+		t.Fatalf("recovery: values=%s runs=%d calls=%d err=%v", saved.Plan.InputValues, h.runs, k.inputCalls, err)
+	}
 }
 
 func TestRepeatedInputDriftRemainsPending(t *testing.T) {
@@ -254,9 +256,13 @@ func TestRepeatedInputDriftRemainsPending(t *testing.T) {
 	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
 	k.responses = []kata.InputResolution{{JobUID: k.jobs[0].UID, DefinitionEventUID: "other-one"}, {JobUID: k.jobs[0].UID, DefinitionEventUID: "other-two"}}
 	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
-	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil || !strings.Contains(err.Error(), "other-one") || !strings.Contains(err.Error(), "other-two") { t.Fatalf("expected both definition mismatches: %v", err) }
+	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil || !strings.Contains(err.Error(), "other-one") || !strings.Contains(err.Error(), "other-two") {
+		t.Fatalf("expected both definition mismatches: %v", err)
+	}
 	runs, err := w.Store.All()
-	if err != nil || len(runs) != 0 || h.runs != 0 || len(k.bodies) != 0 || k.inputCalls != 2 { t.Fatalf("runs=%v launches=%d bodies=%d calls=%d err=%v", runs, h.runs, len(k.bodies), k.inputCalls, err) }
+	if err != nil || len(runs) != 0 || h.runs != 0 || len(k.bodies) != 0 || k.inputCalls != 2 {
+		t.Fatalf("runs=%v launches=%d bodies=%d calls=%d err=%v", runs, h.runs, len(k.bodies), k.inputCalls, err)
+	}
 }
 
 func TestMissingInputReadDoesNotCancel(t *testing.T) {
@@ -264,7 +270,11 @@ func TestMissingInputReadDoesNotCancel(t *testing.T) {
 	k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
 	k.inputErr = &kata.Error{Code: 4, Message: `{"error":{"code":"request_not_found"}}`}
 	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
-	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil { t.Fatal("expected missing read") }
+	if err := w.Tick(clock.WithNow(context.Background(), at), at); err == nil {
+		t.Fatal("expected missing read")
+	}
 	runs, err := w.Store.All()
-	if err != nil || len(runs) != 0 || h.runs != 0 || len(k.bodies) != 0 { t.Fatalf("runs=%v launches=%d bodies=%d err=%v", runs, h.runs, len(k.bodies), err) }
+	if err != nil || len(runs) != 0 || h.runs != 0 || len(k.bodies) != 0 {
+		t.Fatalf("runs=%v launches=%d bodies=%d err=%v", runs, h.runs, len(k.bodies), err)
+	}
 }
