@@ -21,10 +21,21 @@ type inputKata struct {
 	version string
 	response kata.InputResolution
 	inputErr error
+	responses []kata.InputResolution
+	afterFirst func()
 	healthCalls, inputCalls int
 }
 func (k *inputKata) HealthVersion() (string, error) { k.healthCalls++; return k.version, nil }
-func (k *inputKata) JobInputs(job, request string) (kata.InputResolution, error) { k.inputCalls++; return k.response, k.inputErr }
+func (k *inputKata) JobInputs(job, request string) (kata.InputResolution, error) {
+	k.inputCalls++
+	if len(k.responses) > 0 {
+		response := k.responses[0]
+		k.responses = k.responses[1:]
+		if k.inputCalls == 1 && k.afterFirst != nil { k.afterFirst() }
+		return response, k.inputErr
+	}
+	return k.response, k.inputErr
+}
 
 func inputFixture(t *testing.T, body string) (*Worker, *fakeHC, *inputKata) {
 	t.Helper()
@@ -107,4 +118,27 @@ func TestTransientInputReadKeepsRequestPending(t *testing.T) {
 	k.response = kata.InputResolution{JobUID: k.jobs[0].UID, DefinitionEventUID: k.jobs[0].DefinitionEventUID}
 	tick(t, w, at.Add(time.Second))
 	if h.runs != 1 { t.Fatalf("pending request did not launch: %d", h.runs) }
+}
+
+func TestWorkflowRefreshRequiresMatchingPinnedJob(t *testing.T) {
+	for _, changedJob := range []bool{false, true} {
+		t.Run(map[bool]string{false: "workflow-only", true: "job-changed"}[changedJob], func(t *testing.T) {
+			w, h, k := inputFixture(t, `{}`)
+			workflow(k.fakeKata)
+			k.jobs[0].Definition.Options = map[string]any{"inputs": map[string]any{}}
+			first := kata.InputResolution{JobUID: k.jobs[0].UID, DefinitionEventUID: k.jobs[0].DefinitionEventUID, WorkflowUID: k.workflows[0].UID, WorkflowDefinitionEventUID: "new-workflow-event"}
+			k.responses = []kata.InputResolution{first, first}
+			k.afterFirst = func() {
+				k.workflows[0].DefinitionEventUID = "new-workflow-event"
+				if changedJob { k.jobs[0].DefinitionEventUID = "new-job-event" }
+			}
+			request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
+			err := w.Tick(clock.WithNow(context.Background(), at), at)
+			if changedJob {
+				if err == nil || h.runs != 0 || len(k.bodies) != 0 { t.Fatalf("changed job: runs=%d bodies=%d err=%v", h.runs, len(k.bodies), err) }
+			} else if err != nil || h.runs != 1 || k.inputCalls != 2 || active(t, w).Plan.WorkflowEventUID != "new-workflow-event" {
+				t.Fatalf("workflow refresh: runs=%d calls=%d err=%v", h.runs, k.inputCalls, err)
+			}
+		})
+	}
 }
