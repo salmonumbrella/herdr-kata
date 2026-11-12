@@ -184,7 +184,7 @@ func guarded(ctx context.Context, h hc.HC, a journal.Attempt) (hc.Terminal, erro
 		}
 		return term, err
 	}
-	if term.CreatedMs != a.CreatedMs || term.PID != a.PID || (a.Nonce != "" && term.Labels["kata.nonce"] != a.Nonce) || (a.Nonce == "" && (term.Status == "idle" || term.Status == "done") && term.ForegroundPID != a.ForegroundPID) {
+	if term.CreatedMs != a.CreatedMs || term.Labels["kata.nonce"] != a.Nonce || term.PID != a.PID {
 		return term, ErrOccupantChanged
 	}
 	return term, nil

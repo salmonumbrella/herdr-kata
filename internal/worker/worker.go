@@ -79,11 +79,11 @@ func (w *Worker) init(now time.Time) error {
 	w.installed = v.At
 	return nil
 }
-func (w *Worker) capacity(project config.Project, jobUID, overlap string, agent ...string) (bool, error) {
-	can, _, err := w.capacityState(project, jobUID, overlap, agent...)
+func (w *Worker) capacity(project config.Project, jobUID string, p defs.Plan) (bool, error) {
+	can, _, err := w.capacityState(project, jobUID, p)
 	return can, err
 }
-func (w *Worker) capacityState(project config.Project, jobUID, overlap string, agent ...string) (bool, bool, error) {
+func (w *Worker) capacityState(project config.Project, jobUID string, p defs.Plan) (bool, bool, error) {
 	runs, err := w.Store.Active()
 	if err != nil {
 		return false, false, err
@@ -96,12 +96,12 @@ func (w *Worker) capacityState(project config.Project, jobUID, overlap string, a
 		total++
 		if r.Project == project.Name {
 			local++
-			if overlap == "forbid" && r.JobUID == jobUID {
+			if p.Overlap == "forbid" && r.JobUID == jobUID {
 				return false, true, nil
 			}
 		}
-		if len(agent) > 0 && agent[0] != "" && r.Plan.Agent == agent[0] {
-			return false, overlap == "forbid" && r.Project == project.Name && r.JobUID == jobUID, nil
+		if p.Agent != "" && r.Plan.Agent == p.Agent {
+			return false, p.Overlap == "forbid" && r.Project == project.Name && r.JobUID == jobUID, nil
 		}
 	}
 	limit := project.MaxActiveRuns
@@ -446,7 +446,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				if w.Store.Exists(key) {
 					continue
 				}
-				can, err := w.capacity(project, job.UID, p.Overlap, p.Agent)
+				can, err := w.capacity(project, job.UID, p)
 				if err != nil {
 					errs = append(errs, err)
 					continue
@@ -470,7 +470,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					}
 					continue
 				}
-				can, e := w.capacity(project, job.UID, p.Overlap, p.Agent)
+				can, e := w.capacity(project, job.UID, p)
 				if e != nil {
 					pendingReason(project.Name, job.UID, "run capacity could not be checked")
 					errs = append(errs, e)
@@ -515,7 +515,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				if w.Store.Exists(key) {
 					continue
 				}
-				can, e := w.capacity(project, job.UID, p.Overlap, p.Agent)
+				can, e := w.capacity(project, job.UID, p)
 				if e != nil {
 					errs = append(errs, e)
 					continue
@@ -527,7 +527,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				}
 				continue
 			}
-			_, occupied, e := w.capacityState(project, job.UID, p.Overlap, p.Agent)
+			_, occupied, e := w.capacityState(project, job.UID, p)
 			var c sched.Checkpoint
 			var dropped sched.Dropped
 			if e == nil {
@@ -548,7 +548,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				}
 				key := journal.RunKey(w.Config.Executor, project.Name, job.UID, o.Key)
 				if !w.Store.Exists(key) {
-					can, e := w.capacity(project, job.UID, p.Overlap, p.Agent)
+					can, e := w.capacity(project, job.UID, p)
 					if e != nil {
 						errs = append(errs, e)
 						break
@@ -600,11 +600,22 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 		return errors.Join(append(errs, err)...)
 	}
 	for _, r := range runs {
+		if r.Phase == "running" && r.Plan.Agent != "" && !admission[r.Project] && !cancelled(r) {
+			_, waiting := flow.Next(r.Plan, states(r)).(flow.Start)
+			for _, a := range r.Attempts {
+				if a.Address == "" && !slices.Contains([]string{"succeeded", "failed", "skipped", "needs-human"}, a.Status) && a.Hold == "" {
+					waiting = true
+				}
+			}
+			if waiting {
+				continue
+			}
+		}
 		if r.Phase == "prepared" && !admission[r.Project] {
 			continue
 		}
 		if k := w.Clients[r.Project]; k != nil {
-			if err = w.advance(report.WithSummaryV2(ctx, slices.Contains(w.caps[r.Project].caps.EventFeatures, "cron_run_summary_v2")), k, r, now, protected(r), admission[r.Project]); err != nil {
+			if err = w.advance(report.WithSummaryV2(ctx, slices.Contains(w.caps[r.Project].caps.EventFeatures, "cron_run_summary_v2")), k, r, now, protected(r)); err != nil {
 				errs = append(errs, fmt.Errorf("run %s: %w", r.RunUID, err))
 			}
 		}
@@ -654,7 +665,7 @@ func (w *Worker) held(ctx context.Context, k kata.Kata, r journal.Run, reason st
 	}
 	return report.Hold(ctx, k, w.Store, r.Key)
 }
-func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now time.Time, protectGate bool, wakeGate bool) error {
+func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now time.Time, protectGate bool) error {
 	if r.Phase == "prepared" {
 		if err := report.Admit(ctx, k, w.Store, r.Key); err != nil {
 			if saved, e := w.Store.Load(r.Key); e != nil {
@@ -688,9 +699,6 @@ func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now ti
 		}
 		if slices.Contains([]string{"succeeded", "failed", "skipped", "needs-human"}, a.Status) {
 			continue
-		}
-		if r.Plan.Agent != "" && a.Address == "" && !wakeGate {
-			return nil
 		}
 		if r.Plan.Agent == "" && a.Address == "" {
 			var err error
@@ -772,9 +780,6 @@ func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now ti
 		}
 		return report.Final(ctx, k, w.Store, r.Key)
 	case flow.Start:
-		if r.Plan.Agent != "" && !wakeGate {
-			return nil
-		}
 		if r.Plan.Agent == "" && !now.Before(r.ExpiresAt) {
 			return w.held(ctx, k, r, "timeout", now)
 		}
@@ -796,7 +801,11 @@ func (w *Worker) advance(ctx context.Context, k kata.Kata, r journal.Run, now ti
 		}
 		idx := len(r.Attempts)
 		if err = w.Store.Update(r.Key, func(r *journal.Run) error {
-			r.Attempts = append(r.Attempts, journal.Attempt{Step: step.Key, N: next.N, Status: "launching", Spec: spec})
+			a := journal.Attempt{Step: step.Key, N: next.N, Status: "launching", Spec: spec}
+			if r.Plan.Agent != "" {
+				a.Nonce = "wake:" + r.RunUID
+			}
+			r.Attempts = append(r.Attempts, a)
 			return nil
 		}); err != nil {
 			return err

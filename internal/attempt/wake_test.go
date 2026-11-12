@@ -44,7 +44,7 @@ func wakeSetup(t *testing.T) (*journal.Store, *wakeHC, journal.Run) {
 	st, base, r := setup(t, "prompt")
 	if err := st.Update(r.Key, func(r *journal.Run) error {
 		r.Plan.Agent = "worker"
-		r.Attempts[0] = journal.Attempt{Step: "main", N: 1, Status: "queued"}
+		r.Attempts[0] = journal.Attempt{Step: "main", N: 1, Status: "queued", Nonce: "wake:" + r.RunUID}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -194,7 +194,7 @@ func TestWakeIdentityAndDeadline(t *testing.T) {
 				saveResult(t, st, r, "succeeded")
 				want = ""
 			case "cancel":
-				want = "timeout"
+				want = "cancelled"
 			}
 			if mode != "lost" {
 				f.terms["t1"] = term
@@ -215,13 +215,53 @@ func TestWakeIdentityAndDeadline(t *testing.T) {
 				if out != (Pending{}) {
 					t.Fatal(out)
 				}
-			} else if out != (Held{want}) {
+			} else if mode == "cancel" && out != (Done{}) {
+				t.Fatalf("cancel: %v", out)
+			} else if mode != "cancel" && out != (Held{want}) {
 				t.Fatalf("got %v want %s", out, want)
 			}
 			if f.sends != 1 || len(f.calls) != 0 {
 				t.Fatalf("side effects: %d %v", f.sends, f.calls)
 			}
 		})
+	}
+}
+
+func TestWakeMarkerProtectsOlderWorkerPaths(t *testing.T) {
+	for _, phase := range []string{"queued", "launching", "running"} {
+		for _, path := range []string{"recover", "settle", "cleanup"} {
+			t.Run(phase+"/"+path, func(t *testing.T) {
+				st, f, r := wakeSetup(t)
+				if err := st.Update(r.Key, func(r *journal.Run) error {
+					a := &r.Attempts[0]
+					a.Status = phase
+					if path != "recover" {
+						a.Address, a.CoreID, a.CreatedMs, a.PID = "t1", "core-one", 100, 101
+					}
+					if path == "cleanup" {
+						a.Cleanup = "interrupt"
+					}
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if path == "recover" {
+					if err := Recover(context.Background(), f.fakeHC, st, r.Key, 0); err != nil {
+						t.Fatal(err)
+					}
+				} else if _, err := Settle(context.Background(), f.fakeHC, st, r.Key, 0, now); err != nil {
+					t.Fatal(err)
+				}
+				saved, err := st.Load(r.Key)
+				want := "occupant_changed"
+				if path == "recover" {
+					want = "launch_ambiguous"
+				}
+				if err != nil || saved.Attempts[0].Hold != want || f.runs != 0 || len(f.calls) != 0 {
+					t.Fatalf("hold %q, runs %d, calls %v, err %v", saved.Attempts[0].Hold, f.runs, f.calls, err)
+				}
+			})
+		}
 	}
 }
 func TestWakeCancelBeforeDelivery(t *testing.T) {

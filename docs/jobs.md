@@ -140,11 +140,12 @@ the borrowed terminal. Only one active run may use a given target across
 projects; paused projects and unreadable job lists cannot send queued wakes.
 
 The option belongs on the job, requires a single prompt action, `overlap:
-forbid`, catchup other than `all`, an `existing` issue and a checkout. It
-cannot be combined with `agent` or `model`. `agent_mode` retains its usual
+forbid`, catchup other than `all`, an `existing` issue and a checkout (which
+freezing resolves for every job). An existing issue avoids leaving hundreds of
+per-run issues open as ticks accumulate. The option cannot be combined with `agent` or `model`. `agent_mode` retains its usual
 rules. Target jobs do not resolve a profile or warn about a default model.
-`herdr-kata logs` shows queued, delivered, acknowledged, completed or uncertain
-(with the hold reason). A completed turn must supply its matching result within
+`herdr-kata logs` shows queued, delivered, acknowledged, completed, not delivered
+or a hold reason. A completed turn must supply its matching result within
 10 seconds; otherwise the run holds `no_result`.
 
 ### Models

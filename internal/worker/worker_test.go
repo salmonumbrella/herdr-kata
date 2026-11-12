@@ -617,7 +617,7 @@ func TestWakeTargetCapacityAcrossProjects(t *testing.T) {
 	if err := w.Store.Create(r); err != nil {
 		t.Fatal(err)
 	}
-	can, _, err := w.capacityState(w.Config.Projects[0], "another-job", "forbid", "worker")
+	can, _, err := w.capacityState(w.Config.Projects[0], "another-job", defs.Plan{Overlap: "forbid", Agent: "worker"})
 	if err != nil || can {
 		t.Fatalf("capacity: %v %v", can, err)
 	}
@@ -628,9 +628,27 @@ func TestWakeTargetCapacityAcrossProjects(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	can, occupied, err := w.capacityState(w.Config.Projects[0], "another-job", "forbid", "worker")
+	can, occupied, err := w.capacityState(w.Config.Projects[0], "another-job", defs.Plan{Overlap: "forbid", Agent: "worker"})
 	if err != nil || can || !occupied {
 		t.Fatalf("duplicate gate: %v %v %v", can, occupied, err)
+	}
+}
+
+func TestWakeAttemptHasRollbackMarkerBeforeDelivery(t *testing.T) {
+	w, h, k := fixture(t)
+	r := journal.Run{Version: 1, Key: journal.ManualKey("executor", "example-project", "wake"), RunUID: "01J00000000000000000000001", Project: "example-project", Phase: "running", ExpiresAt: at.Add(time.Hour), Plan: defs.Plan{Agent: "worker", Steps: []defs.Step{{Key: "main", Kind: "prompt"}}}}
+	if err := w.Store.Create(r); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.advance(context.Background(), k, r, at, false); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := w.Store.Load(r.Key)
+	if err != nil || len(saved.Attempts) != 1 {
+		t.Fatalf("attempts: %+v, %v", saved.Attempts, err)
+	}
+	if a := saved.Attempts[0]; a.Nonce != "wake:"+r.RunUID || a.Address != "" || h.runs != 0 || h.sends != 0 {
+		t.Fatalf("queued attempt: %+v, runs %d sends %d", a, h.runs, h.sends)
 	}
 }
 

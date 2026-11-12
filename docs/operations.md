@@ -275,6 +275,17 @@ hc has no "not working" send condition, so a turn started by another sender
 between the final check and a send to a finished-turn target may receive the
 wake as a follow-up message. Dedicate the target to the worker.
 
+If a person has an unfinished draft in the target terminal, hc holds the send
+for up to a minute and the worker tick waits with it. A send that outlasts its
+bound holds `wake_uncertain`, because the text may still go in.
+
+Cancelling a delivered wake records a cancelled run and retains the borrowed
+terminal without interrupting or signalling it. An uncertain send remains held.
+
+A saved wake attempt carries a marker that makes an older worker hold it instead
+of launching or cleaning up its terminal. Runs without an attempt do not yet
+have that protection. Settle or release active wake runs before downgrading.
+
 For a held wake, inspect the session and its result before using `herdr-kata release`
 to release the run. Release does not resend or stop the borrowed session.
 

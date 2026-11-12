@@ -159,3 +159,22 @@ func Wake(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, 
 	}
 	return Pending{}, nil
 }
+
+// GuardWake verifies a borrowed terminal before reading its output.
+func GuardWake(ctx context.Context, h hc.HC, a journal.Attempt) error {
+	core, err := h.CoreID(ctx)
+	if err != nil {
+		return err
+	}
+	if core != a.CoreID {
+		return ErrOccupantChanged
+	}
+	t, err := h.Get(ctx, a.Address)
+	if err != nil {
+		return err
+	}
+	if t.CreatedMs != a.CreatedMs || t.PID != a.PID || ((t.Status == "idle" || t.Status == "done") && t.ForegroundPID != a.ForegroundPID) {
+		return ErrOccupantChanged
+	}
+	return nil
+}

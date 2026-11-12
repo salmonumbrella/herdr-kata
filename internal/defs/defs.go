@@ -16,6 +16,8 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/sched"
 )
 
+var agentName = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+
 type Plan struct {
 	JobUID, JobEventUID, WorkflowUID, WorkflowEventUID string
 	Name, WorkflowName, About                          string
@@ -79,7 +81,7 @@ func Freeze(job kata.CronJob, wfs map[string]kata.CronWorkflow, cfg config.Confi
 	reasons := unsupported(d.Options)
 	if raw, ok := d.Options["persistent_agent"]; ok {
 		name, valid := raw.(string)
-		if !valid || !regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`).MatchString(name) {
+		if !valid || !agentName.MatchString(name) {
 			reasons = append(reasons, "persistent_agent must be a name of 1–64 letters, digits, dots, underscores or hyphens")
 		} else {
 			p.Agent = name

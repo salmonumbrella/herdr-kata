@@ -195,7 +195,7 @@ func TestWakeLogsState(t *testing.T) {
 	r := localRun(t, l, "reported")
 	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
 		saved.Plan.Agent = "worker"
-		saved.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "succeeded"}}
+		saved.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "succeeded", SettlementStatus: "succeeded", Address: "t1"}}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -206,5 +206,24 @@ func TestWakeLogsState(t *testing.T) {
 	var out bytes.Buffer
 	if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "agent worker: completed\nfixture output\n" {
 		t.Fatalf("logs %d: %s", code, &out)
+	}
+	for _, tc := range []struct{ status, reason, hold, want string }{
+		{"failed", "not_delivered", "", "not delivered"},
+		{"held", "", "occupant_changed", "occupant_changed"},
+		{"held", "", "wake_uncertain", "uncertain (wake_uncertain)"},
+	} {
+		if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
+			saved.Attempts[0] = journal.Attempt{Step: "main", N: 1, Status: tc.status, StopReason: tc.reason, Hold: tc.hold}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Remove(filepath.Join(l.Attempt(r.Key, "main", 1), "output.log")); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+		out.Reset()
+		if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "agent worker: "+tc.want+"\n" {
+			t.Fatalf("%s: logs %d: %s", tc.want, code, &out)
+		}
 	}
 }

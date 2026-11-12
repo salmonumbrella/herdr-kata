@@ -339,7 +339,7 @@ func Cancel(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		if a.Status == "launching" {
 			return held(st, key, idx, "wake_uncertain")
 		}
-		return held(st, key, idx, "timeout")
+		return Done{}, nil
 	}
 	if a.Address == "" {
 		if a.Nonce == "" {

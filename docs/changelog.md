@@ -10,6 +10,7 @@ last_edited: 2026-11-06
 
 - Wake a claimed idle or finished-turn session with `options.persistent_agent`,
   preserving the session and holding uncertain deliveries for operator inspection.
+  Wake cancellation retains the session; logs distinguish undelivered work and holds.
 
 - Report the latest command attempt's recorded receipt timestamps when
   `cron_run_summary_v2` is advertised. Keep retry and cleanup time separate;

@@ -32,7 +32,9 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 			if a.TaskStarted != nil && *a.TaskStarted {
 				state = "acknowledged"
 			}
-			if a.Status == "succeeded" || a.Status == "failed" || a.Status == "needs-human" {
+			if a.StopReason == "not_delivered" {
+				state = "not delivered"
+			} else if a.Address != "" && a.SettlementStatus != "" && (a.Status == "succeeded" || a.Status == "failed" || a.Status == "needs-human") {
 				state = "completed"
 			}
 			if a.Hold != "" {
@@ -43,12 +45,18 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 			}
 		}
 		if hold != "" {
-			state = "uncertain (" + hold + ")"
+			state = hold
+			if hold == "wake_uncertain" {
+				state = "uncertain (wake_uncertain)"
+			}
 		}
 		fmt.Fprintf(out, "agent %s: %s\n", r.Plan.Agent, state)
 	}
 	if len(r.Attempts) == 0 {
 		fmt.Fprintf(out, "no attempts; phase %s; reason %s\n", r.Phase, r.Hold)
+		if r.Plan.Agent != "" {
+			return 0
+		}
 		return 1
 	}
 	a := r.Attempts[len(r.Attempts)-1]
@@ -68,7 +76,12 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 		defer func() { _ = f.Close() }()
 		_, err = io.Copy(out, f)
 	} else if os.IsNotExist(err) && a.Address != "" {
-		if err = attempt.Guard(ctx, h, a); err == nil {
+		if r.Plan.Agent != "" {
+			err = attempt.GuardWake(ctx, h, a)
+		} else {
+			err = attempt.Guard(ctx, h, a)
+		}
+		if err == nil {
 			var text string
 			var complete bool
 			text, complete, err = h.Read(ctx, a.Address, 200)
@@ -79,6 +92,9 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 				}
 			}
 		}
+	}
+	if os.IsNotExist(err) && r.Plan.Agent != "" && a.Address == "" {
+		return 0
 	}
 	if err != nil {
 		fmt.Fprintln(out, err)
