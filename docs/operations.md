@@ -254,6 +254,7 @@ Once the run settles, capacity and overlap gates are available to later work.
 
 | Reason | Meaning |
 | --- | --- |
+| `wake_uncertain` | A wake may have been typed, but delivery cannot be proven |
 | `launch_ambiguous` | Saved intent cannot identify exactly one matching launch |
 | `launch_unproven` | The core changed and absence cannot prove no launch happened |
 | `occupant_changed` | Terminal identity no longer matches the saved execution |
@@ -269,6 +270,13 @@ Once the run settles, capacity and overlap gates are available to later work.
 | `agent_error` | The agent explicitly reported an error state |
 | `report_refused` | Kata definitively refused a write or read-back differs |
 | `admission_expired` | Issue creation could outlive its keyed replay window |
+
+hc has no "not working" send condition, so a turn started by another sender
+between the final check and a send to a finished-turn target may receive the
+wake as a follow-up message. Dedicate the target to the worker.
+
+For a held wake, inspect the session and its result before using `herdr-kata release`
+to release the run. Release does not resend or stop the borrowed session.
 
 Inspect `herdr-kata logs <run-uid>`. Commands read their local `output.log`;
 prompt startup and timeout stops save the last 200 screen lines there before

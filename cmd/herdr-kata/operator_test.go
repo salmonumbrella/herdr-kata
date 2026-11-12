@@ -189,3 +189,22 @@ func TestExplicitEmptyInputPreserved(t *testing.T) {
 		t.Fatal(result)
 	}
 }
+
+func TestWakeLogsState(t *testing.T) {
+	config, l := operatorFixture(t)
+	r := localRun(t, l, "reported")
+	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
+		saved.Plan.Agent = "worker"
+		saved.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "succeeded"}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := state.WriteFile(filepath.Join(l.Attempt(r.Key, "main", 1), "output.log"), []byte("fixture output\n")); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "agent worker: completed\nfixture output\n" {
+		t.Fatalf("logs %d: %s", code, &out)
+	}
+}

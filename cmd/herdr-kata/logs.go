@@ -21,6 +21,32 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 		fmt.Fprintln(out, err)
 		return 1
 	}
+	if r.Plan.Agent != "" {
+		state := "queued"
+		hold := r.Hold
+		if len(r.Attempts) > 0 {
+			a := r.Attempts[len(r.Attempts)-1]
+			if a.Address != "" {
+				state = "delivered"
+			}
+			if a.TaskStarted != nil && *a.TaskStarted {
+				state = "acknowledged"
+			}
+			if a.Status == "succeeded" || a.Status == "failed" || a.Status == "needs-human" {
+				state = "completed"
+			}
+			if a.Hold != "" {
+				hold = a.Hold
+			}
+			if a.Status == "launching" && a.Address != "" {
+				state = "uncertain"
+			}
+		}
+		if hold != "" {
+			state = "uncertain (" + hold + ")"
+		}
+		fmt.Fprintf(out, "agent %s: %s\n", r.Plan.Agent, state)
+	}
 	if len(r.Attempts) == 0 {
 		fmt.Fprintf(out, "no attempts; phase %s; reason %s\n", r.Phase, r.Hold)
 		return 1

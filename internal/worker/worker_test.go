@@ -83,6 +83,7 @@ type fakeHC struct {
 	core                    string
 	terms                   map[string]hc.Terminal
 	runs, kills, interrupts int
+	sends                   int
 }
 
 func (h *fakeHC) CoreID(context.Context) (string, error) { return h.core, nil }
@@ -102,7 +103,13 @@ func (h *fakeHC) Get(_ context.Context, id string) (hc.Terminal, error) {
 }
 func (h *fakeHC) List(_ context.Context, all bool, labels map[string]string) ([]string, error) {
 	if !all {
-		return nil, errors.New("missing --all")
+		var out []string
+		for id, v := range h.terms {
+			if labels["herdr-kata.agent"] != "" && v.Labels["herdr-kata.agent"] == labels["herdr-kata.agent"] {
+				out = append(out, id)
+			}
+		}
+		return out, nil
 	}
 	var out []string
 	for id, v := range h.terms {
@@ -111,6 +118,13 @@ func (h *fakeHC) List(_ context.Context, all bool, labels map[string]string) ([]
 		}
 	}
 	return out, nil
+}
+func (h *fakeHC) Send(_ context.Context, id, text, status string) (uint64, error) {
+	h.sends++
+	if id != "t1" || !strings.HasPrefix(text, "Read ") {
+		return 0, errors.New("wrong wake")
+	}
+	return 4, nil
 }
 func (h *fakeHC) Read(_ context.Context, id string, lines int) (string, bool, error) {
 	if _, ok := h.terms[id]; !ok || lines != 200 {
@@ -594,5 +608,53 @@ func TestEmptyManualInputOverridesConfigured(t *testing.T) {
 	tick(t, w, at)
 	if got := active(t, w).Plan.Input; got != "" {
 		t.Fatalf("explicit empty input became %q", got)
+	}
+}
+
+func TestWakeTargetCapacityAcrossProjects(t *testing.T) {
+	w, _, _ := fixture(t)
+	r := journal.Run{Version: 1, Key: journal.ManualKey("executor", "other-project", "request"), RunUID: "01J00000000000000000000001", Project: "other-project", Phase: "held", Plan: defs.Plan{Agent: "worker"}}
+	if err := w.Store.Create(r); err != nil {
+		t.Fatal(err)
+	}
+	can, _, err := w.capacityState(w.Config.Projects[0], "another-job", "forbid", "worker")
+	if err != nil || can {
+		t.Fatalf("capacity: %v %v", can, err)
+	}
+	if err := w.Store.Update(r.Key, func(saved *journal.Run) error {
+		saved.Project = "example-project"
+		saved.JobUID = "another-job"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	can, occupied, err := w.capacityState(w.Config.Projects[0], "another-job", "forbid", "worker")
+	if err != nil || can || !occupied {
+		t.Fatalf("duplicate gate: %v %v %v", can, occupied, err)
+	}
+}
+
+func TestWakePausedOrUnreadableDoesNotSend(t *testing.T) {
+	for _, phase := range []string{"prepared", "running"} {
+		for _, gate := range []string{"paused", "unreadable"} {
+			t.Run(phase+"/"+gate, func(t *testing.T) {
+				w, h, k := fleetFixture(t)
+				h.terms["t1"] = hc.Terminal{Address: "t1", State: "live", Status: "idle", Reported: true, CreatedMs: 1, PID: 1, ForegroundPID: 1, Labels: map[string]string{"herdr-kata.agent": "worker"}}
+				r := journal.Run{Version: 1, Key: journal.ManualKey("executor", "example-project", "wake"), RunUID: "01J00000000000000000000001", Project: "example-project", Phase: phase, ExpiresAt: at.Add(time.Hour), Plan: defs.Plan{Agent: "worker", Steps: []defs.Step{{Key: "main", Kind: "prompt"}}}, Attempts: []journal.Attempt{{Step: "main", N: 1, Status: "launching"}}}
+				if err := w.Store.Create(r); err != nil {
+					t.Fatal(err)
+				}
+				if gate == "paused" {
+					k.pause = []byte(`{"reason":"paused"}`)
+				} else {
+					k.failures = map[string]error{"jobs": errors.New("unavailable")}
+				}
+				_ = w.Tick(clock.WithNow(context.Background(), at), at)
+				saved, err := w.Store.Load(r.Key)
+				if err != nil || h.sends != 0 || saved.Phase != phase || saved.Attempts[0].Address != "" {
+					t.Fatalf("run %+v sends %d err %v", saved, h.sends, err)
+				}
+			})
+		}
 	}
 }

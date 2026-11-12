@@ -293,3 +293,41 @@ func TestCheckoutRequiresSelection(t *testing.T) {
 		t.Fatalf("explicit checkout: %q, reasons %v", p.CheckoutPath, reasons)
 	}
 }
+
+func TestPersistentAgentFreeze(t *testing.T) {
+	j, w, c := fixture()
+	delete(j.Definition.Options, "agent")
+	j.Definition.Options["persistent_agent"] = "worker"
+	j.Definition.Issue = &kata.IssuePolicy{Kind: "existing", UID: new("01J00000000000000000000020")}
+	p, reasons := Freeze(j, w, c, "example-project", func(string) (string, error) { t.Fatal("resolved a profile"); return "", nil })
+	if len(reasons) != 0 || p.Agent != "worker" || len(p.Steps[0].Argv) != 0 {
+		t.Fatalf("plan: %+v reasons: %v", p, reasons)
+	}
+}
+
+func TestPersistentAgentRejections(t *testing.T) {
+	for _, tc := range []struct {
+		name, reason string
+		change       func(*kata.CronJob)
+	}{
+		{"invalid", "persistent_agent must be a name of 1–64 letters, digits, dots, underscores or hyphens", func(j *kata.CronJob) { j.Definition.Options["persistent_agent"] = "bad name" }},
+		{"workflow", "persistent_agent requires a prompt action", func(j *kata.CronJob) { j.Definition.Action.Prompt = nil }},
+		{"overlap", "persistent_agent requires overlap: forbid", func(j *kata.CronJob) { j.Definition.Overlap = "allow" }},
+		{"catchup", "persistent_agent does not support catchup: all", func(j *kata.CronJob) { j.Definition.Catchup = "all" }},
+		{"issue", "persistent_agent requires an existing issue", func(j *kata.CronJob) { j.Definition.Issue.Kind = "per-run" }},
+		{"agent", "persistent_agent cannot be combined with agent", func(j *kata.CronJob) { j.Definition.Options["agent"] = "default" }},
+		{"model", "persistent_agent cannot be combined with model", func(j *kata.CronJob) { j.Definition.Options["model"] = "example" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			j, w, c := fixture()
+			delete(j.Definition.Options, "agent")
+			j.Definition.Options["persistent_agent"] = "worker"
+			j.Definition.Issue = &kata.IssuePolicy{Kind: "existing"}
+			tc.change(&j)
+			_, reasons := Freeze(j, w, c, "example-project", look)
+			if !slices.Contains(reasons, tc.reason) {
+				t.Fatalf("reasons: %v", reasons)
+			}
+		})
+	}
+}

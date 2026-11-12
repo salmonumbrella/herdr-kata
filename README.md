@@ -1,7 +1,7 @@
 # herdr-kata
 
 A headless worker that runs [Kata](https://github.com/kenn-io/kata) jobs as
-agents and commands on [herdr-core](https://github.com/herdrdev/herdr-core)
+agents and commands, or by waking an existing session, on [herdr-core](https://github.com/herdrdev/herdr-core)
 (`hc`), and reports every run back to Kata.
 
 [![A Kata job runs as a Codex agent and closes its issue with evidence](docs/assets/demo.gif)](https://github.com/salmonumbrella/herdr-kata/releases/download/v0.1.0/demo.mp4)
