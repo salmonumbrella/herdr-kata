@@ -50,12 +50,12 @@ func (j JobList) Paused() bool {
 
 type CronRequest struct {
 	Inputs             map[string]json.RawMessage `json:"inputs,omitempty"`
-	UID                string    `json:"uid"`
-	Kind               string    `json:"kind"`
-	JobUID             string    `json:"job_uid"`
-	DefinitionEventUID string    `json:"definition_event_uid"`
-	RunUID             string    `json:"run_uid"`
-	ExpiresAt          time.Time `json:"expires_at"`
+	UID                string                     `json:"uid"`
+	Kind               string                     `json:"kind"`
+	JobUID             string                     `json:"job_uid"`
+	DefinitionEventUID string                     `json:"definition_event_uid"`
+	RunUID             string                     `json:"run_uid"`
+	ExpiresAt          time.Time                  `json:"expires_at"`
 }
 
 func (c *cli) Requests() ([]CronRequest, error) {

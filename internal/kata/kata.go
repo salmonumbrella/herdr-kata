@@ -74,23 +74,30 @@ type Kata interface {
 }
 
 type InputResolution struct {
-	JobUID string `json:"job_uid"`
-	DefinitionEventUID string `json:"definition_event_uid"`
-	WorkflowUID string `json:"workflow_uid"`
+	JobUID                     string `json:"job_uid"`
+	DefinitionEventUID         string `json:"definition_event_uid"`
+	WorkflowUID                string `json:"workflow_uid"`
 	WorkflowDefinitionEventUID string `json:"workflow_definition_event_uid"`
-	Inputs []struct { Name, Type, Source string; Value json.RawMessage }
-	Errors []struct { Name, Code, Message string }
+	Inputs                     []struct {
+		Name, Type, Source string
+		Value              json.RawMessage
+	}
+	Errors []struct{ Name, Code, Message string }
 }
 
 func (c *cli) HealthVersion() (string, error) {
-	var v struct { APISchemaVersion string `json:"api_schema_version"` }
+	var v struct {
+		APISchemaVersion string `json:"api_schema_version"`
+	}
 	err := c.call(nil, &v, "health")
 	return v.APISchemaVersion, err
 }
 func (c *cli) JobInputs(job, request string) (InputResolution, error) {
 	var v InputResolution
 	args := []string{"cron", "job", "inputs", job}
-	if request != "" { args = append(args, "--request-uid", request) }
+	if request != "" {
+		args = append(args, "--request-uid", request)
+	}
 	err := c.call(nil, &v, args...)
 	return v, err
 }
