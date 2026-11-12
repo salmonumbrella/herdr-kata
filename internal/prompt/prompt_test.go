@@ -8,6 +8,7 @@ import (
 
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"hegel.dev/go/hegel"
 )
@@ -108,6 +109,45 @@ func TestResultRoundTrip(t *testing.T) {
 			ht.Fatalf("result summary changed: %v", err)
 		}
 	})
+}
+
+// Optional identity cannot turn a baseline-valid result into a failure.
+func TestResultSessionSizeBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		session bool
+		size    int
+		ok      bool
+	}{
+		{"near limit without session", false, 65400, true},
+		{"near limit with session", true, 65400, true},
+		{"baseline too large", true, 65536, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "result.json")
+			result := Result{RunUID: "01J00000000000000000000001", Step: "main", Attempt: 1, Status: "succeeded", Summary: strings.Repeat("a", tc.size)}
+			if tc.session {
+				result.Session = &session.Session{Agent: "claude", SessionID: "00000000-0000-4000-8000-000000000001"}
+			}
+			err := WriteResult(path, result)
+			if !tc.ok {
+				if err == nil {
+					t.Fatal("oversized baseline accepted")
+				}
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatalf("result exists: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := ReadResult(path, result.RunUID, result.Step, result.Attempt)
+			if err != nil || got.Summary != result.Summary || got.Session != nil {
+				t.Fatalf("result: %+v %v", got, err)
+			}
+		})
+	}
 }
 
 func TestInvalidSessionDoesNotChangeResult(t *testing.T) {

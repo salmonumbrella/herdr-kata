@@ -18,8 +18,9 @@ func TestDiscoverSession(t *testing.T) {
 		agent, id string
 	}{
 		{"absent", nil, "", ""},
+		{"malformed mapping", map[string]string{"HERDR_KATA_SESSIONS_ENV": "{", "CLAUDE_CODE_SESSION_ID": one}, "", ""},
 		{"claude", map[string]string{"CLAUDE_CODE_SESSION_ID": one}, "claude", one},
-		{"codex precedence", map[string]string{"CODEX_THREAD_ID": one, "CODEX_SESSION_ID": one}, "codex", one},
+		{"codex agreement", map[string]string{"CODEX_THREAD_ID": one, "CODEX_SESSION_ID": one}, "codex", one},
 		{"codex conflict", map[string]string{"CODEX_THREAD_ID": one, "CODEX_SESSION_ID": two}, "", ""},
 		{"different agents", map[string]string{"CODEX_THREAD_ID": one, "CLAUDE_CODE_SESSION_ID": one}, "", ""},
 		{"explicit override", map[string]string{"KATA_TRANSCRIPT_AGENT": "pi", "KATA_TRANSCRIPT_SESSION_ID": "ses_1", "CLAUDE_CODE_SESSION_ID": one}, "pi", "ses_1"},

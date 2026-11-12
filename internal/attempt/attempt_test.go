@@ -301,7 +301,7 @@ func TestNeverReportingAgentNotNoActivity(t *testing.T) {
 }
 func TestNeverReportingAgentSettlesOnExit(t *testing.T) {
 	st, f, r := setup(t, "prompt")
-	saveResult(t, st, r, "succeeded")
+	saveResult(t, st, r, "succeeded", &session.Session{Agent: "pi", SessionID: "ses_1"})
 	v := f.terms["t1"]
 	v.State = "finished"
 	v.Reason = "exited"
@@ -309,6 +309,13 @@ func TestNeverReportingAgentSettlesOnExit(t *testing.T) {
 	out := advance(t, st, f, r, now)
 	if d, ok := out.(Done); !ok || d.Status != "succeeded" || !reflect.DeepEqual(f.calls, []string{"rm:t1"}) {
 		t.Fatal(out, f.calls)
+	}
+	saved, err := st.Load(r.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(saved.Attempts[0].Session, &session.Session{Agent: "pi", SessionID: "ses_1"}) {
+		t.Fatalf("session: %+v", saved.Attempts[0].Session)
 	}
 }
 func TestNeverReportingAgentSettlesOnStableResult(t *testing.T) {
