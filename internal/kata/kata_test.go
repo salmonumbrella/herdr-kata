@@ -29,9 +29,13 @@ exit "$HK_TEST_CODE"
 	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
-	reply, err := filepath.Abs(filepath.Join("testdata", fixture+".json"))
-	if err != nil {
-		t.Fatal(err)
+	reply := filepath.Join(dir, "reply.json")
+	if fixture != "" {
+		var err error
+		reply, err = filepath.Abs(filepath.Join("testdata", fixture+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	for key, val := range map[string]string{"HK_TEST_ARGS": filepath.Join(dir, "args"), "HK_TEST_ENV": filepath.Join(dir, "env"), "HK_TEST_INPUT": filepath.Join(dir, "input"), "HK_TEST_REPLY": reply, "HK_TEST_CODE": code} {
 		t.Setenv(key, val)

@@ -276,7 +276,7 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 			message = "reason: " + r.Hold
 		} else if status != "succeeded" {
 			message = "reason: " + status
-			if status == "cancelled" && len(r.Attempts) == 0 && r.Hold != "" {
+			if status == "cancelled" && len(r.Attempts) == 0 && (r.Hold == "invalid_inputs" || r.Hold == "inputs_unavailable") {
 				message = "reason: " + r.Hold
 			}
 			if status == "failed" {

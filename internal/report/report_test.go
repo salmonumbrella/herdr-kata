@@ -363,6 +363,31 @@ func TestReasonAloneOnFirstLine(t *testing.T) {
 		})
 	}
 }
+func TestUnlaunchedCancellationReason(t *testing.T) {
+	for _, tc := range []struct{ hold, want string }{
+		{"invalid_inputs", "reason: invalid_inputs"},
+		{"inputs_unavailable", "reason: inputs_unavailable"},
+		{"timeout", "reason: cancelled"},
+	} {
+		t.Run(tc.hold, func(t *testing.T) {
+			ctx, st, k, r := setup(t)
+			if err := st.Update(r.Key, func(r *journal.Run) error {
+				r.Phase, r.Outcome, r.Hold, r.Detail = "settled", "cancelled", tc.hold, "Fixture detail"
+				r.Attempts = nil
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := Final(ctx, k, st, r.Key); err != nil {
+				t.Fatal(err)
+			}
+			msg := *body(t, k.bodies[len(k.bodies)-1]).Summary.Message
+			if msg != tc.want+"\nFixture detail" {
+				t.Fatalf("message: %q", msg)
+			}
+		})
+	}
+}
 func TestAdmitSecondOccurrenceCreates(t *testing.T) {
 	ctx, st, _, r := setup(t)
 	dir := t.TempDir()

@@ -82,7 +82,11 @@ type InputResolution struct {
 		Name, Type, Source string
 		Value              json.RawMessage
 	}
-	Errors []struct{ Name, Code, Message string }
+	Errors []struct {
+		Name    string `json:"name,omitempty"`
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
 }
 
 func (c *cli) HealthVersion() (string, error) {
