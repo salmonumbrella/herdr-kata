@@ -19,6 +19,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"hegel.dev/go/hegel"
 )
@@ -104,10 +105,14 @@ func setup(t *testing.T, kind string) (*journal.Store, *fakeHC, journal.Run) {
 	f := &fakeHC{core: "core-one", terms: map[string]hc.Terminal{"t1": {Address: "t1", Name: "fixture", State: "live", CreatedMs: 100, PID: 101, Labels: map[string]string{"kata.nonce": "fixture-nonce"}}}}
 	return st, f, r
 }
-func saveResult(t *testing.T, st *journal.Store, r journal.Run, status string) {
+func saveResult(t *testing.T, st *journal.Store, r journal.Run, status string, sessions ...*session.Session) {
 	t.Helper()
+	var captured *session.Session
+	if len(sessions) > 0 {
+		captured = sessions[0]
+	}
 	path := filepath.Join(st.Layout.Attempt(r.Key, "main", 1), "result.json")
-	if err := prompt.WriteResult(path, prompt.Result{RunUID: r.RunUID, Step: "main", Attempt: 1, Status: status, Summary: "Completed", Note: "Result note"}); err != nil {
+	if err := prompt.WriteResult(path, prompt.Result{RunUID: r.RunUID, Step: "main", Attempt: 1, Status: status, Summary: "Completed", Note: "Result note", Session: captured}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -296,7 +301,7 @@ func TestNeverReportingAgentNotNoActivity(t *testing.T) {
 }
 func TestNeverReportingAgentSettlesOnExit(t *testing.T) {
 	st, f, r := setup(t, "prompt")
-	saveResult(t, st, r, "succeeded")
+	saveResult(t, st, r, "succeeded", &session.Session{Agent: "pi", SessionID: "ses_1"})
 	v := f.terms["t1"]
 	v.State = "finished"
 	v.Reason = "exited"
@@ -305,10 +310,17 @@ func TestNeverReportingAgentSettlesOnExit(t *testing.T) {
 	if d, ok := out.(Done); !ok || d.Status != "succeeded" || !reflect.DeepEqual(f.calls, []string{"rm:t1"}) {
 		t.Fatal(out, f.calls)
 	}
+	saved, err := st.Load(r.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(saved.Attempts[0].Session, &session.Session{Agent: "pi", SessionID: "ses_1"}) {
+		t.Fatalf("session: %+v", saved.Attempts[0].Session)
+	}
 }
 func TestNeverReportingAgentSettlesOnStableResult(t *testing.T) {
 	st, f, r := setup(t, "prompt")
-	saveResult(t, st, r, "succeeded")
+	saveResult(t, st, r, "succeeded", &session.Session{Agent: "pi", SessionID: "ses_1"})
 	_ = advance(t, st, f, r, now)
 	if out := advance(t, st, f, r, now.Add(29*time.Second)); reflect.TypeOf(out) != reflect.TypeFor[Pending]() {
 		t.Fatal(out)
@@ -316,6 +328,31 @@ func TestNeverReportingAgentSettlesOnStableResult(t *testing.T) {
 	out := advance(t, st, f, r, now.Add(30*time.Second))
 	if d, ok := out.(Done); !ok || d.Status != "succeeded" || !reflect.DeepEqual(f.calls, []string{"interrupt:t1", "kill:t1", "rm:t1"}) {
 		t.Fatal(out, f.calls)
+	}
+	saved, err := st.Load(r.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(saved.Attempts[0].Session, &session.Session{Agent: "pi", SessionID: "ses_1"}) {
+		t.Fatalf("session: %+v", saved.Attempts[0].Session)
+	}
+}
+func TestTurnEndedResultJournalsSessionOnKill(t *testing.T) {
+	st, f, r := setup(t, "prompt")
+	saveResult(t, st, r, "succeeded", &session.Session{Agent: "pi", SessionID: "ses_1"})
+	term := f.terms["t1"]
+	term.Reported, term.Turn, term.Status = true, 1, "done"
+	f.terms["t1"] = term
+	out := advance(t, st, f, r, now)
+	if d, ok := out.(Done); !ok || d.Status != "succeeded" || !reflect.DeepEqual(f.calls, []string{"kill:t1", "rm:t1"}) {
+		t.Fatal(out, f.calls)
+	}
+	saved, err := st.Load(r.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(saved.Attempts[0].Session, &session.Session{Agent: "pi", SessionID: "ses_1"}) {
+		t.Fatalf("session: %+v", saved.Attempts[0].Session)
 	}
 }
 func TestNeedsHumanKeepsTerminal(t *testing.T) {

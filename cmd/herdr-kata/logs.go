@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/salmonumbrella/herdr-kata/internal/attempt"
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
@@ -25,11 +26,18 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 		fmt.Fprintf(out, "no attempts; phase %s; reason %s\n", r.Phase, r.Hold)
 		return 1
 	}
+	for _, item := range r.Attempts {
+		if item.Session != nil {
+			fmt.Fprintf(out, "attempt %s/%d session %s %s\n", item.Step, item.N, item.Session.Agent, item.Session.SessionID)
+		}
+	}
 	a := r.Attempts[len(r.Attempts)-1]
 	path := filepath.Join(st.Layout.Attempt(r.Key, a.Step, a.N), "output.log")
 	useSnapshot := true
+	promptStep := false
 	for _, step := range r.Plan.Steps {
 		if step.Key == a.Step && step.Kind == "prompt" {
+			promptStep = true
 			useSnapshot = a.StopReason != ""
 		}
 	}
@@ -52,6 +60,10 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 					fmt.Fprintln(out, "[terminal output incomplete]")
 				}
 			}
+		}
+		if errors.Is(err, hc.ErrNotFound) && errors.Is(err, attempt.ErrOccupantChanged) && promptStep && a.StopReason == "" && a.Cleanup == "" && a.SettlementStatus != "" && a.Status == a.SettlementStatus && a.Status != "needs-human" {
+			fmt.Fprintln(out, "[terminal output unavailable after cleanup]")
+			err = nil
 		}
 	}
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
@@ -26,6 +27,7 @@ type Receipt struct {
 	StartedAt, EndedAt time.Time
 }
 type Attempt struct {
+	Session                                                 *session.Session `json:",omitempty"`
 	Spec                                                    hc.RunSpec
 	Cleanup, SettlementStatus, SettlementNote, ResultDigest string
 	ExpiringAt                                              *time.Time
