@@ -67,6 +67,9 @@ func inputValues(result kata.InputResolution) (json.RawMessage, error) {
 		if input.Source == "unset" {
 			continue
 		}
+		if len(input.Value) == 0 || string(input.Value) == "null" {
+			return nil, fmt.Errorf("resolved input %q has no value", input.Name)
+		}
 		switch input.Type {
 		case "string", "enum":
 			var v string
@@ -101,6 +104,9 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 		return fmt.Errorf("request expired before preparation")
 	}
 	refuse := func(reason, detail string) error {
+		if len(deadline) > 0 && !clock.Current(ctx, now).Before(deadline[0]) {
+			return fmt.Errorf("request expired before preparation")
+		}
 		r := journal.Run{Version: 1, Key: key, RunUID: ulid.Make().String(), Project: project.Name, Actor: project.Actor, Executor: w.Config.Executor, JobUID: p.JobUID, Occurrence: occurrence, RequestID: requestID, Phase: "settled", Outcome: "cancelled", Hold: reason, Detail: detail, Plan: p, StartedAt: new(now.UTC()), EndedAt: new(now.UTC())}
 		err := w.Store.Create(r)
 		if errors.Is(err, journal.ErrExists) {
