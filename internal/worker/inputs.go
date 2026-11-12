@@ -32,6 +32,10 @@ func hasInputs(job kata.CronJob, wfs map[string]kata.CronWorkflow) bool {
 }
 
 func supportedVersion(version string, minor int) (bool, error) {
+	version = strings.TrimSpace(version)
+	if suffix := strings.IndexAny(version, "-+"); suffix >= 0 {
+		version = version[:suffix]
+	}
 	parts := strings.Split(version, ".")
 	if len(parts) != 3 {
 		return false, fmt.Errorf("invalid daemon API version %q", version)
@@ -45,20 +49,6 @@ func supportedVersion(version string, minor int) (bool, error) {
 		n[i] = v
 	}
 	return n[0] > 0 || n[1] >= minor, nil
-}
-
-func tooOld(err error) bool {
-	var e *kata.Error
-	if !errors.As(err, &e) {
-		return false
-	}
-	var v struct {
-		Code  string `json:"code"`
-		Error struct {
-			Code string `json:"code"`
-		} `json:"error"`
-	}
-	return json.Unmarshal([]byte(e.Message), &v) == nil && (v.Code == "daemon_api_too_old" || v.Error.Code == "daemon_api_too_old")
 }
 
 func inputValues(result kata.InputResolution) (json.RawMessage, error) {
@@ -101,11 +91,11 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 		return w.prepare(ctx, k, project, p, key, occurrence, requestID, now, deadline...)
 	}
 	if len(deadline) > 0 && !clock.Current(ctx, now).Before(deadline[0]) {
-		return fmt.Errorf("request expired before preparation")
+		return nil
 	}
 	refuse := func(reason, detail string) error {
 		if len(deadline) > 0 && !clock.Current(ctx, now).Before(deadline[0]) {
-			return fmt.Errorf("request expired before preparation")
+			return nil
 		}
 		r := journal.Run{Version: 1, Key: key, RunUID: ulid.Make().String(), Project: project.Name, Actor: project.Actor, Executor: w.Config.Executor, JobUID: p.JobUID, Occurrence: occurrence, RequestID: requestID, Phase: "settled", Outcome: "cancelled", Hold: reason, Detail: detail, Plan: p, StartedAt: new(now.UTC()), EndedAt: new(now.UTC())}
 		err := w.Store.Create(r)
@@ -116,9 +106,6 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 	}
 	version, err := k.HealthVersion()
 	if err != nil {
-		if tooOld(err) {
-			return refuse("inputs_unavailable", err.Error())
-		}
 		return err
 	}
 	floor := 48
@@ -136,9 +123,6 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 	for attempt := 0; attempt < 2; attempt++ {
 		result, err := k.JobInputs(job.UID, remoteUID)
 		if err != nil {
-			if tooOld(err) {
-				return refuse("inputs_unavailable", err.Error())
-			}
 			return err
 		}
 		if result.JobUID == p.JobUID && result.DefinitionEventUID == p.JobEventUID && result.WorkflowUID == p.WorkflowUID && result.WorkflowDefinitionEventUID == p.WorkflowEventUID {
