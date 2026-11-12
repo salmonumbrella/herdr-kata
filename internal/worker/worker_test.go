@@ -669,7 +669,7 @@ func TestPromptEffectiveSessionEnvironment(t *testing.T) {
 		kind    string
 		fresh   bool
 	}{
-		{"empty", nil, "prompt", false}, {"configured", map[string]string{"pi": "PI_SESSION_ID"}, "prompt", true}, {"command", nil, "command", false},
+		{"empty", nil, "prompt", false}, {"configured", map[string]string{"pi": "PI_SESSION_ID"}, "prompt", true}, {"command", map[string]string{"pi": "PI_SESSION_ID"}, "command", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w.Config.Sessions.Env = tc.mapping
@@ -713,7 +713,7 @@ func TestPromptEffectiveSessionEnvironment(t *testing.T) {
 				t.Error("HC_SOCKET inherited")
 			}
 			if tc.kind == "command" {
-				if got.Env["CLAUDE_CODE_SESSION_ID"] == "" || got.Env["HERDR_KATA_SESSIONS_ENV"] == "" {
+				if got.Env["CLAUDE_CODE_SESSION_ID"] == "" || got.Env["HERDR_KATA_SESSIONS_ENV"] != `{"old":"OLD_SESSION_ID"}` {
 					t.Fatal("command session environment changed")
 				}
 				return

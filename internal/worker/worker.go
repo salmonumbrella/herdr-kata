@@ -804,7 +804,7 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 	if extra == nil {
 		extra = make(map[string]string)
 	}
-	if len(w.Config.Sessions.Env) > 0 {
+	if s.Kind == "prompt" && len(w.Config.Sessions.Env) > 0 {
 		mapping, err := json.Marshal(w.Config.Sessions.Env)
 		if err != nil {
 			return hc.RunSpec{}, err

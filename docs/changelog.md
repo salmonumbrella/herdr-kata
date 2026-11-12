@@ -11,7 +11,9 @@ last_edited: 2026-11-11
 - Record agent session identities on prompt attempts when available, and show
   them in run logs, while prompt launches unset inherited session variables.
   Optional `[sessions.env]` mappings support other agents using unique private
-  variable names; reserved launch and session variables are rejected.
+  variable names; reserved launch and session variables are rejected. Reports
+  retain their required text at the size limit, and logs identify output removed
+  by normal prompt cleanup.
 
 - Report the latest command attempt's recorded receipt timestamps when
   `cron_run_summary_v2` is advertised. Keep retry and cleanup time separate;

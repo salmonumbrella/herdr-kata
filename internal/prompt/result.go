@@ -97,7 +97,17 @@ func WriteResult(path string, r Result) error {
 		return err
 	}
 	if len(b)+1 > 64*1024 {
-		return fmt.Errorf("result exceeds 64 KiB")
+		if r.Session == nil {
+			return fmt.Errorf("result exceeds 64 KiB")
+		}
+		r.Session = nil
+		b, err = json.Marshal(r)
+		if err != nil {
+			return err
+		}
+		if len(b)+1 > 64*1024 {
+			return fmt.Errorf("result exceeds 64 KiB")
+		}
 	}
 	return state.WriteJSON(path, r)
 }

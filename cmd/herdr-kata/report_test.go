@@ -83,6 +83,50 @@ func TestReportCapturesSession(t *testing.T) {
 	}
 }
 
+// Optional identity cannot turn a baseline-valid report into a failure.
+func TestReportSessionSizeBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		session bool
+		size    int
+		ok      bool
+	}{
+		{"near limit without session", false, 65400, true},
+		{"near limit with session", true, 65400, true},
+		{"oversized without session", false, 65536, false},
+		{"baseline too large", true, 65536, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			clearSessionEnv(t)
+			t.Setenv("KATA_CRON_RUN", "01J00000000000000000000001")
+			t.Setenv("KATA_CRON_STEP", "main")
+			t.Setenv("KATA_CRON_ATTEMPT", "1")
+			if tc.session {
+				t.Setenv("CLAUDE_CODE_SESSION_ID", "00000000-0000-4000-8000-000000000001")
+			}
+			path := filepath.Join(t.TempDir(), "result.json")
+			var out bytes.Buffer
+			code := report([]string{"--result", path, "--status", "succeeded", "--summary", strings.Repeat("a", tc.size)}, &out)
+			if !tc.ok {
+				if code == 0 {
+					t.Fatal("oversized baseline accepted")
+				}
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatalf("result exists: %v", err)
+				}
+				return
+			}
+			if code != 0 {
+				t.Fatalf("report %d: %s", code, &out)
+			}
+			got, err := prompt.ReadResult(path, "01J00000000000000000000001", "main", 1)
+			if err != nil || got.Summary != strings.Repeat("a", tc.size) || got.Session != nil {
+				t.Fatalf("result: %+v %v", got, err)
+			}
+		})
+	}
+}
+
 func TestReportSessionDiscoveryFailuresAreNonfatal(t *testing.T) {
 	for _, tc := range []struct {
 		name string
