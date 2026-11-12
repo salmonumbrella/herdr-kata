@@ -153,11 +153,11 @@ func TestReleaseOnlyPostsLocalRequest(t *testing.T) {
 func TestLogsReadsReportedRun(t *testing.T) {
 	config, l := operatorFixture(t)
 	r := localRun(t, l, "reported")
-	r.Attempts = []journal.Attempt{{Step: "main", N: 1, Session: &session.Session{Agent: "pi", SessionID: "ses_1"}}}
+	r.Attempts = []journal.Attempt{{Step: "main", N: 1, Session: &session.Session{Agent: "pi", SessionID: "ses_1"}}, {Step: "main", N: 2}}
 	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error { saved.Attempts = r.Attempts; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if err := state.WriteFile(filepath.Join(l.Attempt(r.Key, "main", 1), "output.log"), []byte("fixture output\n")); err != nil {
+	if err := state.WriteFile(filepath.Join(l.Attempt(r.Key, "main", 2), "output.log"), []byte("fixture output\n")); err != nil {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer

@@ -158,7 +158,9 @@ correct the error and rerun install, or uninstall it.
 ## Session capture
 
 `report` records the invoking agent's session on its attempt when available;
-`herdr-kata logs <run-uid>` shows recorded attempt identities. Claude Code uses
+`herdr-kata logs <run-uid>` shows recorded attempt identities.
+Prompt launches unset the built-in, override and mapped session variables and
+inherit the rest of the core environment. Claude Code uses
 `CLAUDE_CODE_SESSION_ID`; Codex uses `CODEX_THREAD_ID` then `CODEX_SESSION_ID`.
 For other agents, map an agent name to its shell variable in `[sessions.env]`,
 for example `pi = "PI_SESSION_ID"`. Names are lowercase letters, digits and

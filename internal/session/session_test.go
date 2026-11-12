@@ -2,6 +2,13 @@ package session
 
 import "testing"
 
+func clearSessionEnv(t *testing.T) {
+	t.Helper()
+	for _, name := range append(append([]string{}, BuiltinEnvNames...), "HERDR_KATA_SESSIONS_ENV", "PI_SESSION_ID") {
+		t.Setenv(name, "")
+	}
+}
+
 func TestDiscoverSession(t *testing.T) {
 	const one = "00000000-0000-4000-8000-000000000001"
 	const two = "00000000-0000-4000-8000-000000000002"
@@ -23,9 +30,7 @@ func TestDiscoverSession(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, k := range []string{"KATA_TRANSCRIPT_AGENT", "KATA_TRANSCRIPT_SESSION_ID", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "CODEX_SESSION_ID", "HERDR_KATA_SESSIONS_ENV", "PI_SESSION_ID"} {
-				t.Setenv(k, "")
-			}
+			clearSessionEnv(t)
 			for k, v := range tc.env {
 				t.Setenv(k, v)
 			}

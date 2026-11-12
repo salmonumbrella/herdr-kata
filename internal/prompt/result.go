@@ -86,9 +86,6 @@ func ParseResult(b []byte, runUID, step string, n int) (Result, error) {
 		return r, fmt.Errorf("stale result identity")
 	}
 	r.Note = NormalizeNote(r.Note)
-	if r.Session != nil && !r.Session.Valid() {
-		r.Session = nil
-	}
 	return r, validate(r)
 }
 func WriteResult(path string, r Result) error {

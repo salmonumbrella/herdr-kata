@@ -26,6 +26,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
 	"github.com/salmonumbrella/herdr-kata/internal/report"
 	"github.com/salmonumbrella/herdr-kata/internal/sched"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
@@ -833,9 +834,10 @@ func (w *Worker) spec(r journal.Run, s defs.Step, n int) (hc.RunSpec, error) {
 		}
 		argv = append(argv, prompt.Line(path))
 	}
-	prefix := attempt.LaunchEnv(w.Config.Limits.UnsetEnv, extra)
+	unset := w.Config.Limits.UnsetEnv
 	if s.Kind == "prompt" {
-		prefix = append([]string{prefix[0], "-i"}, prefix[1:]...)
+		unset = append(slices.Clone(unset), session.EnvNames(w.Config.Sessions.Env)...)
 	}
+	prefix := attempt.LaunchEnv(unset, extra)
 	return hc.RunSpec{Cwd: r.Plan.CheckoutPath, Labels: map[string]string{"kata.executor": r.Executor}, Prefix: prefix, Argv: argv}, nil
 }

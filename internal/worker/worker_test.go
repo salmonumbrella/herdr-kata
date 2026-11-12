@@ -171,11 +171,15 @@ func active(t *testing.T, w *Worker) journal.Run {
 	}
 	return runs[0]
 }
-func finishAgent(t *testing.T, w *Worker, h *fakeHC, r journal.Run) {
+func finishAgent(t *testing.T, w *Worker, h *fakeHC, r journal.Run, sessions ...*session.Session) {
 	t.Helper()
+	var captured *session.Session
+	if len(sessions) > 0 {
+		captured = sessions[0]
+	}
 	a := r.Attempts[len(r.Attempts)-1]
 	path := filepath.Join(w.Store.Layout.Attempt(r.Key, a.Step, a.N), "result.json")
-	if err := prompt.WriteResult(path, prompt.Result{RunUID: r.RunUID, Step: a.Step, Attempt: a.N, Status: "succeeded", Summary: "Complete", Note: "Done"}); err != nil {
+	if err := prompt.WriteResult(path, prompt.Result{RunUID: r.RunUID, Step: a.Step, Attempt: a.N, Status: "succeeded", Summary: "Complete", Note: "Done", Session: captured}); err != nil {
 		t.Fatal(err)
 	}
 	term := h.terms[a.Address]
@@ -191,12 +195,7 @@ func TestPromptJobEndToEnd(t *testing.T) {
 	if h.runs != 1 || len(r.AdmissionBody) == 0 {
 		t.Fatal(r, h.runs)
 	}
-	finishAgent(t, w, h, r)
-	a := r.Attempts[0]
-	path := filepath.Join(w.Store.Layout.Attempt(r.Key, a.Step, a.N), "result.json")
-	if err := prompt.WriteResult(path, prompt.Result{RunUID: r.RunUID, Step: a.Step, Attempt: a.N, Status: "succeeded", Session: &session.Session{Agent: "claude", SessionID: "00000000-0000-4000-8000-000000000001"}}); err != nil {
-		t.Fatal(err)
-	}
+	finishAgent(t, w, h, r, &session.Session{Agent: "claude", SessionID: "00000000-0000-4000-8000-000000000001"})
 	tick(t, w, at.Add(time.Second))
 	for n := 2; n < 12; n++ {
 		tick(t, w, at.Add(time.Duration(n)*time.Second))
@@ -211,7 +210,6 @@ func TestPromptJobEndToEnd(t *testing.T) {
 }
 
 func TestStepEnvironmentNamesProject(t *testing.T) {
-	t.Setenv("CLAUDE_CODE_SESSION_ID", "00000000-0000-4000-8000-000000000001")
 	w, h, k := fixture(t)
 	w.Config.Sessions.Env = map[string]string{"pi": "PI_SESSION_ID"}
 	request(t, w, journal.Request{ID: "request", Kind: "run", JobUID: k.jobs[0].UID})
@@ -220,12 +218,24 @@ func TestStepEnvironmentNamesProject(t *testing.T) {
 	if h.runs != 1 {
 		t.Fatal(h.runs)
 	}
-	term := h.terms["t1"]
-	if !slices.Contains(term.Argv, "-i") || !slices.Contains(term.Argv, `HERDR_KATA_SESSIONS_ENV={"pi":"PI_SESSION_ID"}`) || slices.Contains(term.Argv, "CLAUDE_CODE_SESSION_ID=00000000-0000-4000-8000-000000000001") {
-		t.Fatalf("session environment: %q", term.Argv)
+	argv := h.terms["t1"].Argv
+	for _, name := range []string{"CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "CODEX_SESSION_ID", "KATA_TRANSCRIPT_AGENT", "KATA_TRANSCRIPT_SESSION_ID", "PI_SESSION_ID"} {
+		i := slices.Index(argv, name)
+		if i < 1 || argv[i-1] != "-u" {
+			t.Fatalf("missing unset %s: %q", name, argv)
+		}
 	}
-	if !slices.Contains(term.Argv, "KATA_PROJECT="+r.Project) || !slices.Contains(term.Argv, "KATA_CRON_RUN="+r.RunUID) {
-		t.Fatalf("argv %q", term.Argv)
+	if slices.Contains(argv, "-i") || !slices.Contains(argv, `HERDR_KATA_SESSIONS_ENV={"pi":"PI_SESSION_ID"}`) || !slices.Contains(argv, "KATA_PROJECT="+r.Project) || !slices.Contains(argv, "KATA_CRON_RUN="+r.RunUID) {
+		t.Fatalf("argv %q", argv)
+	}
+	command, err := w.spec(r, defs.Step{Key: "command", Kind: "command", Text: "true"}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "CODEX_SESSION_ID", "KATA_TRANSCRIPT_AGENT", "KATA_TRANSCRIPT_SESSION_ID", "PI_SESSION_ID"} {
+		if slices.Contains(command.Prefix, name) {
+			t.Fatalf("command unsets session: %q", command.Prefix)
+		}
 	}
 }
 func TestAgentSummaryReachesKataAfterCleanup(t *testing.T) {

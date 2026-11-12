@@ -208,7 +208,7 @@ func TestSessionMappings(t *testing.T) {
 	if err != nil || c.Sessions.Env["pi"] != "PI_SESSION_ID" {
 		t.Fatalf("config %+v: %v", c, err)
 	}
-	for _, mapping := range []string{"Bad = \"PI_SESSION_ID\"", "pi = \"BAD-NAME\""} {
+	for _, mapping := range []string{"Bad = \"PI_SESSION_ID\"", "pi = \"BAD-NAME\"", strings.Repeat("a", 33) + " = \"PI_SESSION_ID\""} {
 		if _, err := loadText(t, example+"\n[sessions.env]\n"+mapping+"\n"); err == nil {
 			t.Fatalf("accepted %s", mapping)
 		}

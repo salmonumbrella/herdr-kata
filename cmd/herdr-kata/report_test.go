@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 )
 
 func TestReportWritesAtomically(t *testing.T) {
@@ -44,16 +45,19 @@ func TestReportRejectsInvalidNote(t *testing.T) {
 	}
 }
 
+func clearSessionEnv(t *testing.T) {
+	t.Helper()
+	for _, name := range append(append([]string{}, session.BuiltinEnvNames...), "HERDR_KATA_SESSIONS_ENV", "PI_SESSION_ID") {
+		t.Setenv(name, "")
+	}
+}
+
 // A report made inside a Claude session records its identity without changing the outcome.
 func TestReportCapturesSession(t *testing.T) {
 	t.Setenv("KATA_CRON_RUN", "01J00000000000000000000001")
 	t.Setenv("KATA_CRON_STEP", "main")
 	t.Setenv("KATA_CRON_ATTEMPT", "1")
-	t.Setenv("HERDR_KATA_SESSIONS_ENV", "")
-	t.Setenv("KATA_TRANSCRIPT_AGENT", "")
-	t.Setenv("KATA_TRANSCRIPT_SESSION_ID", "")
-	t.Setenv("CODEX_THREAD_ID", "")
-	t.Setenv("CODEX_SESSION_ID", "")
+	clearSessionEnv(t)
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "00000000-0000-4000-8000-000000000001")
 	path := filepath.Join(t.TempDir(), "result.json")
 	var out bytes.Buffer
