@@ -158,6 +158,9 @@ func (w *Worker) prepareInputs(ctx context.Context, k kata.Kata, project config.
 		if err != nil {
 			return err
 		}
+		if jobs.Paused() {
+			return errors.New("project paused during input resolution")
+		}
 		workflows, err := k.Workflows()
 		if err != nil {
 			return err
