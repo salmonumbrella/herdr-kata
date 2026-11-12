@@ -101,7 +101,7 @@ func (w *Worker) capacityState(project config.Project, jobUID string, p defs.Pla
 			}
 		}
 		if p.Agent != "" && r.Plan.Agent == p.Agent {
-			return false, p.Overlap == "forbid" && r.Project == project.Name && r.JobUID == jobUID, nil
+			return false, false, nil
 		}
 	}
 	limit := project.MaxActiveRuns

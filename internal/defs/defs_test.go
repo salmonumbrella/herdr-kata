@@ -311,7 +311,10 @@ func TestPersistentAgentRejections(t *testing.T) {
 		change       func(*kata.CronJob)
 	}{
 		{"invalid", "persistent_agent must be a name of 1–64 letters, digits, dots, underscores or hyphens", func(j *kata.CronJob) { j.Definition.Options["persistent_agent"] = "bad name" }},
-		{"workflow", "persistent_agent requires a prompt action", func(j *kata.CronJob) { j.Definition.Action.Prompt = nil }},
+		{"workflow", "persistent_agent requires a prompt action", func(j *kata.CronJob) {
+			j.Definition.Action.Prompt = nil
+			j.Definition.Action.WorkflowUID = new("wf")
+		}},
 		{"overlap", "persistent_agent requires overlap: forbid", func(j *kata.CronJob) { j.Definition.Overlap = "allow" }},
 		{"catchup", "persistent_agent does not support catchup: all", func(j *kata.CronJob) { j.Definition.Catchup = "all" }},
 		{"issue", "persistent_agent requires an existing issue", func(j *kata.CronJob) { j.Definition.Issue.Kind = "per-run" }},

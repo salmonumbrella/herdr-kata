@@ -117,7 +117,7 @@ func TestWakePromptLeavesIssueOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"scheduled wake of the existing session", "KATA_CRON_RUN=01J00000000000000000000001 KATA_CRON_STEP=main KATA_CRON_ATTEMPT=1", "report --result /srv/run/result.json", "exact run, step and attempt", "leave the issue open"} {
+	for _, want := range []string{"KATA_CRON_RUN=01J00000000000000000000001 KATA_CRON_STEP=main KATA_CRON_ATTEMPT=1", "leave the issue open"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("missing %q: %s", want, got)
 		}

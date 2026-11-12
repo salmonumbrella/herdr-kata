@@ -1,7 +1,7 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-06
+last_edited: 2026-11-12
 ---
 
 # Operations
@@ -16,7 +16,8 @@ Its optional `service` line reports login-service file presence; see
 `herdr-kata up` starts or adopts this installation's locked worker terminal,
 named `herdr-kata-<state-path-hash>`. `stop` kills and removes only that
 worker. Job terminals keep running. Start the worker again to recover them;
-it never sends a prompt to an existing terminal. A foreground `serve` takes
+for a wake job it sends one line to the claimed session and never otherwise
+types into, signals or removes it. A foreground `serve` takes
 the same lifetime lock. Definitions and scheduling are refreshed every
 30 seconds. The 2-second local-request poll triggers a tick only for IDs this
 process has not seen. Known pending requests, including releases waiting for
@@ -258,7 +259,7 @@ Once the run settles, capacity and overlap gates are available to later work.
 | `launch_ambiguous` | Saved intent cannot identify exactly one matching launch |
 | `launch_unproven` | The core changed and absence cannot prove no launch happened |
 | `occupant_changed` | Terminal identity no longer matches the saved execution |
-| `agent_lost` | The agent disappeared without a provable outcome |
+| `agent_lost` | The agent disappeared without a provable outcome, or a borrowed session finished during a wake |
 | `no_result` | A completed reported turn has no valid result after its grace period |
 | `no_activity` | A grandfathered or previously started reported agent stayed idle at turn zero for 5 minutes |
 | `timeout` | Deadline expiry could not establish a stopped terminal without an ambiguous completion artifact, or no launch was proven |

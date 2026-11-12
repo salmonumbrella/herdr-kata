@@ -1,7 +1,7 @@
 ---
 title: Changelog
 description: Changes to the headless Kata adapter.
-last_edited: 2026-11-06
+last_edited: 2026-11-12
 ---
 
 # Changelog

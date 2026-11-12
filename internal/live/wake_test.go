@@ -21,7 +21,7 @@ func liveWake(t *testing.T, bin, coreBin, script string) {
 	f := newFixture(t, bin, coreBin, "")
 	write(t, filepath.Join(f.work, "wait"), nil)
 	f.verifyCore()
-	term, err := f.h.Run(context.Background(), hc.RunSpec{Name: "worker", Cwd: f.work, Argv: []string{"/usr/bin/env", "python3", script}})
+	term, err := f.h.Run(context.Background(), hc.RunSpec{Name: "worker", Cwd: f.work, Labels: map[string]string{"kata.executor": "live-worker"}, Argv: []string{"/usr/bin/env", "python3", script}})
 	if err != nil {
 		t.Fatal(err)
 	}

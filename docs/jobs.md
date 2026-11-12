@@ -1,7 +1,7 @@
 ---
 title: Jobs
 description: Supported Kata definitions and execution behavior.
-last_edited: 2026-11-04
+last_edited: 2026-11-12
 ---
 
 # Jobs

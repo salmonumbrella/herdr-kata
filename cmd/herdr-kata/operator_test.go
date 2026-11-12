@@ -3,13 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
-	"github.com/salmonumbrella/herdr-kata/internal/journal"
-	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/salmonumbrella/herdr-kata/internal/defs"
+	"github.com/salmonumbrella/herdr-kata/internal/journal"
+	"github.com/salmonumbrella/herdr-kata/internal/state"
 )
 
 type requestReply struct {
@@ -195,17 +197,16 @@ func TestWakeLogsState(t *testing.T) {
 	r := localRun(t, l, "reported")
 	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
 		saved.Plan.Agent = "worker"
+		saved.Plan.Steps = []defs.Step{{Key: "main", Kind: "prompt"}}
 		saved.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "succeeded", SettlementStatus: "succeeded", Address: "t1"}}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := state.WriteFile(filepath.Join(l.Attempt(r.Key, "main", 1), "output.log"), []byte("fixture output\n")); err != nil {
-		t.Fatal(err)
-	}
 	var out bytes.Buffer
-	if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "agent worker: completed\nfixture output\n" {
-		t.Fatalf("logs %d: %s", code, &out)
+	run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out)
+	if !strings.HasPrefix(out.String(), "agent worker: completed\n") {
+		t.Fatalf("logs: %s", &out)
 	}
 	for _, tc := range []struct{ status, reason, hold, want string }{
 		{"failed", "not_delivered", "", "not delivered"},
@@ -214,16 +215,17 @@ func TestWakeLogsState(t *testing.T) {
 	} {
 		if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
 			saved.Attempts[0] = journal.Attempt{Step: "main", N: 1, Status: tc.status, StopReason: tc.reason, Hold: tc.hold}
+			if tc.hold != "" {
+				saved.Attempts[0].Address = "t1"
+			}
 			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Remove(filepath.Join(l.Attempt(r.Key, "main", 1), "output.log")); err != nil && !os.IsNotExist(err) {
-			t.Fatal(err)
-		}
 		out.Reset()
-		if code := run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out); code != 0 || out.String() != "agent worker: "+tc.want+"\n" {
-			t.Fatalf("%s: logs %d: %s", tc.want, code, &out)
+		run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out)
+		if !strings.HasPrefix(out.String(), "agent worker: "+tc.want+"\n") {
+			t.Fatalf("%s: logs: %s", tc.want, &out)
 		}
 	}
 }

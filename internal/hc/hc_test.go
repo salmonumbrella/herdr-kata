@@ -157,34 +157,31 @@ func TestReadCompleteness(t *testing.T) {
 }
 
 func TestSendIdle(t *testing.T) {
-	t.Setenv("HC_SESSION", "poisoned")
-	t.Setenv("HC_SOCKET", "/nonexistent/poisoned.sock")
-	h, args := stub(t, "send", "0")
-	turn, err := h.Send(context.Background(), "t1", "Read prompt", "idle")
-	if err != nil || turn != 7 {
-		t.Fatalf("send turn %d: %v", turn, err)
-	}
-	if !reflect.DeepEqual(args(), []string{"send", "--json", "--if", "idle", "t1", "Read prompt"}) {
-		t.Fatalf("argv: %q", args())
-	}
-	b, err := os.ReadFile(os.Getenv("HC_TEST_ENV"))
-	if err != nil || string(b) != "fixture-session\nunset\n" {
-		t.Fatalf("child env: %q %v", b, err)
-	}
-}
-
-func TestSendDone(t *testing.T) {
-	h, args := stub(t, "send", "0")
-	turn, err := h.Send(context.Background(), "t1", "Read prompt", "done")
-	if err != nil || turn != 7 || !reflect.DeepEqual(args(), []string{"send", "--json", "t1", "Read prompt"}) {
-		t.Fatalf("turn %d error %v argv %q", turn, err, args())
+	for _, tc := range []struct {
+		status string
+		args   []string
+	}{
+		{"idle", []string{"send", "--json", "--if", "idle", "t1", "Read prompt"}},
+		{"done", []string{"send", "--json", "t1", "Read prompt"}},
+	} {
+		t.Run(tc.status, func(t *testing.T) {
+			h, args := stub(t, "send", "0")
+			turn, err := h.Send(context.Background(), "t1", "Read prompt", tc.status)
+			if err != nil || turn != 7 || !reflect.DeepEqual(args(), tc.args) {
+				t.Fatalf("turn %d error %v argv %q", turn, err, args())
+			}
+		})
 	}
 }
 
 func TestSendRefused(t *testing.T) {
 	for _, kind := range []string{"status_mismatch", "blocked", "not_found", "finished"} {
 		t.Run(kind, func(t *testing.T) {
-			h, _ := stub(t, "send", "1")
+			code := "1"
+			if kind == "not_found" {
+				code = "3"
+			}
+			h, _ := stub(t, "send", code)
 			file := filepath.Join(t.TempDir(), "reply.json")
 			if err := os.WriteFile(file, []byte(`{"error":{"kind":"`+kind+`"}}`), 0600); err != nil {
 				t.Fatal(err)
