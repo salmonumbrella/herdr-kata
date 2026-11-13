@@ -73,3 +73,32 @@ func TestFleetBeatTransport(t *testing.T) {
 		t.Fatal(string(got), err)
 	}
 }
+
+// Both the CLI and event protocol must advertise the exact feature.
+func TestFleetRunSessionsCapabilitiesTransport(t *testing.T) {
+	for _, tt := range []struct {
+		name, reply string
+		want        bool
+	}{
+		{"neither", `{}`, false},
+		{"cli-only", `{"cli_features":["cron_run_sessions_v1"]}`, false},
+		{"event-only", `{"event_features":["cron_run_sessions_v1"]}`, false},
+		{"both", `{"cli_features":["cron_run_sessions_v1"],"event_features":["cron_run_sessions_v1"]}`, true},
+		{"wrong-feature", `{"cli_features":["cron_run_sessions_v1-extra"],"event_features":["cron_run_sessions_v1"]}`, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			base, args := stub(t, "capabilities-fleet", "0")
+			path := filepath.Join(t.TempDir(), "reply.json")
+			if err := os.WriteFile(path, []byte(tt.reply), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HK_TEST_REPLY", path)
+			k := New(base.(*cli).bin, "fixture", nil, "example-project", "worker")
+			caps, err := k.Capabilities()
+			if err != nil || caps.SupportsRunSessions() != tt.want {
+				t.Fatal(caps, err)
+			}
+			assertArgs(t, args(), "cron", "capabilities")
+		})
+	}
+}

@@ -158,6 +158,8 @@ correct the error and rerun install, or uninstall it.
 ## Session capture
 
 `report` records the invoking agent's session on its attempt when available;
+the worker can include those identities in Kata observations as described in
+[Fleet capabilities](operations.md#fleet-capabilities).
 `herdr-kata logs <run-uid>` shows recorded attempt identities. After normal
 prompt cleanup it reports when terminal output is unavailable. If a result is
 near the 64 KiB limit, optional session metadata is omitted to preserve it.

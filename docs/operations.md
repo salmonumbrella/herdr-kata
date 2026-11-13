@@ -126,12 +126,27 @@ cleanup, and prompt attempts have no receipt timing. A latest attempt without
 a receipt never borrows times from an earlier attempt. Unattempted steps
 remain omitted, so step coverage may be partial.
 
-A structured `unsupported_event_features` conflict saves a v1 projection of
-the frozen report before retrying once with the same run identity and
-revision. Other conflicts and uncertain writes retain the original bytes.
-Capability changes do not enrich already frozen reports or projected retries.
-The v1 projection drops the complete steps array, including receipt timing.
-Older daemons retain legacy behavior.
+When both the Kata CLI and daemon advertise `cron_run_sessions_v1`, final and
+held reports include recorded prompt sessions, independently of summary v2.
+Earlier attempts appear in journal order, followed by the current attempt for
+each step in plan order. Exact agent and session pairs are deduplicated, with
+the first step retained. Reports include at most 64 distinct sessions.
+`sessions_incomplete` marks a dropped identity or a recorded prompt launch
+without a valid identity, including an ambiguous launch. Unlaunched prompts and
+command steps add no session evidence. Doctor shows `sessions=true` only when
+both capabilities are present.
+
+The report freezes this choice and the recorded identities before sending;
+retries reuse those bytes even if capabilities or the journal change. A
+structured `unsupported_event_features` conflict first saves a projection
+without sessions, then, if necessary, one without reason and steps, before
+retrying with the same run identity and revision. A structured
+`federated_read_only` conflict projects only session-bearing reports, removing
+sessions and the incomplete marker. Other conflicts and uncertain writes retain
+the original bytes. Removing steps also removes their receipt timing.
+If the CLI is downgraded after a session-bearing report is frozen and rejects
+the body, the report can be held as `report_refused`; it is not projected on
+an unstructured CLI rejection.
 
 ## Unsupported report delivery
 

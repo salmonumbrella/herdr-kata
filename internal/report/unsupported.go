@@ -144,7 +144,7 @@ func (o Outbox) intent(p defs.Plan, project, actor, executor, cause, occurrence,
 		return err
 	}
 	r := journal.Run{RunUID: ulid.Make().String(), Actor: actor, Executor: executor, Plan: p, Occurrence: occurrence, StartedAt: new(now.UTC())}
-	body, err := freeze(r, status, bounded(message), 0, new(now.UTC()))
+	body, err := freeze(r, status, bounded(message), 0, new(now.UTC()), freezeOptions{})
 	if err != nil {
 		return err
 	}
