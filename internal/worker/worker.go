@@ -32,6 +32,7 @@ import (
 
 type Worker struct {
 	caps         map[string]capsEntry
+	capacityRuns *[]journal.Run
 	Config       config.Config
 	Store        *journal.Store
 	HC           hc.HC
@@ -85,12 +86,17 @@ func (w *Worker) capacity(project config.Project, jobUID, overlap string) (bool,
 	return can, err
 }
 func (w *Worker) capacityState(project config.Project, jobUID, overlap string) (bool, bool, error) {
-	runs, err := w.Store.Active()
-	if err != nil {
-		return false, false, err
+	// Admission is single-writer within a tick. Only preparation changes its
+	// capacity; discard this snapshot on every preparation attempt and tick.
+	if w.capacityRuns == nil {
+		runs, err := w.Store.Active()
+		if err != nil {
+			return false, false, err
+		}
+		w.capacityRuns = &runs
 	}
 	total, local := 0, 0
-	for _, r := range runs {
+	for _, r := range *w.capacityRuns {
 		if r.Phase == "settled" {
 			continue
 		}
@@ -125,6 +131,7 @@ func (w *Worker) prepare(ctx context.Context, k kata.Kata, project config.Projec
 		r.IssueUID = p.Issue.UID
 		r.IssueRef = p.Issue.UID
 	}
+	w.capacityRuns = nil // A failed sync can still have published the journal.
 	err := w.Store.Create(r)
 	if errors.Is(err, journal.ErrExists) {
 		return nil
@@ -270,6 +277,8 @@ func (w *Worker) releaseLookupFailure(q journal.Requests, req journal.Request, e
 	return errors.Join(err, q.Reject(req.ID, err.Error()))
 }
 func (w *Worker) Tick(ctx context.Context, now time.Time) error {
+	w.capacityRuns = nil
+	defer func() { w.capacityRuns = nil }()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -283,6 +292,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	var errs []error
 	q := journal.Requests{Dir: w.Store.Layout.Requests()}
 	requests, err := q.Pending()
+	if err == nil {
+		clear(w.SeenRequests)
+	}
 	for _, req := range requests {
 		w.SeenRequests[req.ID] = true
 	}

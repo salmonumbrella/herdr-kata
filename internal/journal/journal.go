@@ -159,20 +159,9 @@ func (s *Store) Update(key string, fn func(*Run) error) error {
 	}
 	return state.WriteJSON(filepath.Join(s.Layout.Run(key), "run.json"), r)
 }
-func (s *Store) Active() ([]Run, error) {
-	runs, err := s.All()
-	if err != nil {
-		return nil, err
-	}
-	out := runs[:0]
-	for _, r := range runs {
-		if r.Phase != "reported" && r.Phase != "released" {
-			out = append(out, r)
-		}
-	}
-	return out, nil
-}
-func (s *Store) All() ([]Run, error) {
+func (s *Store) Active() ([]Run, error) { return s.list(true) }
+func (s *Store) All() ([]Run, error)    { return s.list(false) }
+func (s *Store) list(active bool) ([]Run, error) {
 	entries, err := os.ReadDir(filepath.Join(s.Layout.Root, "runs"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -190,7 +179,9 @@ func (s *Store) All() ([]Run, error) {
 			slog.Error("skip unreadable run journal", "key", e.Name(), "error", err)
 			continue
 		}
-		out = append(out, r)
+		if !active || r.Phase != "reported" && r.Phase != "released" {
+			out = append(out, r)
+		}
 	}
 	return out, nil
 }

@@ -1,7 +1,7 @@
 ---
 title: Jobs
 description: Supported Kata definitions and execution behavior.
-last_edited: 2026-11-04
+last_edited: 2026-11-14
 ---
 
 # Jobs
@@ -88,6 +88,9 @@ serially in dependency order, preserving definition order for ties. They
 support prompt and command steps, `after` and `retries`. Only certain failed
 attempts are retried. An unknown execution holds the run for an operator.
 Failed steps skip their dependents while independent branches can continue.
+Blocked dependencies are resolved in one graph traversal, including workflows
+whose steps are listed out of dependency order. Decision checks do not alter
+the recorded step states.
 
 Command steps require the project's `commands = true`. A command succeeds
 only with an ordinary process exit and a matching durable receipt. A
@@ -95,6 +98,10 @@ termination signal forbids a receipt, including when a child traps it and
 exits zero. `steps[].options.skip_exit` accepts 1–255: that exit closes the
 gate and skips downstream steps without failing the run. Output is kept in
 the attempt's `output.log`, with the first 1 MiB and last 256 KiB retained.
+
+Receipt and agent-result readers validate the opened file, reject final-path
+symlinks and non-regular files, and never wait for a pipe writer. Replacing
+the path during a read cannot redirect it through a symlink.
 
 Commands may write an optional note to `KATA_CRON_NOTE_FILE`. The settled note
 is one line of valid UTF-8, at most 280 bytes. A missing file means an empty

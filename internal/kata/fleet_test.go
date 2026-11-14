@@ -61,6 +61,43 @@ func TestFleetMalformedReadTransport(t *testing.T) {
 	}
 }
 
+// Malformed discovery must never masquerade as an unpaused empty job list.
+func TestFleetRejectsIncompleteOrExtraEnvelopes(t *testing.T) {
+	for _, raw := range []string{`null`, " \nnull\n", `{} {"project_pause":{}}`, "{}\nnot JSON"} {
+		t.Run(raw, func(t *testing.T) {
+			base, args := stub(t, "jobs", "0")
+			path := filepath.Join(t.TempDir(), "reply.json")
+			if err := os.WriteFile(path, []byte(raw), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HK_TEST_REPLY", path)
+			k := New(base.(*cli).bin, "fixture", nil, "example-project", "worker")
+			if _, err := k.Jobs(); err == nil {
+				t.Fatal("invalid envelope was accepted as a successful job-list read")
+			}
+			assertArgs(t, args(), "cron", "job", "list")
+		})
+	}
+}
+
+func TestFleetAcceptsLegacyAndAdditiveEnvelopes(t *testing.T) {
+	for _, raw := range []string{" \n{}\n", `{"jobs":[],"future_feature":{"enabled":true}}`} {
+		t.Run(raw, func(t *testing.T) {
+			base, _ := stub(t, "jobs", "0")
+			path := filepath.Join(t.TempDir(), "reply.json")
+			if err := os.WriteFile(path, []byte(raw), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HK_TEST_REPLY", path)
+			k := New(base.(*cli).bin, "fixture", nil, "example-project", "worker")
+			list, err := k.Jobs()
+			if err != nil || len(list.Jobs) != 0 || list.Paused() {
+				t.Fatalf("legacy/additive envelope refused: %+v %v", list, err)
+			}
+		})
+	}
+}
+
 func TestFleetBeatTransport(t *testing.T) {
 	k, args := stub(t, "capabilities-fleet", "0")
 	body := []byte(`{"label":"executor","adapter":"herdr-kata","interval_seconds":60,"state":"active"}`)

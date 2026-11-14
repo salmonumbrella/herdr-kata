@@ -1,7 +1,7 @@
 ---
 title: Install
 description: Build and configure the headless worker.
-last_edited: 2026-11-12
+last_edited: 2026-11-14
 ---
 
 # Install
@@ -182,4 +182,6 @@ must be UUIDs; other IDs are up to 128 ASCII letters, digits, dots, underscores
 or hyphens, starting with a letter or digit. Missing, invalid and ambiguous
 identities never change the report outcome. No transcript files are scanned.
 Session IDs are local journal evidence and can identify a transcript to someone
-with access to it; they are not yet sent to Kata.
+with access to it. Compatible Kata installations also receive captured sessions
+in run summaries; see [session reporting](operations.md#fleet-capabilities)
+for capability checks, incomplete evidence and retry behavior.
