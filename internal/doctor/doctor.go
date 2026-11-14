@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -217,7 +218,8 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 				fmt.Fprintf(out, "unsupported %s: %s\n", job.UID, strings.Join(reasons, ", "))
 			}
 			if slices.Contains(reasons, "invalid_trigger") {
-				fmt.Fprintf(out, "invalid trigger %s: %v\n", job.UID, sched.Validate(job.Definition.Trigger, job.CreatedAt))
+				detail := strconv.Quote(sched.Validate(job.Definition.Trigger, job.CreatedAt).Error())
+				fmt.Fprintf(out, "invalid trigger %s: %s\n", job.UID, detail[1:len(detail)-1])
 			}
 			if e == nil && job.Definition.Issue != nil && job.Definition.Issue.Kind == "existing" && job.Definition.Issue.UID != nil && !ready[*job.Definition.Issue.UID] {
 				fmt.Fprintf(out, "gated %s: existing issue %s not ready\n", job.UID, *job.Definition.Issue.UID)

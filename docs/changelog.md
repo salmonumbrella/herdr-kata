@@ -20,7 +20,7 @@ last_edited: 2026-11-14
   installations.
 
 - Explain invalid schedules in doctor while keeping frozen reporting reasons
-  unchanged. Recognize structured unsupported evidence, avoid suppressing
+  unchanged and escaping terminal control characters. Recognize structured unsupported evidence, avoid suppressing
   similarly named real failures, and cancel host-side reads with doctor.
 - Reject malformed Kata JSON envelopes, including null and trailing responses,
   rather than treating them as successful empty discovery. Legacy objects and

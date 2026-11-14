@@ -12,6 +12,7 @@ unsupported- and dropped-report counts with job UIDs and delivery errors. There
 is no adapter status command or TUI.
 Invalid triggers include the scheduler's explanation, such as a conflicting time
 zone or invalid interval, alongside the stable `invalid_trigger` reason.
+Control characters in trigger diagnostics are escaped for terminal display.
 Cancelling doctor also cancels its host-side Kata reads.
 Its optional `service` line reports login-service file presence; see
 [Install](install.md#start-at-login) for setup, refresh and removal.
