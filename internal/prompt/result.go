@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"syscall"
 	"unicode/utf8"
 
 	"github.com/salmonumbrella/herdr-kata/internal/session"
@@ -26,18 +27,19 @@ func ValidNote(note string) bool {
 	return utf8.ValidString(note) && len(note) <= 280 && !strings.ContainsAny(note, "\r\n")
 }
 func ReadRegular(path string, max int64) ([]byte, error) {
-	info, err := os.Lstat(path)
+	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	f := os.NewFile(uintptr(fd), path)
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > max {
 		return nil, fmt.Errorf("invalid regular file or size: %s", path)
 	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = f.Close() }()
 	b, err := io.ReadAll(io.LimitReader(f, max+1))
 	if err != nil {
 		return nil, err
@@ -109,5 +111,5 @@ func WriteResult(path string, r Result) error {
 			return fmt.Errorf("result exceeds 64 KiB")
 		}
 	}
-	return state.WriteJSON(path, r)
+	return state.WriteFile(path, append(b, '\n'))
 }

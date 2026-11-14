@@ -56,3 +56,43 @@ func TestRetryBudget(t *testing.T) {
 		}
 	})
 }
+
+// Definition order controls ready-step ties, not whether blocked descendants
+// are found. A decision must not write inferred skips back into the run state.
+func TestBlockedDependenciesUnorderedAndPure(t *testing.T) {
+	p := defs.Plan{Steps: []defs.Step{
+		{Key: "last", After: []string{"middle", "gate"}},
+		{Key: "middle", After: []string{"gate"}},
+		{Key: "first-independent"},
+		{Key: "gate", Retries: 1},
+		{Key: "second-independent"},
+	}}
+	for _, tc := range []struct {
+		name     string
+		status   string
+		attempts int
+		finished Decision
+	}{
+		{"retry remains", "failed", 1, Start{"gate", 2}},
+		{"retry exhausted", "failed", 2, Finish{"failed"}},
+		{"gate closed", "skipped", 1, Finish{"succeeded"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			states := map[string]StepState{"gate": {Status: tc.status, Attempts: tc.attempts}}
+			if got := Next(p, states); !reflect.DeepEqual(got, Start{"first-independent", 1}) {
+				t.Fatalf("ready-step order changed: %+v", got)
+			}
+			if len(states) != 1 || states["gate"].Status != tc.status || states["gate"].Attempts != tc.attempts {
+				t.Fatalf("decision mutated run state: %v", states)
+			}
+			states["first-independent"] = StepState{Status: "succeeded", Attempts: 1}
+			states["second-independent"] = StepState{Status: "succeeded", Attempts: 1}
+			if got := Next(p, states); !reflect.DeepEqual(got, tc.finished) {
+				t.Fatalf("decision %+v, want %+v", got, tc.finished)
+			}
+			if len(states) != 3 {
+				t.Fatalf("inferred skips changed run state: %v", states)
+			}
+		})
+	}
+}
