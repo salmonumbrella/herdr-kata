@@ -1,7 +1,7 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-06
+last_edited: 2026-11-14
 ---
 
 # Operations
@@ -10,6 +10,9 @@ Use Kata's Jobs and Runs tabs for run history. `herdr-kata doctor` checks the
 configured execution environment, unsupported definitions and pending/refused
 unsupported- and dropped-report counts with job UIDs and delivery errors. There
 is no adapter status command or TUI.
+Invalid triggers include the scheduler's explanation, such as a conflicting time
+zone or invalid interval, alongside the stable `invalid_trigger` reason.
+Cancelling doctor also cancels its host-side Kata reads.
 Its optional `service` line reports login-service file presence; see
 [Install](install.md#start-at-login) for setup, refresh and removal.
 
@@ -83,8 +86,9 @@ one executor label cannot be distinguished. Inventory project UIDs and
 executors before enrolling another runtime or changing ownership.
 
 Doctor samples the newest 100 run observations per owned job, using server
-`created_at` within the last 7 days. It excludes `reason: unsupported` evidence
-and warns `warning: another executor reported job <uid>: <label>` for foreign
+`created_at` within the last 7 days. It excludes structured `unsupported` reasons
+and, for legacy summaries, an exact first line of `reason: unsupported`. It
+warns `warning: another executor reported job <uid>: <label>` for foreign
 labels, showing absent/empty labels as `unknown`. A full page still inside
 the window is marked truncated; a failed list read marks the check incomplete.
 This warning detects evidence after the fact. It does not prevent duplicates
@@ -97,6 +101,9 @@ advertised capabilities at most once every five minutes, retaining the last
 good snapshot when refresh fails. Until discovery first succeeds it defers
 new work and unsupported reports; already admitted runs keep advancing.
 A successful response without fleet fields retains legacy behavior.
+Null, non-object or trailing JSON responses are failed reads, never evidence
+that a project is unpaused or has no jobs. Unknown fields in a valid response
+remain compatible.
 
 An advertised execution policy of `none` excludes every job; `owned` allows
 only exact matches between job author and the daemon's member actor; `all`

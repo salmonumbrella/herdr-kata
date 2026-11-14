@@ -15,6 +15,7 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
 	"github.com/salmonumbrella/herdr-kata/internal/report"
+	"github.com/salmonumbrella/herdr-kata/internal/sched"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"io"
 	"os"
@@ -167,6 +168,7 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 			check("project "+p.Name, errors.New("client missing"))
 			continue
 		}
+		k = kata.WithContext(k, ctx)
 		list, e := k.Jobs()
 		if e != nil {
 			check("definitions "+p.Name, e)
@@ -214,6 +216,9 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 			if len(reasons) > 0 {
 				fmt.Fprintf(out, "unsupported %s: %s\n", job.UID, strings.Join(reasons, ", "))
 			}
+			if slices.Contains(reasons, "invalid_trigger") {
+				fmt.Fprintf(out, "invalid trigger %s: %v\n", job.UID, sched.Validate(job.Definition.Trigger, job.CreatedAt))
+			}
 			if e == nil && job.Definition.Issue != nil && job.Definition.Issue.Kind == "existing" && job.Definition.Issue.UID != nil && !ready[*job.Definition.Issue.UID] {
 				fmt.Fprintf(out, "gated %s: existing issue %s not ready\n", job.UID, *job.Definition.Issue.UID)
 			}
@@ -237,7 +242,12 @@ func executorEvidence(k kata.Kata, uid, executor string, now time.Time, out io.W
 	cutoff := now.Add(-7 * 24 * time.Hour)
 	labels := map[string]bool{}
 	for _, r := range runs {
-		if r.CreatedAt.Before(cutoff) || r.Summary.Message != nil && strings.HasPrefix(*r.Summary.Message, "reason: unsupported") {
+		unsupported := r.Summary.Reason != nil && *r.Summary.Reason == "unsupported"
+		if r.Summary.Reason == nil && r.Summary.Message != nil {
+			first, _, _ := strings.Cut(*r.Summary.Message, "\n")
+			unsupported = first == "reason: unsupported"
+		}
+		if r.CreatedAt.Before(cutoff) || unsupported {
 			continue
 		}
 		label := "unknown"

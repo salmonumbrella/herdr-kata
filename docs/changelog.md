@@ -1,12 +1,19 @@
 ---
 title: Changelog
 description: Changes to the headless Kata adapter.
-last_edited: 2026-11-12
+last_edited: 2026-11-14
 ---
 
 # Changelog
 
 ## Unreleased
+
+- Explain invalid schedules in doctor while keeping frozen reporting reasons
+  unchanged. Recognize structured unsupported evidence, avoid suppressing
+  similarly named real failures, and cancel host-side reads with doctor.
+- Reject malformed Kata JSON envelopes, including null and trailing responses,
+  rather than treating them as successful empty discovery. Legacy objects and
+  additive fields remain compatible.
 
 - Report recorded prompt sessions to compatible Kata installations, preserving
   incomplete launch evidence and frozen retry behavior.
