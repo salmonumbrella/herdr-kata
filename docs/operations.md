@@ -23,7 +23,11 @@ it never sends a prompt to an existing terminal. A foreground `serve` takes
 the same lifetime lock. Definitions and scheduling are refreshed every
 30 seconds. The 2-second local-request poll triggers a tick only for IDs this
 process has not seen. Known pending requests, including releases waiting for
-Kata, retry on the regular 30-second tick.
+Kata, retry on the regular 30-second tick. Completed request IDs leave the
+in-memory polling set after the next successful queue read; their durable
+acknowledgments remain unchanged. Capacity checks share a tick-local journal
+snapshot, refreshed before each new preparation and on every tick, so a busy
+queue does not repeatedly decode the same run history.
 
 A manual run is rejected rather than queued when its existing issue is not
 ready or a required host profile executable or checkout mapping is missing;

@@ -8,6 +8,17 @@ last_edited: 2026-11-14
 
 ## Unreleased
 
+- Keep busy workers responsive by reusing capacity reads within each tick,
+  dropping completed request IDs from memory, and retaining only active runs
+  in capacity snapshots. Capacity refreshes before new preparations and on
+  every tick.
+- Resolve blocked workflow dependency chains in one traversal, avoid copying
+  state for running workflows, and reduce note and result encoding allocations.
+- Reject receipt and result files replaced with symlinks or non-regular files
+  without following the replacement or blocking on a pipe.
+- Correct the session-capture guide to describe reporting to compatible Kata
+  installations.
+
 - Explain invalid schedules in doctor while keeping frozen reporting reasons
   unchanged. Recognize structured unsupported evidence, avoid suppressing
   similarly named real failures, and cancel host-side reads with doctor.
