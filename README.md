@@ -1,7 +1,7 @@
 # herdr-kata
 
 A headless worker that runs [Kata](https://github.com/kenn-io/kata) jobs as
-agents and commands on [herdr-core](https://github.com/herdrdev/herdr-core)
+agents and commands, or by waking an existing session, on [herdr-core](https://github.com/herdrdev/herdr-core)
 (`hc`), and reports every run back to Kata.
 
 [![A Kata job runs as a Codex agent and closes its issue with evidence](docs/assets/demo.gif)](https://github.com/salmonumbrella/herdr-kata/releases/download/v0.1.0/demo.mp4)
@@ -18,11 +18,12 @@ There is nothing to look at in herdr-kata itself. You work in Kata:
   issue each run reports to.
 
 herdr-kata runs in the background as one worker terminal in an hc session.
-It reads job definitions from Kata, launches each due run as a fresh agent
-or command terminal in the same session, keeps a local journal so a restart
+It reads job definitions from Kata, launches due runs as fresh agent
+or command terminals in the same session, keeps a local journal so a restart
 never launches the same work twice, and records the outcome in Kata. If the
 Herdr app is connected to that session, job terminals show up there like
-any other terminal and you can watch or attach to one while it works.
+any other terminal and you can watch or attach to one while it works. A
+persistent-agent job instead wakes a claimed existing session.
 
 v2 replaces the old Herdr plugin. It has no plugin manifest, panes or board
 of its own; `kata tui` is the interface. Its configuration and state start

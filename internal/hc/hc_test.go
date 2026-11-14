@@ -156,6 +156,45 @@ func TestReadCompleteness(t *testing.T) {
 	}
 }
 
+func TestSendIdle(t *testing.T) {
+	for _, tc := range []struct {
+		status string
+		args   []string
+	}{
+		{"idle", []string{"send", "--json", "--if", "idle", "t1", "Read prompt"}},
+		{"done", []string{"send", "--json", "t1", "Read prompt"}},
+	} {
+		t.Run(tc.status, func(t *testing.T) {
+			h, args := stub(t, "send", "0")
+			turn, err := h.Send(context.Background(), "t1", "Read prompt", tc.status)
+			if err != nil || turn != 7 || !reflect.DeepEqual(args(), tc.args) {
+				t.Fatalf("turn %d error %v argv %q", turn, err, args())
+			}
+		})
+	}
+}
+
+func TestSendRefused(t *testing.T) {
+	for _, kind := range []string{"status_mismatch", "blocked", "not_found", "finished"} {
+		t.Run(kind, func(t *testing.T) {
+			code := "1"
+			if kind == "not_found" {
+				code = "3"
+			}
+			h, _ := stub(t, "send", code)
+			file := filepath.Join(t.TempDir(), "reply.json")
+			if err := os.WriteFile(file, []byte(`{"error":{"kind":"`+kind+`"}}`), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HC_TEST_REPLY", file)
+			_, err := h.Send(context.Background(), "t1", "Read prompt", "idle")
+			if !errors.Is(err, ErrNotSent) {
+				t.Fatalf("refusal %s: %v", kind, err)
+			}
+		})
+	}
+}
+
 func TestEnvPrefixSortedAndUnsets(t *testing.T) {
 	got := EnvPrefix([]string{"Z", "HC_SOCKET", "A"}, map[string]string{"Z": "last value", "A": "first"})
 	want := []string{"env", "-u", "A", "-u", "HC_SOCKET", "-u", "KATA_AUTH_TOKEN", "-u", "Z", "A=first", "Z=last value"}

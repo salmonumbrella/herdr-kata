@@ -4,6 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/salmonumbrella/herdr-kata/internal/attempt"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
 	"github.com/salmonumbrella/herdr-kata/internal/hc"
@@ -11,11 +17,6 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/prompt"
 	"github.com/salmonumbrella/herdr-kata/internal/session"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
 )
 
 type requestReply struct {
@@ -271,5 +272,55 @@ func TestExplicitEmptyInputPreserved(t *testing.T) {
 	result := <-reply
 	if result.Err != nil || !result.Request.InputSet || result.Request.Input != "" {
 		t.Fatal(result)
+	}
+}
+
+func TestWakeLogsState(t *testing.T) {
+	config, l := operatorFixture(t)
+	r := localRun(t, l, "reported")
+	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
+		saved.Plan.Agent = "worker"
+		saved.Plan.Steps = []defs.Step{{Key: "main", Kind: "prompt"}}
+		saved.Attempts = []journal.Attempt{{Step: "main", N: 1, Status: "succeeded", SettlementStatus: "succeeded", Address: "t1", Session: &session.Session{Agent: "pi", SessionID: "ses_1"}}}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out)
+	if !strings.HasPrefix(out.String(), "agent worker: completed\nattempt main/1 session pi ses_1\n") {
+		t.Fatalf("logs: %s", &out)
+	}
+	for _, tc := range []struct{ status, reason, hold, want string }{
+		{"failed", "not_delivered", "", "not delivered"},
+		{"held", "", "occupant_changed", "occupant_changed"},
+		{"held", "", "wake_uncertain", "uncertain (wake_uncertain)"},
+	} {
+		if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
+			saved.Attempts[0] = journal.Attempt{Step: "main", N: 1, Status: tc.status, StopReason: tc.reason, Hold: tc.hold}
+			if tc.hold != "" {
+				saved.Attempts[0].Address = "t1"
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		out.Reset()
+		run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out)
+		if !strings.HasPrefix(out.String(), "agent worker: "+tc.want+"\n") {
+			t.Fatalf("%s: logs: %s", tc.want, &out)
+		}
+	}
+	if err := journal.New(l).Update(r.Key, func(saved *journal.Run) error {
+		saved.Phase, saved.Outcome, saved.Hold = "settled", "cancelled", "timeout"
+		saved.Attempts[0] = journal.Attempt{Step: "main", N: 1, Status: "running", Address: "t1"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	run([]string{"--config", config, "--state", l.Root, "logs", r.RunUID}, &out)
+	if !strings.HasPrefix(out.String(), "agent worker: cancelled\n") {
+		t.Fatalf("cancelled: logs: %s", &out)
 	}
 }

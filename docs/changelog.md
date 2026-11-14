@@ -8,6 +8,11 @@ last_edited: 2026-11-14
 
 ## Unreleased
 
+- Wake a claimed idle or finished-turn session with `options.persistent_agent`,
+  preserving the session and holding uncertain deliveries for operator inspection.
+  Wake cancellation retains the session; logs distinguish undelivered work and holds.
+  A borrowed session that finishes during a wake holds the run immediately.
+
 - Keep busy workers responsive by reusing capacity reads within each tick,
   dropping completed request IDs from memory, and retaining only active runs
   in capacity snapshots. Capacity refreshes before new preparations and on

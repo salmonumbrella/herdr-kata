@@ -261,25 +261,8 @@ func Settle(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		a.Session = result.Session
 		return accept(ctx, h, st, key, idx, a, result.Status, result.Note, result.Summary, "remove")
 	}
-	if term.Status != "blocked" && a.Blocked {
-		a.Blocked = false
-		if err = saveAttempt(st, key, idx, a); err != nil {
-			return Pending{}, err
-		}
-	}
-	if term.Status == "blocked" {
-		if !a.Blocked {
-			a.Blocked = true
-			a.BlockedSpell++
-			if err = saveAttempt(st, key, idx, a); err != nil {
-				return Pending{}, err
-			}
-		}
-		id := fmt.Sprintf("blocked:%s:%d:%d", a.Step, a.N, a.BlockedSpell)
-		if !slices.Contains(r.Notified, id) {
-			return Notify{id, "blocked"}, nil
-		}
-		return Pending{}, nil
+	if out, err := blocked(st, key, idx, r, &a, term); out != nil || err != nil {
+		return out, err
 	}
 	if term.Status == "error" {
 		return held(st, key, idx, "agent_error")
@@ -352,6 +335,15 @@ func Cancel(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 	if a.Cleanup == "" && slices.Contains([]string{"succeeded", "failed", "skipped"}, a.Status) {
 		return Done{a.Status, a.Note}, nil
 	}
+	if r.Plan.Agent != "" {
+		if a.Address == "" {
+			return Done{}, nil
+		}
+		if a.Status == "launching" {
+			return held(st, key, idx, "wake_uncertain")
+		}
+		return Done{}, nil
+	}
 	if a.Address == "" {
 		if a.Nonce == "" {
 			return Done{}, nil
@@ -368,4 +360,28 @@ func Cancel(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int
 		}
 	}
 	return cancelExpiry(ctx, h, st, key, idx, a, kind, now)
+}
+
+func blocked(st *journal.Store, key string, idx int, r journal.Run, a *journal.Attempt, term hc.Terminal) (Outcome, error) {
+	if term.Status != "blocked" && a.Blocked {
+		a.Blocked = false
+		if err := saveAttempt(st, key, idx, *a); err != nil {
+			return Pending{}, err
+		}
+	}
+	if term.Status == "blocked" {
+		if !a.Blocked {
+			a.Blocked = true
+			a.BlockedSpell++
+			if err := saveAttempt(st, key, idx, *a); err != nil {
+				return Pending{}, err
+			}
+		}
+		id := fmt.Sprintf("blocked:%s:%d:%d", a.Step, a.N, a.BlockedSpell)
+		if !slices.Contains(r.Notified, id) {
+			return Notify{id, "blocked"}, nil
+		}
+		return Pending{}, nil
+	}
+	return nil, nil
 }

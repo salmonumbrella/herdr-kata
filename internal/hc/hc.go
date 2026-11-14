@@ -17,6 +17,7 @@ import (
 
 var ErrNotFound = errors.New("terminal not found")
 var ErrLive = errors.New("terminal still live")
+var ErrNotSent = errors.New("terminal did not accept send")
 
 type Launched struct{ Address, Name, State string }
 type Terminal struct {
@@ -44,6 +45,7 @@ type RunSpec struct {
 }
 type HC interface {
 	Run(context.Context, RunSpec) (Launched, error)
+	Send(context.Context, string, string, string) (uint64, error)
 	Get(context.Context, string) (Terminal, error)
 	List(context.Context, bool, map[string]string) ([]string, error)
 	Read(context.Context, string, int) (string, bool, error)
@@ -59,7 +61,11 @@ type cli struct{ bin, session string }
 func New(bin, session string) HC { return &cli{bin, session} }
 
 func (c *cli) call(ctx context.Context, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	limit := 10 * time.Second
+	if args[0] == "send" {
+		limit = 75 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, c.bin, args...)
 	for _, e := range os.Environ() {
@@ -74,15 +80,34 @@ func (c *cli) call(ctx context.Context, args ...string) ([]byte, error) {
 	if err == nil {
 		return out, nil
 	}
+	var body struct{ Error struct{ Kind string } }
+	if args[0] == "send" && json.Unmarshal(stderr.Bytes(), &body) == nil && slices.Contains([]string{"status_mismatch", "blocked", "not_found", "finished"}, body.Error.Kind) {
+		return nil, ErrNotSent
+	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() == 3 {
 		return nil, ErrNotFound
 	}
-	var body struct{ Error struct{ Kind string } }
 	if json.Unmarshal(stderr.Bytes(), &body) == nil && body.Error.Kind == "live" {
 		return nil, ErrLive
 	}
 	return nil, fmt.Errorf("hc %s: %w: %s", args[0], err, strings.TrimSpace(stderr.String()))
+}
+
+func (c *cli) Send(ctx context.Context, address, text, status string) (uint64, error) {
+	args := []string{"send", "--json"}
+	if status == "idle" {
+		args = append(args, "--if", "idle")
+	} else if status != "done" {
+		return 0, ErrNotSent
+	}
+	b, err := c.call(ctx, append(args, address, text)...)
+	if err != nil {
+		return 0, err
+	}
+	var result struct{ Turn uint64 }
+	err = json.Unmarshal(b, &result)
+	return result.Turn, err
 }
 
 func labelsArgs(labels map[string]string) []string {

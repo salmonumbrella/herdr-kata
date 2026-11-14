@@ -40,6 +40,8 @@ type Attempt struct {
 	Nonce, CoreID, Name, Address                            string
 	CreatedMs                                               int64
 	PID                                                     uint32
+	Turn                                                    uint64 `json:",omitempty"`
+	ForegroundPID                                           uint32 `json:",omitempty"`
 	LaunchedAt                                              time.Time
 	Status, Note, Hold                                      string
 	Summary                                                 string

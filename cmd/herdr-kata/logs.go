@@ -22,8 +22,45 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 		fmt.Fprintln(out, err)
 		return 1
 	}
+	if r.Plan.Agent != "" {
+		state := "queued"
+		hold := r.Hold
+		if len(r.Attempts) > 0 {
+			a := r.Attempts[len(r.Attempts)-1]
+			if a.Address != "" {
+				state = "delivered"
+			}
+			if a.TaskStarted != nil && *a.TaskStarted {
+				state = "acknowledged"
+			}
+			if a.StopReason == "not_delivered" {
+				state = "not delivered"
+			} else if a.Address != "" && a.SettlementStatus != "" && (a.Status == "succeeded" || a.Status == "failed" || a.Status == "needs-human") {
+				state = "completed"
+			}
+			if a.Hold != "" {
+				hold = a.Hold
+			}
+			if a.Status == "launching" && a.Address != "" {
+				state = "uncertain"
+			}
+		}
+		if hold != "" {
+			state = hold
+			if hold == "wake_uncertain" {
+				state = "uncertain (wake_uncertain)"
+			}
+		}
+		if r.Outcome == "cancelled" {
+			state = "cancelled"
+		}
+		fmt.Fprintf(out, "agent %s: %s\n", r.Plan.Agent, state)
+	}
 	if len(r.Attempts) == 0 {
 		fmt.Fprintf(out, "no attempts; phase %s; reason %s\n", r.Phase, r.Hold)
+		if r.Plan.Agent != "" {
+			return 0
+		}
 		return 1
 	}
 	for _, item := range r.Attempts {
@@ -50,7 +87,12 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 		defer func() { _ = f.Close() }()
 		_, err = io.Copy(out, f)
 	} else if os.IsNotExist(err) && a.Address != "" {
-		if err = attempt.Guard(ctx, h, a); err == nil {
+		if r.Plan.Agent != "" {
+			err = attempt.GuardWake(ctx, h, a)
+		} else {
+			err = attempt.Guard(ctx, h, a)
+		}
+		if err == nil {
 			var text string
 			var complete bool
 			text, complete, err = h.Read(ctx, a.Address, 200)
@@ -65,6 +107,9 @@ func logs(ctx context.Context, args []string, st *journal.Store, h hc.HC, out io
 			fmt.Fprintln(out, "[terminal output unavailable after cleanup]")
 			err = nil
 		}
+	}
+	if os.IsNotExist(err) && r.Plan.Agent != "" && a.Address == "" {
+		return 0
 	}
 	if err != nil {
 		fmt.Fprintln(out, err)
