@@ -238,3 +238,37 @@ func TestPendingRequestReasonIsNotRejection(t *testing.T) {
 		t.Fatalf("pending request consumed or changed: %v %v", pending, err)
 	}
 }
+
+func TestActiveReflectsDurablePhaseChanges(t *testing.T) {
+	st := New(state.Layout{Root: t.TempDir()})
+	first := sample()
+	if err := st.Create(first); err != nil {
+		t.Fatal(err)
+	}
+	retired := sample()
+	retired.Key = ManualKey("executor", "example-project", "retired")
+	retired.Phase = "reported"
+	if err := st.Create(retired); err != nil {
+		t.Fatal(err)
+	}
+	for _, phase := range []string{"held", "settled", "released"} {
+		if err := st.Update(first.Key, func(r *Run) error { r.Phase = phase; return nil }); err != nil {
+			t.Fatal(err)
+		}
+		runs, err := st.Active()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if phase == "released" {
+			if len(runs) != 0 {
+				t.Fatalf("released journals remain active: %v", runs)
+			}
+		} else if len(runs) != 1 || runs[0].Key != first.Key || runs[0].Phase != phase {
+			t.Fatalf("active journal phase %q: %v", phase, runs)
+		}
+	}
+	all, err := st.All()
+	if err != nil || len(all) != 2 {
+		t.Fatalf("inactive history lost: %v %v", all, err)
+	}
+}

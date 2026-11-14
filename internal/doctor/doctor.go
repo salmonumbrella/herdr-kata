@@ -15,12 +15,14 @@ import (
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
 	"github.com/salmonumbrella/herdr-kata/internal/report"
+	"github.com/salmonumbrella/herdr-kata/internal/sched"
 	"github.com/salmonumbrella/herdr-kata/internal/state"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -161,12 +163,13 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 		if caps.Execution != nil {
 			execution = caps.Execution.Mode + "(" + caps.Execution.MemberActor + ")"
 		}
-		fmt.Fprintf(out, "project %s capabilities: execution=%s pause=%t requests=%t runtimes=%t summary_v2=%t\n", p.Name, execution, slices.Contains(caps.Controls, "project_pause"), slices.Contains(caps.Controls, "run_request") || slices.Contains(caps.Controls, "cancel_request"), slices.Contains(caps.Features, "cron_runtimes_v1"), slices.Contains(caps.EventFeatures, "cron_run_summary_v2"))
+		fmt.Fprintf(out, "project %s capabilities: execution=%s pause=%t requests=%t runtimes=%t summary_v2=%t sessions=%t\n", p.Name, execution, slices.Contains(caps.Controls, "project_pause"), slices.Contains(caps.Controls, "run_request") || slices.Contains(caps.Controls, "cancel_request"), slices.Contains(caps.Features, "cron_runtimes_v1"), slices.Contains(caps.EventFeatures, "cron_run_summary_v2"), caps.SupportsRunSessions())
 		k := clients[p.Name]
 		if k == nil {
 			check("project "+p.Name, errors.New("client missing"))
 			continue
 		}
+		k = kata.WithContext(k, ctx)
 		list, e := k.Jobs()
 		if e != nil {
 			check("definitions "+p.Name, e)
@@ -214,6 +217,10 @@ func Check(ctx context.Context, c config.Config, l state.Layout, h hc.HC, client
 			if len(reasons) > 0 {
 				fmt.Fprintf(out, "unsupported %s: %s\n", job.UID, strings.Join(reasons, ", "))
 			}
+			if slices.Contains(reasons, "invalid_trigger") {
+				detail := strconv.Quote(sched.Validate(job.Definition.Trigger, job.CreatedAt).Error())
+				fmt.Fprintf(out, "invalid trigger %s: %s\n", job.UID, detail[1:len(detail)-1])
+			}
 			if e == nil && job.Definition.Issue != nil && job.Definition.Issue.Kind == "existing" && job.Definition.Issue.UID != nil && !ready[*job.Definition.Issue.UID] {
 				fmt.Fprintf(out, "gated %s: existing issue %s not ready\n", job.UID, *job.Definition.Issue.UID)
 			}
@@ -237,7 +244,12 @@ func executorEvidence(k kata.Kata, uid, executor string, now time.Time, out io.W
 	cutoff := now.Add(-7 * 24 * time.Hour)
 	labels := map[string]bool{}
 	for _, r := range runs {
-		if r.CreatedAt.Before(cutoff) || r.Summary.Message != nil && strings.HasPrefix(*r.Summary.Message, "reason: unsupported") {
+		unsupported := r.Summary.Reason != nil && *r.Summary.Reason == "unsupported"
+		if r.Summary.Reason == nil && r.Summary.Message != nil {
+			first, _, _ := strings.Cut(*r.Summary.Message, "\n")
+			unsupported = first == "reason: unsupported"
+		}
+		if r.CreatedAt.Before(cutoff) || unsupported {
 			continue
 		}
 		label := "unknown"

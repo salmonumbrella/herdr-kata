@@ -1,7 +1,7 @@
 ---
 title: Operations
 description: Inspect output, recover workers and release held work.
-last_edited: 2026-11-12
+last_edited: 2026-11-14
 ---
 
 # Operations
@@ -10,6 +10,10 @@ Use Kata's Jobs and Runs tabs for run history. `herdr-kata doctor` checks the
 configured execution environment, unsupported definitions and pending/refused
 unsupported- and dropped-report counts with job UIDs and delivery errors. There
 is no adapter status command or TUI.
+Invalid triggers include the scheduler's explanation, such as a conflicting time
+zone or invalid interval, alongside the stable `invalid_trigger` reason.
+Control characters in trigger diagnostics are escaped for terminal display.
+Cancelling doctor also cancels its host-side Kata reads.
 Its optional `service` line reports login-service file presence; see
 [Install](install.md#start-at-login) for setup, refresh and removal.
 
@@ -21,7 +25,11 @@ types into, signals or removes it. A foreground `serve` takes
 the same lifetime lock. Definitions and scheduling are refreshed every
 30 seconds. The 2-second local-request poll triggers a tick only for IDs this
 process has not seen. Known pending requests, including releases waiting for
-Kata, retry on the regular 30-second tick.
+Kata, retry on the regular 30-second tick. Completed request IDs leave the
+in-memory polling set after the next successful queue read; their durable
+acknowledgments remain unchanged. Capacity checks share a tick-local journal
+snapshot, refreshed before each new preparation and on every tick, so a busy
+queue does not repeatedly decode the same run history.
 
 A manual run is rejected rather than queued when its existing issue is not
 ready or a required host profile executable or checkout mapping is missing;
@@ -84,8 +92,9 @@ one executor label cannot be distinguished. Inventory project UIDs and
 executors before enrolling another runtime or changing ownership.
 
 Doctor samples the newest 100 run observations per owned job, using server
-`created_at` within the last 7 days. It excludes `reason: unsupported` evidence
-and warns `warning: another executor reported job <uid>: <label>` for foreign
+`created_at` within the last 7 days. It excludes structured `unsupported` reasons
+and, for legacy summaries, an exact first line of `reason: unsupported`. It
+warns `warning: another executor reported job <uid>: <label>` for foreign
 labels, showing absent/empty labels as `unknown`. A full page still inside
 the window is marked truncated; a failed list read marks the check incomplete.
 This warning detects evidence after the fact. It does not prevent duplicates
@@ -98,6 +107,9 @@ advertised capabilities at most once every five minutes, retaining the last
 good snapshot when refresh fails. Until discovery first succeeds it defers
 new work and unsupported reports; already admitted runs keep advancing.
 A successful response without fleet fields retains legacy behavior.
+Null, non-object or trailing JSON responses are failed reads, never evidence
+that a project is unpaused or has no jobs. Unknown fields in a valid response
+remain compatible.
 
 An advertised execution policy of `none` excludes every job; `owned` allows
 only exact matches between job author and the daemon's member actor; `all`
@@ -127,12 +139,27 @@ cleanup, and prompt attempts have no receipt timing. A latest attempt without
 a receipt never borrows times from an earlier attempt. Unattempted steps
 remain omitted, so step coverage may be partial.
 
-A structured `unsupported_event_features` conflict saves a v1 projection of
-the frozen report before retrying once with the same run identity and
-revision. Other conflicts and uncertain writes retain the original bytes.
-Capability changes do not enrich already frozen reports or projected retries.
-The v1 projection drops the complete steps array, including receipt timing.
-Older daemons retain legacy behavior.
+When both the Kata CLI and daemon advertise `cron_run_sessions_v1`, final and
+held reports include recorded prompt sessions, independently of summary v2.
+Earlier attempts appear in journal order, followed by the current attempt for
+each step in plan order. Exact agent and session pairs are deduplicated, with
+the first step retained. Reports include at most 64 distinct sessions.
+`sessions_incomplete` marks a dropped identity or a recorded prompt launch
+without a valid identity, including an ambiguous launch. Unlaunched prompts and
+command steps add no session evidence. Doctor shows `sessions=true` only when
+both capabilities are present.
+
+The report freezes this choice and the recorded identities before sending;
+retries reuse those bytes even if capabilities or the journal change. A
+structured `unsupported_event_features` conflict first saves a projection
+without sessions, then, if necessary, one without reason and steps, before
+retrying with the same run identity and revision. A structured
+`federated_read_only` conflict projects only session-bearing reports, removing
+sessions and the incomplete marker. Other conflicts and uncertain writes retain
+the original bytes. Removing steps also removes their receipt timing.
+If the CLI is downgraded after a session-bearing report is frozen and rejects
+the body, the report can be held as `report_refused`; it is not projected on
+an unstructured CLI rejection.
 
 ## Unsupported report delivery
 

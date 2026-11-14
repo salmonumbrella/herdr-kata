@@ -9,12 +9,17 @@ import (
 	"unicode/utf8"
 )
 
+var noteNewlines = strings.NewReplacer("\r\n", " ", "\r", " ", "\n", " ")
+
 // NormalizeNote preserves valid notes and bounds malformed optional note data.
 func NormalizeNote(note string) string { return normalizeNote(note, false) }
 
 func normalizeNote(note string, clipped bool) string {
+	if !clipped && ValidNote(note) {
+		return note
+	}
 	note = strings.ToValidUTF8(note, "�")
-	note = strings.NewReplacer("\r\n", " ", "\r", " ", "\n", " ").Replace(note)
+	note = noteNewlines.Replace(note)
 	if len(note) <= 280 && !clipped {
 		return note
 	}

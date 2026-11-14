@@ -122,6 +122,10 @@ func (c *cli) call(input []byte, out any, args ...string) error {
 	if out == nil {
 		return nil
 	}
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 || b[0] != '{' || !json.Valid(b) {
+		return errors.New("expected one JSON object from kata")
+	}
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.UseNumber()
 	return d.Decode(out)

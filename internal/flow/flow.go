@@ -1,11 +1,7 @@
 // Package flow decides one serial transition without performing side effects.
 package flow
 
-import (
-	"maps"
-
-	"github.com/salmonumbrella/herdr-kata/internal/defs"
-)
+import "github.com/salmonumbrella/herdr-kata/internal/defs"
 
 type StepState struct {
 	Status   string
@@ -28,11 +24,8 @@ func (Hold) decision()    {}
 func (Invalid) decision() {}
 
 func Next(p defs.Plan, states map[string]StepState) Decision {
-	states = maps.Clone(states)
-	if states == nil {
-		states = make(map[string]StepState)
-	}
 	running, handoff, failed := false, false, false
+	var queue []string
 	for _, s := range p.Steps {
 		st := states[s.Key]
 		switch st.Status {
@@ -45,6 +38,7 @@ func Next(p defs.Plan, states map[string]StepState) Decision {
 		case "failed":
 			if st.Attempts > s.Retries {
 				failed = true
+				queue = append(queue, s.Key)
 			}
 		}
 	}
@@ -54,32 +48,30 @@ func Next(p defs.Plan, states map[string]StepState) Decision {
 	if running {
 		return Wait{}
 	}
-	// Propagate skipped dependency chains without inventing executed attempts.
-	for range p.Steps {
-		changed := false
+	for key, st := range states {
+		if st.Status == "skipped" {
+			queue = append(queue, key)
+		}
+	}
+	// Visit each blocked edge once, without modifying the caller's run state.
+	var blocked map[string]bool
+	if len(queue) > 0 {
+		blocked = make(map[string]bool, len(p.Steps))
+		dependents := make(map[string][]string, len(p.Steps))
 		for _, s := range p.Steps {
 			if states[s.Key].Status != "" {
 				continue
 			}
 			for _, dep := range s.After {
-				d := states[dep]
-				spent := d.Status == "skipped"
-				if d.Status == "failed" {
-					for _, parent := range p.Steps {
-						if parent.Key == dep && d.Attempts > parent.Retries {
-							spent = true
-						}
-					}
-				}
-				if spent {
-					states[s.Key] = StepState{Status: "skipped"}
-					changed = true
-					break
-				}
+				dependents[dep] = append(dependents[dep], s.Key)
 			}
 		}
-		if !changed {
-			break
+		for head := 0; head < len(queue); head++ {
+			key := queue[head]
+			if !blocked[key] {
+				blocked[key] = true
+				queue = append(queue, dependents[key]...)
+			}
 		}
 	}
 	unresolved := false
@@ -88,7 +80,7 @@ func Next(p defs.Plan, states map[string]StepState) Decision {
 		if st.Status == "failed" && st.Attempts <= s.Retries {
 			return Start{s.Key, st.Attempts + 1}
 		}
-		if st.Status != "" {
+		if st.Status != "" || blocked[s.Key] {
 			continue
 		}
 		unresolved = true

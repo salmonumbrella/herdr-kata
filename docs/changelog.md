@@ -1,7 +1,7 @@
 ---
 title: Changelog
 description: Changes to the headless Kata adapter.
-last_edited: 2026-11-12
+last_edited: 2026-11-14
 ---
 
 # Changelog
@@ -13,6 +13,26 @@ last_edited: 2026-11-12
   Wake cancellation retains the session; logs distinguish undelivered work and holds.
   A borrowed session that finishes during a wake holds the run immediately.
 
+- Keep busy workers responsive by reusing capacity reads within each tick,
+  dropping completed request IDs from memory, and retaining only active runs
+  in capacity snapshots. Capacity refreshes before new preparations and on
+  every tick.
+- Resolve blocked workflow dependency chains in one traversal, avoid copying
+  state for running workflows, and reduce note and result encoding allocations.
+- Reject receipt and result files replaced with symlinks or non-regular files
+  without following the replacement or blocking on a pipe.
+- Correct the session-capture guide to describe reporting to compatible Kata
+  installations.
+
+- Explain invalid schedules in doctor while keeping frozen reporting reasons
+  unchanged and escaping terminal control characters. Recognize structured unsupported evidence, avoid suppressing
+  similarly named real failures, and cancel host-side reads with doctor.
+- Reject malformed Kata JSON envelopes, including null and trailing responses,
+  rather than treating them as successful empty discovery. Legacy objects and
+  additive fields remain compatible.
+
+- Report recorded prompt sessions to compatible Kata installations, preserving
+  incomplete launch evidence and frozen retry behavior.
 - Record agent session identities on prompt attempts when available, and show
   them in run logs, while prompt launches unset inherited session variables.
   Optional `[sessions.env]` mappings support other agents using unique private

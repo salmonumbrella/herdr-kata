@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"github.com/salmonumbrella/herdr-kata/internal/clock"
 	"github.com/salmonumbrella/herdr-kata/internal/defs"
@@ -34,6 +35,9 @@ func TestDoctorOtherExecutorsPerOwnedJob(t *testing.T) {
 		{name: "absent label", runs: []kata.CronRun{{CreatedAt: now}}, want: "warning: another executor reported job job: unknown"},
 		{name: "empty label", runs: []kata.CronRun{{CreatedAt: now, ExecutorLabel: new("")}}, want: "warning: another executor reported job job: unknown"},
 		{name: "unsupported", runs: []kata.CronRun{{CreatedAt: now, ExecutorLabel: new("other"), Summary: kata.Summary{Message: new("reason: unsupported\nmissing")}}}},
+		{name: "structured unsupported", runs: []kata.CronRun{{CreatedAt: now, ExecutorLabel: new("other"), Summary: kata.Summary{Version: 2, Reason: new("unsupported")}}}},
+		{name: "similar reason", runs: []kata.CronRun{{CreatedAt: now, ExecutorLabel: new("other"), Summary: kata.Summary{Message: new("reason: unsupported_result\nworker failed")}}}, want: "warning: another executor reported job job: other"},
+		{name: "structured failure", runs: []kata.CronRun{{CreatedAt: now, ExecutorLabel: new("other"), Summary: kata.Summary{Version: 2, Reason: new("failed")}}}, want: "warning: another executor reported job job: other"},
 		{name: "old", runs: []kata.CronRun{{CreatedAt: now.Add(-7*24*time.Hour - time.Nanosecond), ExecutorLabel: new("other")}}},
 		{name: "boundary", runs: []kata.CronRun{{CreatedAt: now.Add(-7 * 24 * time.Hour), ExecutorLabel: new("other")}}, want: "warning: another executor reported job job: other"},
 		{name: "list failure", err: errors.New("offline"), want: "job job: executor check incomplete: offline"},
@@ -58,6 +62,54 @@ func TestDoctorOtherExecutorsPerOwnedJob(t *testing.T) {
 				t.Fatal(out.String())
 			}
 		})
+	}
+}
+
+// Operators need the actual invalid field, not only the stable reporting code.
+func TestDoctorExplainsInvalidTriggers(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		trigger kata.Trigger
+		want    string
+	}{
+		{"timezone conflict", kata.Trigger{Kind: "cron", Cron: new("TZ=UTC 0 9 * * *"), Timezone: new("Europe/Paris")}, "embedded timezone conflicts with trigger timezone"},
+		{"interval", kata.Trigger{Kind: "interval", IntervalSeconds: new(int64(0))}, "invalid interval"},
+		{"unknown kind", kata.Trigger{Kind: "unsupported"}, "unsupported trigger: unsupported"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, l, h := fixture(t)
+			job := ownedJob("job")
+			job.Definition.Trigger = tt.trigger
+			var out bytes.Buffer
+			if err := Check(t.Context(), c, l, h, map[string]kata.Kata{"example-project": fakeKata{jobs: []kata.CronJob{job}}}, &out); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out.String(), "unsupported job: invalid_trigger\n") || !strings.Contains(out.String(), "invalid trigger job: "+tt.want+"\n") {
+				t.Fatal(out.String())
+			}
+		})
+	}
+}
+
+// Cancelling doctor must also cancel host-side Kata reads, not only hc calls.
+func TestDoctorCancellationStopsKataReads(t *testing.T) {
+	c, l, h := fixture(t)
+	bin := filepath.Join(t.TempDir(), "kata")
+	marker := filepath.Join(t.TempDir(), "called")
+	t.Setenv("HK_TEST_CALL_MARKER", marker)
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\nprintf 'called' > \"$HK_TEST_CALL_MARKER\"\nprintf '%s' '{\"jobs\":[]}'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	k := kata.New(bin, "fixture", nil, "example-project", "worker")
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	var out bytes.Buffer
+	err := Check(ctx, c, l, h, map[string]kata.Kata{"example-project": k}, &out)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("doctor did not preserve cancellation: %v; output %s", err, &out)
+	}
+	if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("cancelled doctor launched Kata: %v", err)
 	}
 }
 

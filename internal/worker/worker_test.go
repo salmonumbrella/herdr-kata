@@ -152,7 +152,7 @@ func (h *fakeHC) Remove(_ context.Context, id string) error {
 
 var at = time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
 
-func fixture(t *testing.T) (*Worker, *fakeHC, *fakeKata) {
+func fixture(t testing.TB) (*Worker, *fakeHC, *fakeKata) {
 	t.Helper()
 	root := t.TempDir()
 	t.Setenv("HOME", root)

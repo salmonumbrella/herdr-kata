@@ -15,9 +15,15 @@ import (
 
 	"github.com/salmonumbrella/herdr-kata/internal/journal"
 	"github.com/salmonumbrella/herdr-kata/internal/kata"
+	"github.com/salmonumbrella/herdr-kata/internal/session"
 )
 
 type summaryV2Key struct{}
+type runSessionsKey struct{}
+
+func WithRunSessions(ctx context.Context, enabled bool) context.Context {
+	return context.WithValue(ctx, runSessionsKey{}, enabled)
+}
 
 func WithSummaryV2(ctx context.Context, enabled bool) context.Context {
 	return context.WithValue(ctx, summaryV2Key{}, enabled)
@@ -43,7 +49,10 @@ func bounded(s string) string {
 	}
 	return s
 }
-func freeze(r journal.Run, status, message string, expected int, ended *time.Time, v2 ...bool) ([]byte, error) {
+
+type freezeOptions struct{ summaryV2, runSessions bool }
+
+func freeze(r journal.Run, status, message string, expected int, ended *time.Time, opts freezeOptions) ([]byte, error) {
 	b := kata.ObserveCronRunBody{ExpectedRevision: int64(expected), Actor: new(r.Actor), ExecutorLabel: new(r.Executor), Teammate: new("herdr-kata"), Status: status, Summary: kata.Summary{Version: 1, Message: new(message)}, StartedAt: r.StartedAt, EndedAt: ended}
 	if r.Plan.JobUID != "" {
 		b.JobUID = new(r.Plan.JobUID)
@@ -59,7 +68,10 @@ func freeze(r journal.Run, status, message string, expected int, ended *time.Tim
 	if r.IssueUID != "" {
 		b.IssueUID = new(r.IssueUID)
 	}
-	if len(v2) > 0 && v2[0] {
+	if opts.runSessions {
+		collectSessions(&b.Summary, r)
+	}
+	if opts.summaryV2 {
 		if err := enrich(&b.Summary, r); err != nil {
 			return nil, err
 		}
@@ -84,7 +96,7 @@ func observe(k kata.Kata, r journal.Run, b []byte, expected int) (int, error, bo
 	if err == nil {
 		return rev, nil, false
 	}
-	if _, changed, _ := projectV1(b); changed && unsupportedFeatures(err) {
+	if _, changed, _ := projectV1(b, err); changed {
 		return 0, err, false
 	}
 
@@ -165,7 +177,7 @@ func Admit(ctx context.Context, k kata.Kata, st *journal.Store, key string) erro
 		}
 	}
 	if len(r.AdmissionBody) == 0 {
-		r.AdmissionBody, err = freeze(r, "running", "running", 0, nil)
+		r.AdmissionBody, err = freeze(r, "running", "running", 0, nil, freezeOptions{})
 		if err != nil {
 			return err
 		}
@@ -312,7 +324,8 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 			r.EndedAt = new(clock(ctx))
 		}
 		v2, _ := ctx.Value(summaryV2Key{}).(bool)
-		r.ReportBody, err = freeze(r, status, bounded(message), r.ObsRev, r.EndedAt, v2)
+		sessions, _ := ctx.Value(runSessionsKey{}).(bool)
+		r.ReportBody, err = freeze(r, status, bounded(message), r.ObsRev, r.EndedAt, freezeOptions{summaryV2: v2, runSessions: sessions})
 		if err != nil {
 			return err
 		}
@@ -336,8 +349,8 @@ func publish(ctx context.Context, k kata.Kata, st *journal.Store, key string, ho
 		}
 	}
 	rev, err, permanent := observe(k, r, r.ReportBody, r.ObsRev)
-	if unsupportedFeatures(err) {
-		projected, changed, e := projectV1(r.ReportBody)
+	if err != nil {
+		projected, changed, e := projectV1(r.ReportBody, err)
 		if e != nil {
 			return e
 		}
@@ -382,21 +395,64 @@ func Final(ctx context.Context, k kata.Kata, st *journal.Store, key string) erro
 	return publish(ctx, k, st, key, false)
 }
 
+func latestAttempts(r journal.Run) map[string]int {
+	latest := make(map[string]int)
+	for i, a := range r.Attempts {
+		if j, ok := latest[a.Step]; !ok || a.N >= r.Attempts[j].N {
+			latest[a.Step] = i
+		}
+	}
+	return latest
+}
+func collectSessions(v *kata.Summary, r journal.Run) {
+	latest := latestAttempts(r)
+	prompt := make(map[string]bool)
+	for _, step := range r.Plan.Steps {
+		prompt[step.Key] = step.Kind == "prompt"
+	}
+	seen := make(map[session.Session]bool)
+	add := func(a journal.Attempt) {
+		if !prompt[a.Step] {
+			return
+		}
+		if a.Session == nil {
+			if !a.LaunchedAt.IsZero() {
+				v.SessionsIncomplete = true
+			}
+			return
+		}
+		if seen[*a.Session] {
+			return
+		}
+		seen[*a.Session] = true
+		if len(v.Sessions) == 64 {
+			v.SessionsIncomplete = true
+			return
+		}
+		v.Sessions = append(v.Sessions, kata.SummarySession{Session: *a.Session, Step: a.Step})
+	}
+	for i, a := range r.Attempts {
+		if latest[a.Step] != i {
+			add(a)
+		}
+	}
+	for _, step := range r.Plan.Steps {
+		if i, ok := latest[step.Key]; ok {
+			add(r.Attempts[i])
+		}
+	}
+}
 func enrich(v *kata.Summary, r journal.Run) error {
 	if message := v.Message; message != nil && strings.HasPrefix(*message, "reason: ") {
 		v.Reason = new(strings.SplitN(strings.TrimPrefix(*message, "reason: "), "\n", 2)[0])
 	}
-	latest := make(map[string]journal.Attempt)
-	for _, a := range r.Attempts {
-		if a.N >= latest[a.Step].N {
-			latest[a.Step] = a
-		}
-	}
+	latest := latestAttempts(r)
 	for _, step := range r.Plan.Steps {
-		a, ok := latest[step.Key]
+		i, ok := latest[step.Key]
 		if !ok {
 			continue
 		}
+		a := r.Attempts[i]
 		s := kata.SummaryStep{Key: step.Key, Status: a.Status, Attempts: a.N}
 		if !slices.Contains([]string{"succeeded", "failed", "skipped"}, s.Status) {
 			s.Status = "unknown"
@@ -435,15 +491,22 @@ func enrich(v *kata.Summary, r journal.Run) error {
 		}
 	}
 }
-func unsupportedFeatures(err error) bool {
+func projectionCode(err error) string {
 	e, ok := errors.AsType[*kata.Error](err)
 	if !ok || e.Code != 5 {
-		return false
+		return ""
 	}
 	var v struct{ Error struct{ Kind, Code string } }
-	return json.Unmarshal([]byte(e.Message), &v) == nil && v.Error.Kind == "conflict" && v.Error.Code == "unsupported_event_features"
+	if json.Unmarshal([]byte(e.Message), &v) == nil && v.Error.Kind == "conflict" {
+		return v.Error.Code
+	}
+	return ""
 }
-func projectV1(b []byte) ([]byte, bool, error) {
+func projectV1(b []byte, cause error) ([]byte, bool, error) {
+	code := projectionCode(cause)
+	if code != "unsupported_event_features" && code != "federated_read_only" {
+		return b, false, nil
+	}
 	var v map[string]any
 	decoder := json.NewDecoder(bytes.NewReader(b))
 	decoder.UseNumber()
@@ -454,11 +517,15 @@ func projectV1(b []byte) ([]byte, bool, error) {
 	if !ok {
 		return nil, false, errors.New("invalid frozen summary")
 	}
-	if summary["reason"] == nil && summary["steps"] == nil {
+	if summary["sessions"] != nil || summary["sessions_incomplete"] != nil {
+		delete(summary, "sessions")
+		delete(summary, "sessions_incomplete")
+	} else if code == "unsupported_event_features" && (summary["reason"] != nil || summary["steps"] != nil) {
+		delete(summary, "reason")
+		delete(summary, "steps")
+	} else {
 		return b, false, nil
 	}
-	delete(summary, "reason")
-	delete(summary, "steps")
 	b, err := json.Marshal(v)
 	return b, true, err
 }

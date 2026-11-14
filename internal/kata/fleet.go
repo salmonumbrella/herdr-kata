@@ -4,15 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 )
 
 type Caps struct {
+	CLIFeatures   []string   `json:"cli_features"`
 	EventFeatures []string   `json:"event_features"`
 	Features      []string   `json:"features"`
 	Controls      []string   `json:"controls"`
 	Execution     *Execution `json:"execution"`
 }
+
+func (c Caps) SupportsRunSessions() bool {
+	return slices.Contains(c.CLIFeatures, "cron_run_sessions_v1") && slices.Contains(c.EventFeatures, "cron_run_sessions_v1")
+}
+
 type Execution struct {
 	Replica     bool   `json:"replica"`
 	Mode        string `json:"mode"`

@@ -61,6 +61,43 @@ func TestFleetMalformedReadTransport(t *testing.T) {
 	}
 }
 
+// Malformed discovery must never masquerade as an unpaused empty job list.
+func TestFleetRejectsIncompleteOrExtraEnvelopes(t *testing.T) {
+	for _, raw := range []string{`null`, " \nnull\n", `{} {"project_pause":{}}`, "{}\nnot JSON"} {
+		t.Run(raw, func(t *testing.T) {
+			base, args := stub(t, "jobs", "0")
+			path := filepath.Join(t.TempDir(), "reply.json")
+			if err := os.WriteFile(path, []byte(raw), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HK_TEST_REPLY", path)
+			k := New(base.(*cli).bin, "fixture", nil, "example-project", "worker")
+			if _, err := k.Jobs(); err == nil {
+				t.Fatal("invalid envelope was accepted as a successful job-list read")
+			}
+			assertArgs(t, args(), "cron", "job", "list")
+		})
+	}
+}
+
+func TestFleetAcceptsLegacyAndAdditiveEnvelopes(t *testing.T) {
+	for _, raw := range []string{" \n{}\n", `{"jobs":[],"future_feature":{"enabled":true}}`} {
+		t.Run(raw, func(t *testing.T) {
+			base, _ := stub(t, "jobs", "0")
+			path := filepath.Join(t.TempDir(), "reply.json")
+			if err := os.WriteFile(path, []byte(raw), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HK_TEST_REPLY", path)
+			k := New(base.(*cli).bin, "fixture", nil, "example-project", "worker")
+			list, err := k.Jobs()
+			if err != nil || len(list.Jobs) != 0 || list.Paused() {
+				t.Fatalf("legacy/additive envelope refused: %+v %v", list, err)
+			}
+		})
+	}
+}
+
 func TestFleetBeatTransport(t *testing.T) {
 	k, args := stub(t, "capabilities-fleet", "0")
 	body := []byte(`{"label":"executor","adapter":"herdr-kata","interval_seconds":60,"state":"active"}`)
@@ -71,5 +108,34 @@ func TestFleetBeatTransport(t *testing.T) {
 	got, err := os.ReadFile(os.Getenv("HK_TEST_INPUT"))
 	if err != nil || !bytes.Equal(got, body) {
 		t.Fatal(string(got), err)
+	}
+}
+
+// Both the CLI and event protocol must advertise the exact feature.
+func TestFleetRunSessionsCapabilitiesTransport(t *testing.T) {
+	for _, tt := range []struct {
+		name, reply string
+		want        bool
+	}{
+		{"neither", `{}`, false},
+		{"cli-only", `{"cli_features":["cron_run_sessions_v1"]}`, false},
+		{"event-only", `{"event_features":["cron_run_sessions_v1"]}`, false},
+		{"both", `{"cli_features":["cron_run_sessions_v1"],"event_features":["cron_run_sessions_v1"]}`, true},
+		{"wrong-feature", `{"cli_features":["cron_run_sessions_v1-extra"],"event_features":["cron_run_sessions_v1"]}`, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			base, args := stub(t, "capabilities-fleet", "0")
+			path := filepath.Join(t.TempDir(), "reply.json")
+			if err := os.WriteFile(path, []byte(tt.reply), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("HK_TEST_REPLY", path)
+			k := New(base.(*cli).bin, "fixture", nil, "example-project", "worker")
+			caps, err := k.Capabilities()
+			if err != nil || caps.SupportsRunSessions() != tt.want {
+				t.Fatal(caps, err)
+			}
+			assertArgs(t, args(), "cron", "capabilities")
+		})
 	}
 }

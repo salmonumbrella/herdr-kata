@@ -32,6 +32,7 @@ import (
 
 type Worker struct {
 	caps         map[string]capsEntry
+	capacityRuns *[]journal.Run
 	Config       config.Config
 	Store        *journal.Store
 	HC           hc.HC
@@ -80,17 +81,17 @@ func (w *Worker) init(now time.Time) error {
 	w.installed = v.At
 	return nil
 }
-func (w *Worker) capacity(project config.Project, jobUID string, p defs.Plan) (bool, error) {
-	can, _, err := w.capacityState(project, jobUID, p)
-	return can, err
-}
 func (w *Worker) capacityState(project config.Project, jobUID string, p defs.Plan) (bool, bool, error) {
-	runs, err := w.Store.Active()
-	if err != nil {
-		return false, false, err
+	// Reuse active runs until preparation or the end of this tick.
+	if w.capacityRuns == nil {
+		runs, err := w.Store.Active()
+		if err != nil {
+			return false, false, err
+		}
+		w.capacityRuns = &runs
 	}
 	total, local := 0, 0
-	for _, r := range runs {
+	for _, r := range *w.capacityRuns {
 		if r.Phase == "settled" {
 			continue
 		}
@@ -128,6 +129,7 @@ func (w *Worker) prepare(ctx context.Context, k kata.Kata, project config.Projec
 		r.IssueUID = p.Issue.UID
 		r.IssueRef = p.Issue.UID
 	}
+	w.capacityRuns = nil // A failed sync can still have published the journal.
 	err := w.Store.Create(r)
 	if errors.Is(err, journal.ErrExists) {
 		return nil
@@ -273,6 +275,8 @@ func (w *Worker) releaseLookupFailure(q journal.Requests, req journal.Request, e
 	return errors.Join(err, q.Reject(req.ID, err.Error()))
 }
 func (w *Worker) Tick(ctx context.Context, now time.Time) error {
+	w.capacityRuns = nil
+	defer func() { w.capacityRuns = nil }()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -286,6 +290,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 	var errs []error
 	q := journal.Requests{Dir: w.Store.Layout.Requests()}
 	requests, err := q.Pending()
+	if err == nil {
+		clear(w.SeenRequests)
+	}
 	for _, req := range requests {
 		w.SeenRequests[req.ID] = true
 	}
@@ -447,7 +454,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				if w.Store.Exists(key) {
 					continue
 				}
-				can, err := w.capacity(project, job.UID, p)
+				can, _, err := w.capacityState(project, job.UID, p)
 				if err != nil {
 					errs = append(errs, err)
 					continue
@@ -471,7 +478,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 					}
 					continue
 				}
-				can, e := w.capacity(project, job.UID, p)
+				can, _, e := w.capacityState(project, job.UID, p)
 				if e != nil {
 					pendingReason(project.Name, job.UID, "run capacity could not be checked")
 					errs = append(errs, e)
@@ -516,7 +523,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				if w.Store.Exists(key) {
 					continue
 				}
-				can, e := w.capacity(project, job.UID, p)
+				can, _, e := w.capacityState(project, job.UID, p)
 				if e != nil {
 					errs = append(errs, e)
 					continue
@@ -549,7 +556,7 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 				}
 				key := journal.RunKey(w.Config.Executor, project.Name, job.UID, o.Key)
 				if !w.Store.Exists(key) {
-					can, e := w.capacity(project, job.UID, p)
+					can, _, e := w.capacityState(project, job.UID, p)
 					if e != nil {
 						errs = append(errs, e)
 						break
@@ -616,7 +623,9 @@ func (w *Worker) Tick(ctx context.Context, now time.Time) error {
 			continue
 		}
 		if k := w.Clients[r.Project]; k != nil {
-			if err = w.advance(report.WithSummaryV2(ctx, slices.Contains(w.caps[r.Project].caps.EventFeatures, "cron_run_summary_v2")), k, r, now, protected(r)); err != nil {
+			caps := w.caps[r.Project].caps
+			ctx := report.WithRunSessions(report.WithSummaryV2(ctx, slices.Contains(caps.EventFeatures, "cron_run_summary_v2")), caps.SupportsRunSessions())
+			if err = w.advance(ctx, k, r, now, protected(r)); err != nil {
 				errs = append(errs, fmt.Errorf("run %s: %w", r.RunUID, err))
 			}
 		}

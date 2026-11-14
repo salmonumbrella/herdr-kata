@@ -1,7 +1,7 @@
 ---
 title: Install
 description: Build and configure the headless worker.
-last_edited: 2026-11-12
+last_edited: 2026-11-14
 ---
 
 # Install
@@ -158,6 +158,8 @@ correct the error and rerun install, or uninstall it.
 ## Session capture
 
 `report` records the invoking agent's session on its attempt when available;
+the worker can include those identities in Kata observations as described in
+[Fleet capabilities](operations.md#fleet-capabilities).
 `herdr-kata logs <run-uid>` shows recorded attempt identities. After normal
 prompt cleanup it reports when terminal output is unavailable. If a result is
 near the 64 KiB limit, optional session metadata is omitted to preserve it.
@@ -180,4 +182,6 @@ must be UUIDs; other IDs are up to 128 ASCII letters, digits, dots, underscores
 or hyphens, starting with a letter or digit. Missing, invalid and ambiguous
 identities never change the report outcome. No transcript files are scanned.
 Session IDs are local journal evidence and can identify a transcript to someone
-with access to it; they are not yet sent to Kata.
+with access to it. Compatible Kata installations also receive captured sessions
+in run summaries; see [session reporting](operations.md#fleet-capabilities)
+for capability checks, incomplete evidence and retry behavior.
