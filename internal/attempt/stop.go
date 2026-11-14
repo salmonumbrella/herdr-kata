@@ -50,11 +50,8 @@ func stop(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, 
 			if e != nil {
 				return false, e
 			}
-			b, e := prompt.ReadRegular(filepath.Join(st.Layout.Attempt(key, a.Step, a.N), "result.json"), 64*1024)
-			if e == nil {
-				_, e = prompt.ParseResult(b, r.RunUID, a.Step, a.N)
-				active = e == nil
-			}
+			_, e = prompt.ReadResult(filepath.Join(st.Layout.Attempt(key, a.Step, a.N), "result.json"), r.RunUID, a.Step, a.N)
+			active = e == nil
 		}
 		if !active {
 			return false, nil
@@ -118,6 +115,9 @@ func stop(ctx context.Context, h hc.HC, st *journal.Store, key string, idx int, 
 	}
 	if term.State != "finished" {
 		return held(st, key, idx, a.StopReason)
+	}
+	if term.Reason != "exited" && term.Reason != "killed" && term.Reason != "signal" {
+		return held(st, key, idx, lost)
 	}
 	artifact := "result.json"
 	if kind == "command" {

@@ -166,6 +166,109 @@ func TestStopLostKillReplyWithFinishedProof(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+// A saved stop intent is not proof of a completed stop when the core later
+// marks the terminal lost. Preserve the terminal and capacity for inspection.
+func TestStopLossAfterSavedIntentRemainsHeld(t *testing.T) {
+	for _, tc := range []struct{ kind, stop, hold string }{
+		{"prompt", "agent_not_started", "agent_lost"},
+		{"prompt", "timeout", "agent_lost"},
+		{"command", "timeout", "command_outcome_unknown"},
+	} {
+		t.Run(tc.kind+"/"+tc.stop, func(t *testing.T) {
+			st, h, r := setup(t, tc.kind)
+			if err := st.Update(r.Key, func(r *journal.Run) error {
+				r.Attempts[0].StopReason = tc.stop
+				r.Attempts[0].ExpiringAt = new(now)
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			term := h.terms["t1"]
+			term.State, term.Reason = "finished", "lost"
+			h.terms["t1"] = term
+			out := stopSettle(t, journal.New(st.Layout), h, r, now.Add(10*time.Second))
+			saved, err := st.Load(r.Key)
+			held, ok := out.(Held)
+			if err != nil || !ok || held.Reason != tc.hold || saved.Attempts[0].Hold != tc.hold || saved.Attempts[0].Status != "held" {
+				t.Fatalf("lost execution completed: outcome=%#v attempt=%+v error=%v", out, saved.Attempts[0], err)
+			}
+			if len(h.calls) != 0 || len(h.terms) != 1 {
+				t.Fatalf("lost terminal was changed: calls=%v terms=%v", h.calls, h.terms)
+			}
+		})
+	}
+}
+
+func TestStopRequiresKnownFinishedReason(t *testing.T) {
+	for _, tc := range []struct {
+		name, reason string
+		held         bool
+	}{
+		{"lost", "lost", true},
+		{"missing", "", true},
+		{"unknown", "unknown", true},
+		{"ordinary exit", "exited", false},
+		{"killed", "killed", false},
+		{"signal", "signal", false},
+	} {
+		for _, timing := range []string{"saved", "kill reply"} {
+			t.Run(tc.name+"/"+timing, func(t *testing.T) {
+				st, h, r := setup(t, "command")
+				if err := st.Update(r.Key, func(r *journal.Run) error {
+					r.Attempts[0].StopReason = "timeout"
+					r.Attempts[0].ExpiringAt = new(now)
+					return nil
+				}); err != nil {
+					t.Fatal(err)
+				}
+				if timing == "saved" {
+					term := h.terms["t1"]
+					term.State = "finished"
+					h.terms["t1"] = term
+				}
+				h.onGet = func(target string) (hc.Terminal, error) {
+					if target != "t1" {
+						t.Fatalf("unexpected terminal %q", target)
+					}
+					term, ok := h.terms[target]
+					if !ok {
+						return term, hc.ErrNotFound
+					}
+					if term.State == "finished" {
+						term.Reason = tc.reason
+					}
+					return term, nil
+				}
+				out := stopSettle(t, journal.New(st.Layout), h, r, now.Add(10*time.Second))
+				saved, err := st.Load(r.Key)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var wantCalls []string
+				if timing == "kill reply" {
+					wantCalls = append(wantCalls, "kill:t1")
+				}
+				if tc.held {
+					held, ok := out.(Held)
+					if !ok || held.Reason != "command_outcome_unknown" || saved.Attempts[0].Hold != "command_outcome_unknown" || len(h.terms) != 1 {
+						t.Fatalf("unproven stop completed: outcome=%#v attempt=%+v terminals=%v", out, saved.Attempts[0], h.terms)
+					}
+				} else {
+					wantCalls = append(wantCalls, "rm:t1")
+					done, ok := out.(Done)
+					if !ok || done.Status != "failed" || saved.Attempts[0].Status != "failed" || saved.Attempts[0].Hold != "" || len(h.terms) != 0 {
+						t.Fatalf("confirmed stop held: outcome=%#v attempt=%+v terminals=%v", out, saved.Attempts[0], h.terms)
+					}
+				}
+				if !reflect.DeepEqual(h.calls, wantCalls) {
+					t.Fatalf("terminal operations: %v, want %v", h.calls, wantCalls)
+				}
+			})
+		}
+	}
+}
+
 func TestStartupObservedActivityPersists(t *testing.T) {
 	st, h, r := freshPrompt(t)
 	v := h.terms["t1"]

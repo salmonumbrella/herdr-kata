@@ -8,6 +8,9 @@ last_edited: 2026-11-14
 
 ## Unreleased
 
+- Preserve lost terminals for inspection after a saved startup or timeout stop,
+  rather than removing their evidence and freeing capacity as a confirmed failure.
+
 - Wake a claimed idle or finished-turn session with `options.persistent_agent`,
   preserving the session and holding uncertain deliveries for operator inspection.
   Wake cancellation retains the session; logs distinguish undelivered work and holds.
