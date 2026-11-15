@@ -235,8 +235,9 @@ terminal. Commands kill immediately at their deadline. Normal ticks are
 30 seconds, so the cutoff, interrupt grace and cleanup can span several
 ticks. Unavailable terminal evidence or output capture can delay progress.
 
-The worker confirms the same terminal is finished and no completion artifact
-exists before settling the run failed. An unstoppable or lost terminal,
+The worker confirms the same terminal finished with an `exited`, `killed` or
+`signal` reason and no completion artifact exists before settling the run
+failed. An unstoppable or lost terminal,
 changed occupant or result/receipt racing the stop remains held for inspection.
 A known stop ends the whole run without step retries or later steps and frees
 its capacity and overlap gate. Startup/timeout prompt screens remain in
